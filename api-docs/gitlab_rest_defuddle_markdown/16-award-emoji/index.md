@@ -1,0 +1,38 @@
+# Award emoji
+
+Operations related to award emoji.
+
+## Endpoints
+
+- [01-List all emoji reactions for an issue [GET]](./01-list-all-emoji-reactions-for-an-issue-get.md)
+- [02-Add an emoji reaction to an issue [POST]](./02-add-an-emoji-reaction-to-an-issue-post.md)
+- [03-Retrieve an emoji reaction from an issue [GET]](./03-retrieve-an-emoji-reaction-from-an-issue-get.md)
+- [04-Delete an emoji reaction from an issue [DEL]](./04-delete-an-emoji-reaction-from-an-issue-del.md)
+- [05-List all emoji reactions for an issue comment [GET]](./05-list-all-emoji-reactions-for-an-issue-comment-get.md)
+- [06-Add an emoji reaction to an issue comment [POST]](./06-add-an-emoji-reaction-to-an-issue-comment-post.md)
+- [07-Retrieve an emoji reaction from an issue comment [GET]](./07-retrieve-an-emoji-reaction-from-an-issue-comment-get.md)
+- [08-Delete an emoji reaction from an issue comment [DEL]](./08-delete-an-emoji-reaction-from-an-issue-comment-del.md)
+- [09-List all emoji reactions for a merge request [GET]](./09-list-all-emoji-reactions-for-a-merge-request-get.md)
+- [10-Add an emoji reaction to a merge request [POST]](./10-add-an-emoji-reaction-to-a-merge-request-post.md)
+- [11-Retrieve an emoji reaction from a merge request [GET]](./11-retrieve-an-emoji-reaction-from-a-merge-request-get.md)
+- [12-Delete an emoji reaction from a merge request [DEL]](./12-delete-an-emoji-reaction-from-a-merge-request-del.md)
+- [13-List all emoji reactions for a merge request comment [GET]](./13-list-all-emoji-reactions-for-a-merge-request-comment-get.md)
+- [14-Add an emoji reaction to a merge request comment [POST]](./14-add-an-emoji-reaction-to-a-merge-request-comment-post.md)
+- [15-Retrieve an emoji reaction from a merge request comment [GET]](./15-retrieve-an-emoji-reaction-from-a-merge-request-comment-get.md)
+- [16-Delete an emoji reaction from a merge request comment [DEL]](./16-delete-an-emoji-reaction-from-a-merge-request-comment-del.md)
+- [17-List all emoji reactions for a snippet [GET]](./17-list-all-emoji-reactions-for-a-snippet-get.md)
+- [18-Add an emoji reaction to a snippet [POST]](./18-add-an-emoji-reaction-to-a-snippet-post.md)
+- [19-Retrieve an emoji reaction from a snippet [GET]](./19-retrieve-an-emoji-reaction-from-a-snippet-get.md)
+- [20-Delete an emoji reaction from a snippet [DEL]](./20-delete-an-emoji-reaction-from-a-snippet-del.md)
+- [21-List all emoji reactions for a snippet comment [GET]](./21-list-all-emoji-reactions-for-a-snippet-comment-get.md)
+- [22-Add an emoji reaction to a snippet comment [POST]](./22-add-an-emoji-reaction-to-a-snippet-comment-post.md)
+- [23-Retrieve an emoji reaction from a snippet comment [GET]](./23-retrieve-an-emoji-reaction-from-a-snippet-comment-get.md)
+- [24-Delete an emoji reaction from a snippet comment [DEL]](./24-delete-an-emoji-reaction-from-a-snippet-comment-del.md)
+- [25-List all emoji reactions for an epic [GET]](./25-list-all-emoji-reactions-for-an-epic-get.md)
+- [26-Add an emoji reaction to an epic [POST]](./26-add-an-emoji-reaction-to-an-epic-post.md)
+- [27-Retrieve an emoji reaction from an epic [GET]](./27-retrieve-an-emoji-reaction-from-an-epic-get.md)
+- [28-Delete an emoji reaction from an epic [DEL]](./28-delete-an-emoji-reaction-from-an-epic-del.md)
+- [29-List all emoji reactions for an epic comment [GET]](./29-list-all-emoji-reactions-for-an-epic-comment-get.md)
+- [30-Add an emoji reaction to an epic comment [POST]](./30-add-an-emoji-reaction-to-an-epic-comment-post.md)
+- [31-Retrieve an emoji reaction from an epic comment [GET]](./31-retrieve-an-emoji-reaction-from-an-epic-comment-get.md)
+- [32-Delete an emoji reaction from an epic comment [DEL]](./32-delete-an-emoji-reaction-from-an-epic-comment-del.md)

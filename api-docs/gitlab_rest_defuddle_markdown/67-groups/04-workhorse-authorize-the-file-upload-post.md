@@ -1,0 +1,20 @@
+# 04-Workhorse authorize the file upload [POST]
+
+`POST /api/v4/groups/{id}/uploads/authorize`
+
+This feature was introduced in GitLab 19.0
+
+### Parameters
+
+| Name | Type | In | Required | Description |
+| --- | --- | --- | --- | --- |
+| `id` | `any` | `path` | Yes | The ID or URL-encoded path of the group |
+
+### Responses
+
+#### 200 - OK
+
+#### 400 - Bad Request
+
+#### 404 - Not found
+

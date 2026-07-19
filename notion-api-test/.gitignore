@@ -1,0 +1,17 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Secrets - 절대 커밋 금지. .env.example만 커밋한다.
+.env
+!.env.example
+
+# 테스트 결과 리포트 (민감 정보 포함 가능)
+results/

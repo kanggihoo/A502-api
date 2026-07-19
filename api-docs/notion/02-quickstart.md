@@ -1,0 +1,189 @@
+Get up and running in under two minutes. All you need is a Notion account and a terminal.
+
+## Step 1: Get a personal access token
+
+A personal access token (PAT) lets you authenticate API requests as yourself. No connection setup or OAuth flow required.
+
+**Don’t see the option to create a token?**
+
+On Business and Enterprise plans, PAT creation is restricted by default. Ask a workspace owner to enable it in **Settings & members → Connections**.
+
+[Learn more about who can create PATs →](https://developers.notion.com/guides/get-started/personal-access-tokens#who-can-create-pats)
+
+Set the token as an environment variable so you can use it in the examples below. This lasts for your current terminal session — run it again if you open a new window.
+
+```shellscript
+export NOTION_API_KEY=ntn_***
+```
+
+```powershell
+$env:NOTION_API_KEY = "ntn_***"
+```
+
+## Step 2: Create a page
+
+Make a POST request to the [Create a page](https://developers.notion.com/reference/post-page) endpoint with markdown content. The API creates a private page in your workspace, using the `# heading` as the page title automatically.
+
+```shellscript
+curl -X POST https://api.notion.com/v1/pages \
+  -H "Authorization: Bearer $NOTION_API_KEY" \
+  -H "Notion-Version: 2026-03-11" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "icon": { "emoji": "🚀" },
+    "markdown": "# Hello from the API\n\n## Welcome\n\nThis page was created with the Notion API. You just made your first request!\n\n- Read the [API reference](https://developers.notion.com/reference/intro)\n- Explore [examples](https://developers.notion.com/page/examples)"
+  }'
+```
+
+```http
+POST https://api.notion.com/v1/pages
+Authorization: Bearer {PERSONAL_ACCESS_TOKEN}
+Content-Type: application/json
+Notion-Version: 2026-03-11
+
+{
+  "icon": { "emoji": "🚀" },
+  "markdown": "# Hello from the API\n\n## Welcome\n\nThis page was created with the Notion API. You just made your first request!\n\n- Read the [API reference](https://developers.notion.com/reference/intro)\n- Explore [examples](https://developers.notion.com/page/examples)"
+}
+```
+
+```javascript
+// npm install @notionhq/client
+const { Client } = require("@notionhq/client");
+
+const notion = new Client({ auth: process.env.NOTION_API_KEY });
+
+async function main() {
+  const page = await notion.pages.create({
+    icon: { emoji: "🚀" },
+    markdown: [
+      "# Hello from the API",
+      "",
+      "## Welcome",
+      "",
+      "This page was created with the Notion API. You just made your first request!",
+      "",
+      "- Read the [API reference](https://developers.notion.com/reference/intro)",
+      "- Explore [examples](https://developers.notion.com/page/examples)",
+    ].join("\n"),
+  });
+
+  console.log("Created page:", page.url);
+}
+
+main();
+```
+
+The `markdown` field accepts [Notion-flavored Markdown](https://developers.notion.com/guides/data-apis/enhanced-markdown) — headings, lists, code blocks, links, and more. The API converts it to Notion blocks for you.
+
+Under the hood: markdown → blocks
+
+Notion pages are made up of **blocks** — headings, paragraphs, lists, and more. When you send `markdown`, the API converts it into this block structure automatically.
+
+You can also build this structure directly using the `children` field. Here’s what the same page looks like expressed as blocks:
+
+```json
+{
+  "icon": { "emoji": "🚀" },
+  "properties": {
+    "title": [{ "text": { "content": "Hello from the API" } }]
+  },
+  "children": [
+    {
+      "object": "block",
+      "type": "heading_2",
+      "heading_2": {
+        "rich_text": [{ "text": { "content": "Welcome" } }]
+      }
+    },
+    {
+      "object": "block",
+      "type": "paragraph",
+      "paragraph": {
+        "rich_text": [
+          {
+            "text": {
+              "content": "This page was created with the Notion API. You just made your first request!"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
+```
+
+The block model gives you precise control over every element — formatting, colors, toggles, and block types that markdown can’t express. Use `markdown` when you want simplicity, and `children` when you need that control.
+
+See [Working with page content](https://developers.notion.com/guides/data-apis/working-with-page-content) to learn more about the block model.
+
+## Check the result
+
+A successful response returns a page object:
+
+Response
+
+```json
+{
+  "object": "page",
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "created_time": "2025-01-15T09:30:00.000Z",
+  "last_edited_time": "2025-01-15T09:30:00.000Z",
+  "icon": {
+    "type": "emoji",
+    "emoji": "🚀"
+  },
+  "parent": {
+    "type": "workspace",
+    "workspace": true
+  },
+  "properties": {
+    "title": {
+      "id": "title",
+      "type": "title",
+      "title": [{ "plain_text": "Hello from the API" }]
+    }
+  },
+  "url": "https://www.notion.so/Hello-from-the-API-a1b2c3d4e5f67890abcdef1234567890",
+  "public_url": null
+}
+```
+
+To see your new page:
+
+- **From the response:** Copy the `url` value and open it in your browser.
+- **From Notion:** Look in **Private** in your sidebar for 🚀 **Hello from the API**.
+
+Open the page and you should see your heading, paragraph, and bullet list inside.
+
+Error responses return a JSON object with a `code` and `message`:
+
+```json
+{
+  "object": "error",
+  "status": 401,
+  "code": "unauthorized",
+  "message": "API token is invalid."
+}
+```
+
+| Error | Fix |
+| --- | --- |
+| `unauthorized` | Double-check that your token is correct and hasn’t expired. |
+| `validation_error` | Check the request body against the [Create a page](https://developers.notion.com/reference/post-page) reference. |
+
+For the full list of error codes, see [Status codes](https://developers.notion.com/reference/status-codes).
+
+## Next steps
+
+Now that you’ve made your first request, explore what else you can build — create databases, query content, manage comments, upload files, and more.
+
+![https://mintcdn.com/notion-demo/7WdlNb9IZkRhGCcR/icons/nds/curlyBraces.svg?fit=max&auto=format&n=7WdlNb9IZkRhGCcR&q=85&s=46f7a8b4a34544f9b03002e4ecc35ad5](https://mintcdn.com/notion-demo/7WdlNb9IZkRhGCcR/icons/nds/curlyBraces.svg?fit=max&auto=format&n=7WdlNb9IZkRhGCcR&q=85&s=46f7a8b4a34544f9b03002e4ecc35ad5)
+
+## API reference
+
+Browse every endpoint, request parameter, and response field.
+
+## JavaScript SDK
+
+Official client library for Node.js.

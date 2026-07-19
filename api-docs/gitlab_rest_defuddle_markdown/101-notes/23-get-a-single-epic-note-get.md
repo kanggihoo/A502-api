@@ -1,0 +1,91 @@
+# 23-Get a single epic note [GET]
+
+`GET /api/v4/groups/{id}/epics/{noteable_id}/notes/{note_id}`
+
+Get a single epic note
+
+### Parameters
+
+| Name | Type | In | Required | Description |
+| --- | --- | --- | --- | --- |
+| `id` | `string` | `path` | Yes | The ID of a group |
+| `note_id` | `integer` | `path` | Yes | The ID of a note |
+| `noteable_id` | `integer` | `path` | Yes | The ID of the noteable |
+
+### Responses
+
+#### 200 - OK
+
+Schema (application/json):
+```json
+{
+  "id": integer,
+  "type": string,
+  "body": string,
+  "author": {
+    "id": integer,
+    "username": string,
+    "public_email": string,
+    "name": string,
+    "state": string,
+    "locked": boolean,
+    "avatar_url": string,
+    "avatar_path": string,
+    "custom_attributes": [
+      {
+        "key": string,
+        "value": string,
+      }
+    ],
+    "web_url": string,
+  },
+  "created_at": string,
+  "updated_at": string,
+  "system": boolean,
+  "noteable_id": integer,
+  "noteable_type": string,
+  "project_id": integer,
+  "commit_id": string,
+  "position": {},
+  "resolvable": boolean,
+  "resolved": boolean,
+  "resolved_by": {
+    "id": integer,
+    "username": string,
+    "public_email": string,
+    "name": string,
+    "state": string,
+    "locked": boolean,
+    "avatar_url": string,
+    "avatar_path": string,
+    "custom_attributes": [
+      {
+        "key": string,
+        "value": string,
+      }
+    ],
+    "web_url": string,
+  },
+  "resolved_at": string,
+  "suggestions": {
+    "id": integer,
+    "from_line": integer,
+    "to_line": integer,
+    "appliable": boolean,
+    "applied": boolean,
+    "from_content": string,
+    "to_content": string,
+  },
+  "confidential": boolean,
+  "internal": boolean,
+  "imported": boolean,
+  "imported_from": string,
+  "noteable_iid": integer,
+  "commands_changes": {},
+}
+```
+
+#### 400 - Bad Request
+
+#### 404 - Not Found
+

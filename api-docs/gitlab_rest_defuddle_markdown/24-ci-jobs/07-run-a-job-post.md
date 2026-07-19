@@ -1,0 +1,126 @@
+# 07-Run a job [POST]
+
+`POST /api/v4/projects/{id}/jobs/{job_id}/play`
+
+Runs a specified job. For a job in manual status, triggers an action to start the job.
+
+### Parameters
+
+| Name | Type | In | Required | Description |
+| --- | --- | --- | --- | --- |
+| `job_id` | `integer` | `path` | Yes | The ID of a Job |
+| `id` | `any` | `path` | Yes | The ID or URL-encoded path of the project |
+
+### Request Body (application/json)
+
+```json
+{
+  "job_variables_attributes": [
+    {
+      "key": string (required), // The name of the variable
+      "value": string (required), // The value of the variable
+    }
+  ], // User defined variables that will be included when running the job
+  "job_inputs": {}, // Input values for the job
+}
+```
+### Responses
+
+#### 200 - OK
+
+Schema (application/json):
+```json
+{
+  "id": integer,
+  "status": string,
+  "stage": string,
+  "name": string,
+  "ref": string,
+  "tag": boolean,
+  "coverage": number,
+  "allow_failure": boolean,
+  "created_at": string,
+  "started_at": string,
+  "finished_at": string,
+  "erased_at": string,
+  "duration": number, // Time spent running
+  "queued_duration": number, // Time spent enqueued
+  "user": {
+    "id": integer,
+    "username": string,
+    "public_email": string,
+    "name": string,
+    "state": string,
+    "locked": boolean,
+    "avatar_url": string,
+    "avatar_path": string,
+    "custom_attributes": [
+      {
+        "key": string,
+        "value": string,
+      }
+    ],
+    "web_url": string,
+    "created_at": string,
+    "bio": string,
+    "location": string,
+    "linkedin": string,
+    "twitter": string,
+    "discord": string,
+    "website_url": string,
+    "github": string,
+    "job_title": string,
+    "pronouns": string,
+    "organization": string,
+    "bot": boolean,
+    "work_information": string,
+    "followers": string,
+    "following": string,
+    "is_followed": string,
+    "local_time": string,
+  },
+  "commit": {
+    "id": string,
+    "short_id": string,
+    "created_at": string,
+    "parent_ids": [
+      string
+    ],
+    "title": string,
+    "message": string,
+    "author_name": string,
+    "author_email": string,
+    "authored_date": string,
+    "committer_name": string,
+    "committer_email": string,
+    "committed_date": string,
+    "trailers": {},
+    "extended_trailers": {},
+    "web_url": string,
+  },
+  "pipeline": {
+    "id": integer,
+    "iid": integer,
+    "project_id": integer,
+    "sha": string,
+    "ref": string,
+    "status": string,
+    "source": string,
+    "created_at": string,
+    "updated_at": string,
+    "web_url": string,
+  },
+  "failure_reason": string,
+  "web_url": string,
+  "project": string,
+}
+```
+
+#### 400 - Bad request
+
+#### 401 - Unauthorized
+
+#### 403 - Forbidden
+
+#### 404 - Not found
+

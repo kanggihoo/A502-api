@@ -1,0 +1,28 @@
+# 06-Retrieve a GitLab CI/CD YAML template [GET]
+
+`GET /api/v4/templates/gitlab_ci_ymls/{name}`
+
+Retrieves a specified GitLab CI/CD YAML template.
+
+### Parameters
+
+| Name | Type | In | Required | Description |
+| --- | --- | --- | --- | --- |
+| `name` | `string` | `path` | Yes | The name of the GitLab CI/CD YAML template |
+
+### Responses
+
+#### 200 - OK
+
+Schema (application/json):
+```json
+{
+  "name": string,
+  "content": string,
+}
+```
+
+#### 400 - Bad Request
+
+#### 404 - Not Found
+

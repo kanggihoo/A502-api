@@ -1,0 +1,48 @@
+# 14-Get team syncables for a group [GET]
+
+`GET /api/v4/groups/{group_id}/teams`
+
+Retrieve the list of team syncables associated with the group.
+
+##### Permissions
+Must have `manage_system` permission.
+
+__Minimum server version__: 5.11
+
+
+### Parameters
+
+| Name | Type | In | Required | Description |
+| --- | --- | --- | --- | --- |
+| `group_id` | `string` | `path` | Yes | Group GUID |
+
+### Responses
+
+#### 200 - Team syncables retrieved
+
+Schema (application/json):
+```json
+[
+  {
+    "team_id": string,
+    "team_display_name": string,
+    "team_type": string,
+    "group_id": string,
+    "auto_add": boolean,
+    "create_at": integer,
+    "delete_at": integer,
+    "update_at": integer,
+  }
+]
+```
+
+#### 400 - 
+
+#### 401 - 
+
+#### 403 - 
+
+#### 500 - 
+
+#### 501 - 
+

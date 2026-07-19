@@ -1,0 +1,43 @@
+# 05-Cancel a job. [POST]
+
+`POST /api/v4/jobs/{job_id}/cancel`
+
+Cancel a job.
+__Minimum server version: 4.1__
+##### Permissions
+Same as creating that job type (cancel uses the create permission check):
+
+- `create_data_retention_job` — `data_retention`
+- `create_compliance_export_job` — `message_export`
+- `create_elasticsearch_post_indexing_job` — `elasticsearch_post_indexing`
+- `create_elasticsearch_post_aggregation_job` — `elasticsearch_post_aggregation`
+- `create_ldap_sync_job` — `ldap_sync`
+- `manage_jobs` — `migrations`, `plugins`, `product_notices`, `expiry_notify`, `active_users`, `import_process`, `import_delete`, `export_process`, `export_delete`, `cloud`, `extract_content`
+- `access_control_sync` — `manage_system`, or `manage_channel_access_rules` / `manage_team_access_rules` for scoped jobs as when creating
+
+
+### Parameters
+
+| Name | Type | In | Required | Description |
+| --- | --- | --- | --- | --- |
+| `job_id` | `string` | `path` | Yes | Job GUID |
+
+### Responses
+
+#### 200 - Job canceled successfully
+
+Schema (application/json):
+```json
+{
+  "status": string, // Will contain "ok" if the request was successful and there was nothing else to return
+}
+```
+
+#### 400 - 
+
+#### 401 - 
+
+#### 403 - 
+
+#### 404 - 
+
