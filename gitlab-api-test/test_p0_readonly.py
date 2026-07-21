@@ -70,8 +70,7 @@ def main() -> None:
         me = r.data
         summary = f"@{me.get('username')} ({me.get('name')}) state={me.get('state')}"
         web_url = me.get("web_url")
-        sample = {"id": me.get("id"), "username": me.get("username"),
-                  "name": me.get("name"), "state": me.get("state")}
+        sample = me
     report.add(CheckResult("1-1 현재 사용자", "GET /user", r.ok, r.status,
                            summary, web_url, sample, r.error, r.elapsed_ms))
 
@@ -81,8 +80,7 @@ def main() -> None:
     count = _list_count(r_projects.data)
     sample = None
     if r_projects.ok and isinstance(r_projects.data, list):
-        sample = [{"id": p.get("id"), "path": p.get("path_with_namespace"),
-                   "web_url": p.get("web_url")} for p in r_projects.data[:5]]
+        sample = r_projects.data
     report.add(CheckResult("1-2 접근 가능 프로젝트", "GET /projects?membership=true",
                            r_projects.ok, r_projects.status, f"프로젝트 {count}개",
                            None, sample, r_projects.error, r_projects.elapsed_ms))
@@ -111,9 +109,7 @@ def main() -> None:
                    f"default_branch={p.get('default_branch')} "
                    f"archived={p.get('archived')}")
         web_url = p.get("web_url")
-        sample = {"id": p.get("id"), "path_with_namespace": p.get("path_with_namespace"),
-                  "default_branch": p.get("default_branch"),
-                  "web_url": p.get("web_url")}
+        sample = p
     report.add(CheckResult("1-3 대상 프로젝트 상세", f"GET {project_path_in_url}",
                            r.ok, r.status, summary, web_url, sample, r.error, r.elapsed_ms))
 
@@ -137,7 +133,7 @@ def main() -> None:
         developers = sum(1 for x in rows if x["access_level"] == 30)
         summary = (f"멤버 {len(rows)}명 "
                    f"(Maintainer {maintainers} / Developer {developers})")
-        sample = rows
+        sample = r.data
     report.add(CheckResult("1-4 프로젝트 멤버·역할",
                            f"GET {project_path_in_url}/members/all",
                            r.ok, r.status, summary, None, sample, r.error, r.elapsed_ms))
@@ -147,8 +143,7 @@ def main() -> None:
     count = _list_count(r.data)
     sample = None
     if r.ok and isinstance(r.data, list):
-        sample = [{"id": g.get("id"), "full_path": g.get("full_path"),
-                   "web_url": g.get("web_url")} for g in r.data[:5]]
+        sample = r.data
     report.add(CheckResult("1-5 그룹 목록", "GET /groups", r.ok, r.status,
                            f"그룹 {count}개", None, sample, r.error, r.elapsed_ms))
 
@@ -189,9 +184,7 @@ def main() -> None:
     web_url = None
     sample = None
     if r.ok and isinstance(r.data, list):
-        sample = [{"id": p.get("id"), "ref": p.get("ref"),
-                   "status": p.get("status"), "sha": (p.get("sha") or "")[:8],
-                   "web_url": p.get("web_url")} for p in r.data[:5]]
+        sample = r.data
         statuses = [p.get("status") for p in r.data]
         summary = f"파이프라인 {len(statuses)}개, 상태: {statuses or '없음'}"
         if r.data:
@@ -204,9 +197,7 @@ def main() -> None:
     count = _list_count(r.data)
     sample = None
     if r.ok and isinstance(r.data, list):
-        sample = [{"action_name": e.get("action_name"),
-                   "target_type": e.get("target_type"),
-                   "created_at": e.get("created_at")} for e in r.data[:5]]
+        sample = r.data
     report.add(CheckResult("2-5 사용자 활동 이벤트", "GET /events",
                            r.ok, r.status, f"이벤트 {count}개", None, sample, r.error, r.elapsed_ms))
 
@@ -215,9 +206,7 @@ def main() -> None:
     count = _list_count(r.data)
     sample = None
     if r.ok and isinstance(r.data, list):
-        sample = [{"action": t.get("action"), "target_type": t.get("target_type"),
-                   "state": t.get("target", {}).get("state") if isinstance(t.get("target"), dict) else None}
-                  for t in r.data[:5]]
+        sample = r.data
     report.add(CheckResult("2-6 할 일 (to-do)", "GET /todos",
                            r.ok, r.status, f"할 일 {count}개", None, sample, r.error, r.elapsed_ms))
 
@@ -226,9 +215,7 @@ def main() -> None:
     count = _list_count(r.data)
     sample = None
     if r.ok and isinstance(r.data, list):
-        sample = [{"id": h.get("id"), "url": h.get("url"),
-                   "merge_requests_events": h.get("merge_requests_events"),
-                   "pipeline_events": h.get("pipeline_events")} for h in r.data[:5]]
+        sample = r.data
     report.add(CheckResult("2-7 기존 webhook 목록 (조회만)",
                            f"GET {project_path_in_url}/hooks",
                            r.ok, r.status, f"webhook {count}개",
@@ -241,10 +228,7 @@ def _summarize_mr(r: ApiResponse) -> tuple[str, str | None, list | None]:
     """MR 응답을 (summary, web_url, sample) 으로 정리."""
     if not (r.ok and isinstance(r.data, list)):
         return "MR 조회 실패", None, None
-    sample = [{"iid": m.get("iid"), "title": m.get("title"),
-               "state": m.get("state"), "draft": m.get("draft"),
-               "detailed_merge_status": m.get("detailed_merge_status"),
-               "web_url": m.get("web_url")} for m in r.data[:5]]
+    sample = r.data
     draft = sum(1 for m in r.data if m.get("draft"))
     summary = f"MR {len(r.data)}개 (draft {draft})"
     web_url = r.data[0].get("web_url") if r.data else None
@@ -255,9 +239,7 @@ def _summarize_issue(r: ApiResponse) -> tuple[str, str | None, list | None]:
     """이슈 응답을 (summary, web_url, sample) 으로 정리."""
     if not (r.ok and isinstance(r.data, list)):
         return "이슈 조회 실패", None, None
-    sample = [{"iid": i.get("iid"), "title": i.get("title"),
-               "state": i.get("state"),
-               "web_url": i.get("web_url")} for i in r.data[:5]]
+    sample = r.data
     summary = f"이슈 {len(r.data)}개"
     web_url = r.data[0].get("web_url") if r.data else None
     return summary, web_url, sample

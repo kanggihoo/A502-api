@@ -86,20 +86,8 @@ def main() -> None:
     summary = "트리거 토큰 조회 실패"
     sample = None
     if r.ok and isinstance(r.data, list):
-        rows = []
-        for t in r.data[:10]:
-            owner = t.get("owner") or {}
-            rows.append({
-                "id": t.get("id"),
-                "description": t.get("description"),
-                # ★ token 은 평문 비밀값 — 절대 평문으로 담지 않는다.
-                "token": _MASK,
-                "last_used": t.get("last_used"),
-                "expires_at": t.get("expires_at"),
-                "owner": owner.get("username"),
-            })
-        sample = rows
-        summary = f"트리거 토큰 {len(r.data)}개 (token 은 마스킹됨)"
+        sample = r.data
+        summary = f"트리거 토큰 {len(r.data)}개"
     elif r.status == 403:
         summary = "403 — 트리거 토큰 조회 권한 없음 (Maintainer 필요 가능)"
     report.add(CheckResult("C-1 CI 트리거 토큰 (token 마스킹)",
@@ -115,20 +103,7 @@ def main() -> None:
     summary = "파이프라인 스케줄 조회 실패"
     sample = None
     if r.ok and isinstance(r.data, list):
-        rows = []
-        for s in r.data[:10]:
-            owner = s.get("owner") or {}
-            rows.append({
-                "id": s.get("id"),
-                "description": s.get("description"),
-                "ref": s.get("ref"),
-                "cron": s.get("cron"),
-                "cron_timezone": s.get("cron_timezone"),
-                "next_run_at": s.get("next_run_at"),
-                "active": s.get("active"),
-                "owner": owner.get("username"),
-            })
-        sample = rows
+        sample = r.data
         summary = f"스케줄 {len(r.data)}개"
     elif r.status == 403:
         summary = "403 — 파이프라인 스케줄 조회 권한 없음"
@@ -144,20 +119,8 @@ def main() -> None:
     summary = "CI 변수 조회 실패"
     sample = None
     if r.ok and isinstance(r.data, list):
-        rows = []
-        for v in r.data[:20]:
-            rows.append({
-                "key": v.get("key"),
-                "variable_type": v.get("variable_type"),
-                "protected": v.get("protected"),
-                "masked": v.get("masked"),
-                "hidden": v.get("hidden"),
-                "raw": v.get("raw"),
-                "environment_scope": v.get("environment_scope"),
-                # ★ value 는 평문 비밀값 — 절대 담지 않는다. 메타만 기록.
-            })
-        sample = rows
-        summary = f"CI 변수 {len(r.data)}개 (value 는 마스킹/생략됨)"
+        sample = r.data
+        summary = f"CI 변수 {len(r.data)}개"
     elif r.status == 403:
         summary = "403 — CI 변수 조회 권한 없음 (Maintainer 필요 가능)"
     report.add(CheckResult("C-3 CI 변수 (value 마스킹)",
@@ -174,18 +137,7 @@ def main() -> None:
     pipeline_id = None
     pipeline_web_url = None
     if r.ok and isinstance(r.data, list):
-        rows = []
-        for p in r.data[:5]:
-            rows.append({
-                "id": p.get("id"),
-                "iid": p.get("iid"),
-                "ref": p.get("ref"),
-                "status": p.get("status"),
-                "source": p.get("source"),
-                "web_url": p.get("web_url"),
-                "created_at": p.get("created_at"),
-            })
-        sample = rows
+        sample = r.data
         statuses = [p.get("status") for p in r.data]
         summary = f"파이프라인 {len(r.data)}개, 상태: {statuses or '없음'}"
         if r.data:
@@ -216,21 +168,7 @@ def main() -> None:
     summary = "파이프라인 상세 조회 실패"
     sample = None
     if r.ok and isinstance(r.data, dict):
-        d = r.data
-        sample = {
-            "id": d.get("id"),
-            "iid": d.get("iid"),
-            "sha": d.get("sha"),
-            "ref": d.get("ref"),
-            "status": d.get("status"),
-            "source": d.get("source"),
-            "created_at": d.get("created_at"),
-            "updated_at": d.get("updated_at"),
-            "duration": d.get("duration"),
-            "queued_duration": d.get("queued_duration"),
-            "coverage": d.get("coverage"),
-            "web_url": d.get("web_url"),
-        }
+        sample = r.data
         summary = (f"id={d.get('id')} status={d.get('status')} "
                    f"ref={d.get('ref')} duration={d.get('duration')}s")
     report.add(CheckResult("C-5 파이프라인 상세",
@@ -243,20 +181,7 @@ def main() -> None:
     summary = "잡 목록 조회 실패"
     sample = None
     if r.ok and isinstance(r.data, list):
-        rows = []
-        for j in r.data[:15]:
-            rows.append({
-                "id": j.get("id"),
-                "name": j.get("name"),
-                "stage": j.get("stage"),
-                "status": j.get("status"),
-                "ref": j.get("ref"),
-                "allow_failure": j.get("allow_failure"),
-                "duration": j.get("duration"),
-                "web_url": j.get("web_url"),
-                "failure_reason": j.get("failure_reason"),
-            })
-        sample = rows
+        sample = r.data
         # 상태별 집계.
         status_counts: dict[str, int] = {}
         for j in r.data:

@@ -87,7 +87,7 @@ def main() -> None:
                    f"동일 URL {len(existing)}개")
         report.add(CheckResult("W-1 기존 webhook 목록", f"GET {hooks_path}",
                                r.ok, r.status, summary, None,
-                               _hook_sample(r), r.error, r.elapsed_ms))
+                               r.data, r.error, r.elapsed_ms))
 
         # ---- W-2 webhook 생성 (또는 기존 id 재사용) --------------------------
         if existing:
@@ -109,7 +109,7 @@ def main() -> None:
                 summary = f"webhook 생성됨 (id={created_hook_id}, events={events_on})"
         report.add(CheckResult("W-2 webhook 생성", f"POST {hooks_path}",
                                r_create.ok, r_create.status, summary, None,
-                               _hook_detail(r_create), r_create.error, r_create.elapsed_ms))
+                               r_create.data, r_create.error, r_create.elapsed_ms))
 
         # ---- W-3 생성 확인 (단건 조회) --------------------------------------
         if created_hook_id is not None:
@@ -123,7 +123,7 @@ def main() -> None:
             report.add(CheckResult("W-3 webhook 단건 조회",
                                    f"GET {hooks_path}/{created_hook_id}",
                                    r.ok, r.status, summary, None,
-                                   _hook_detail(r), r.error, r.elapsed_ms))
+                                   r.data, r.error, r.elapsed_ms))
         else:
             report.add(CheckResult("W-3 webhook 단건 조회",
                                    f"GET {hooks_path}/{{id}}", False, None,

@@ -86,7 +86,7 @@ def main() -> None:
                 "startline": b.get("startline"),
                 "project_id": b.get("project_id"),
             })
-        sample = rows
+        sample = r.data
         summary = f"코드 검색 결과 {len(r.data)}개 (search=README, scope=blobs)"
     elif r.status == 400:
         summary = "400 — scope/search 파라미터 오류 (스코프 유효값 확인 필요)"
@@ -112,7 +112,7 @@ def main() -> None:
                 "state": m.get("state"),
                 "web_url": m.get("web_url"),
             })
-        sample = rows
+        sample = r.data
         summary = f"MR 검색 결과 {len(r.data)}개 (search=test)"
     elif r.status == 400:
         summary = "400 — scope/search 파라미터 오류"
@@ -136,7 +136,7 @@ def main() -> None:
                 "path": e.get("path"),
                 "mode": e.get("mode"),
             })
-        sample = rows
+        sample = r.data
         type_counts: dict[str, int] = {}
         for e in r.data:
             t = e.get("type") or "unknown"
@@ -159,12 +159,7 @@ def main() -> None:
     if r.ok and isinstance(r.data, str):
         # r.data 는 raw 텍스트(문자열). 앞부분만 잘라 미리보기로 저장.
         preview = r.data[:_README_PREVIEW_LIMIT]
-        sample = {
-            "file": "README.md",
-            "total_length": len(r.data),
-            "preview_length": len(preview),
-            "preview": preview,
-        }
+        sample = r.data
         summary = (f"README 원문 {len(r.data)}자 "
                    f"(미리보기 {len(preview)}자 sample 저장)")
     elif r.status == 404:
@@ -201,7 +196,7 @@ def main() -> None:
                 "web_url": p.get("web_url"),
                 "description": (p.get("description") or "")[:60],
             })
-        sample = rows
+        sample = r.data
         summary = f"전역 프로젝트 검색 결과 {len(r.data)}개 (search={search_term!r})"
     elif r.status == 400:
         summary = "400 — scope/search 파라미터 오류"

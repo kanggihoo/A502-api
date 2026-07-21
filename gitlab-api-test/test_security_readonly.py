@@ -77,7 +77,7 @@ def main() -> None:
                 "name": t.get("name"),
                 "create_access_levels": level_labels,
             })
-        sample = rows
+        sample = r.data
         summary = f"보호 태그 {len(r.data)}개"
     elif r.status == 403:
         summary = "403 — 보호 태그 조회 권한 없음 (역할 확인 필요)"
@@ -103,7 +103,7 @@ def main() -> None:
                 "deploy_access_levels": level_labels,
                 "required_approval_count": e.get("required_approval_count"),
             })
-        sample = rows
+        sample = r.data
         summary = f"보호 환경 {len(r.data)}개"
     elif r.status == 403:
         summary = ("403 — 보호 환경은 GitLab Premium/Ultimate 에디션 필요 "
@@ -125,17 +125,7 @@ def main() -> None:
     if r.ok and isinstance(r.data, dict):
         d = r.data
         # 규칙 필드 중 보안 진단에 핵심인 것만 발췌.
-        sample = {
-            "id": d.get("id"),
-            "project_id": d.get("project_id"),
-            "commit_message_regex": d.get("commit_message_regex"),
-            "branch_name_regex": d.get("branch_name_regex"),
-            "deny_delete_tag": d.get("deny_delete_tag"),
-            "member_check": d.get("member_check"),
-            "prevent_secrets": d.get("prevent_secrets"),
-            "max_file_size": d.get("max_file_size"),
-            "reject_unsigned_commits": d.get("reject_unsigned_commits"),
-        }
+        sample = r.data
         # 설정된 규칙 개수를 대략 집계 (None 이 아닌 bool/값 필드).
         active_keys = [k for k in ("deny_delete_tag", "member_check",
                                    "prevent_secrets", "reject_unsigned_commits")

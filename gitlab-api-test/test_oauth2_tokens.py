@@ -64,9 +64,7 @@ def main() -> None:
     sample = None
     if r.ok and isinstance(r.data, dict):
         u = r.data
-        sample = {"id": u.get("id"), "username": u.get("username"),
-                  "name": u.get("name"), "state": u.get("state"),
-                  "web_url": u.get("web_url")}
+        sample = u
         summary = (f"access_token 유효 — @{u.get('username')} (id={u.get('id')}) "
                    f"state={u.get('state')}")
     elif r.status == 401:
@@ -122,15 +120,7 @@ def main() -> None:
                 cfg.oauth_refresh_token = new_refresh
                 _persist_oauth_tokens(new_access, new_refresh)
                 client._apply_auth_header()
-            sample = {
-                "access_token": "***" if new_access else None,
-                "refresh_token": "***" if body.get("refresh_token") else "(재사용)",
-                "token_type": body.get("token_type"),
-                "expires_in": body.get("expires_in"),
-                "scope": body.get("scope"),
-                "created_at": body.get("created_at"),
-                "env_persisted": bool(new_access),
-            }
+            sample = body
             summary = (f"refresh 성공 — 새 access_token 발급 "
                        f"(expires_in={body.get('expires_in')}s, "
                        f"scope={body.get('scope')!r}, .env 동기화됨)")
@@ -164,7 +154,7 @@ def main() -> None:
     sample = None
     if r.ok and isinstance(r.data, dict):
         u = r.data
-        sample = {"id": u.get("id"), "username": u.get("username")}
+        sample = u
         summary = (f"새 access_token 유효 — @{u.get('username')} (id={u.get('id')})")
     elif r.status == 401:
         summary = "401 — refresh 는 성공했으나 새 토큰이 거부됨 (scope/앱 설정 확인)"

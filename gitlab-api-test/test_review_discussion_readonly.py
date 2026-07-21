@@ -95,9 +95,7 @@ def main() -> None:
     mr_iid = None
     mr_web_url = None
     if r.ok and isinstance(r.data, list):
-        sample = [{"iid": m.get("iid"), "title": (m.get("title") or "")[:50],
-                   "state": m.get("state"),
-                   "web_url": m.get("web_url")} for m in r.data[:5]]
+        sample = r.data
         summary = f"MR {len(r.data)}개 (state={used_state})"
         if r.data:
             first = r.data[0]
@@ -132,8 +130,7 @@ def main() -> None:
     summary = "참여자 조회 실패"
     sample = None
     if r.ok and isinstance(r.data, list):
-        sample = [{"username": u.get("username"), "name": u.get("name"),
-                   "state": u.get("state")} for u in r.data[:8]]
+        sample = r.data
         summary = f"참여자 {len(r.data)}명"
     report.add(CheckResult("R-2 MR 참여자",
                            f"GET {mr_path}/participants",
@@ -151,7 +148,7 @@ def main() -> None:
             rows.append({"username": u.get("username"), "name": u.get("name"),
                          "state": rv.get("state"),
                          "created_at": rv.get("created_at")})
-        sample = rows
+        sample = r.data
         summary = f"리뷰어 {len(r.data)}명"
     elif r.ok and isinstance(r.data, dict):
         # 일부 버전은 단일 객체/래퍼로 반환. 방어적 처리.
@@ -173,13 +170,7 @@ def main() -> None:
         for a in approved_by[:5]:
             u = a.get("user") or {}
             approver_names.append(u.get("username"))
-        sample = {
-            "approved": d.get("approved"),
-            "user_has_approved": d.get("user_has_approved"),
-            "user_can_approve": d.get("user_can_approve"),
-            "approved_by_count": len(approved_by),
-            "approved_by_sample": approver_names,
-        }
+        sample = r.data
         summary = (f"approved={d.get('approved')} "
                    f"승인자 {len(approved_by)}명 "
                    f"can_approve={d.get('user_can_approve')}")
@@ -206,7 +197,7 @@ def main() -> None:
                 "notes_count": len(notes),
                 "first_note_preview": first_body,
             })
-        sample = rows
+        sample = r.data
         summary = f"토론 {len(r.data)}개"
     report.add(CheckResult("R-5 MR 토론",
                            f"GET {mr_path}/discussions",
@@ -230,7 +221,7 @@ def main() -> None:
                 "system": n.get("system"),
                 "created_at": n.get("created_at"),
             })
-        sample = rows
+        sample = r.data
         summary = f"댓글 {len(r.data)}개 (사용자 작성 {len(user_notes)}개)"
     report.add(CheckResult("R-6 MR 댓글",
                            f"GET {mr_path}/notes",

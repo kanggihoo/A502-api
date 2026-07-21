@@ -107,7 +107,7 @@ def main() -> None:
                 for b in r.data[:5]]
         defaults = [b.get("name") for b in r.data if b.get("default")]
         summary = f"브랜치 {len(r.data)}개 (default: {defaults or '없음'})"
-        sample = rows
+        sample = r.data
     report.add(CheckResult("3-1 브랜치 목록", f"GET {base}/repository/branches",
                            r.ok, r.status, summary, web_url, sample, r.error, r.elapsed_ms))
 
@@ -120,7 +120,7 @@ def main() -> None:
                  "merge_access_levels": [a.get("access_level_description") for a in (pb.get("merge_access_levels") or [])]}
                 for pb in r.data[:5]]
         summary = f"보호 브랜치 {len(r.data)}개"
-        sample = rows
+        sample = r.data
     report.add(CheckResult("3-2 보호 브랜치 규칙", f"GET {base}/protected_branches",
                            r.ok, r.status, summary, web_url, sample, r.error, r.elapsed_ms))
 
@@ -134,7 +134,7 @@ def main() -> None:
                  "created_at": c.get("created_at")}
                 for c in r.data[:5]]
         summary = f"커밋 {len(r.data)}개"
-        sample = rows
+        sample = r.data
     report.add(CheckResult("3-3 최근 커밋", f"GET {base}/repository/commits",
                            r.ok, r.status, summary, web_url, sample, r.error, r.elapsed_ms))
 
@@ -149,7 +149,7 @@ def main() -> None:
                  "description": (lb.get("description") or "")[:40]}
                 for lb in r.data[:5]]
         summary = f"라벨 {len(r.data)}개"
-        sample = rows
+        sample = r.data
     report.add(CheckResult("4-1 프로젝트 라벨", f"GET {base}/labels",
                            r.ok, r.status, summary, web_url, sample, r.error, r.elapsed_ms))
 
@@ -161,7 +161,7 @@ def main() -> None:
                  "due_date": m.get("due_date"), "start_date": m.get("start_date")}
                 for m in r.data[:5]]
         summary = f"마일스톤 {len(r.data)}개"
-        sample = rows
+        sample = r.data
     report.add(CheckResult("4-2 프로젝트 마일스톤", f"GET {base}/milestones",
                            r.ok, r.status, summary, web_url, sample, r.error, r.elapsed_ms))
 
@@ -177,7 +177,7 @@ def main() -> None:
                  "_links": rel.get("_links", {}).get("self") if isinstance(rel.get("_links"), dict) else None}
                 for rel in r.data[:5]]
         summary = f"릴리스 {len(r.data)}개"
-        sample = rows
+        sample = r.data
     report.add(CheckResult("5-1 프로젝트 릴리스", f"GET {base}/releases",
                            r.ok, r.status, summary, web_url, sample, r.error, r.elapsed_ms))
 
@@ -190,7 +190,7 @@ def main() -> None:
                  "last_deployment": (e.get("last_deployment", {}) or {}).get("created_at")}
                 for e in r.data[:5]]
         summary = f"배포 환경 {len(r.data)}개"
-        sample = rows
+        sample = r.data
     report.add(CheckResult("5-2 배포 환경", f"GET {base}/environments",
                            r.ok, r.status, summary, web_url, sample, r.error, r.elapsed_ms))
 
@@ -215,7 +215,7 @@ def main() -> None:
                 for it in r.data[:8]]
         actives = [it for it in r.data if it.get("active")]
         summary = f"통합 {len(r.data)}개 (활성 {len(actives)})"
-        sample = rows
+        sample = r.data
     report.add(CheckResult("6-1 활성 통합 (Jenkins/Jira/Mattermost 등)",
                            f"GET {base}/{used_path}",
                            r.ok, r.status, summary, web_url, sample, r.error, r.elapsed_ms))
@@ -225,10 +225,7 @@ def main() -> None:
     count = _list_count(r.data)
     sample = None
     if r.ok and isinstance(r.data, list):
-        sample = [{"id": h.get("id"), "url": h.get("url"),
-                   "push_events": h.get("push_events"),
-                   "merge_requests_events": h.get("merge_requests_events"),
-                   "pipeline_events": h.get("pipeline_events")} for h in r.data[:5]]
+        sample = r.data
     report.add(CheckResult("6-2 기존 webhook 목록", f"GET {base}/hooks",
                            r.ok, r.status, f"webhook {count}개",
                            None, sample, r.error, r.elapsed_ms))
