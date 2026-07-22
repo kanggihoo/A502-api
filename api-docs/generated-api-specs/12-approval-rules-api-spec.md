@@ -1,5 +1,9 @@
 # Approval Rules API Spec
 
+• Free: Approval Rules 사용 불가.
+• Premium: 다중 승인 규칙, Code Owners 승인 기능 제공.
+• Ultimate: 보안 스캐너/커버리지 조건 승인 규칙(report_type, scanners) 제공.
+
 ## 01-Get all project approval rules [GET]
 
 ## 기본 정보

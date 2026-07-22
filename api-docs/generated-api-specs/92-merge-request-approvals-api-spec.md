@@ -1,5 +1,5 @@
 # Merge Request Approvals API Spec
-
+Tier: Premium, Ultimate
 ## 06-Retrieve MR approval settings for a project [GET]
 
 ## 기본 정보

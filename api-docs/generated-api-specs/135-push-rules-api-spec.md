@@ -1,5 +1,5 @@
 # 135 Push Rules API Spec
-
+Tier: Premium, Ultimate
 ---
 
 ## 1. Retrieve the push rules of a group [GET]

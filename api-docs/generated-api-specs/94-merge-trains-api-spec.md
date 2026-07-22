@@ -1,5 +1,5 @@
 # Merge Trains API Spec
-
+Tier: Premium, Ultimate
 ## 01-List all merge trains for a project [GET]
 
 ## 기본 정보

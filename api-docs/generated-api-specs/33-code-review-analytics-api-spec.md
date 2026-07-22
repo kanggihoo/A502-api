@@ -1,6 +1,5 @@
 # 33 - Code Review Analytics API Specification
-
----
+Tier: Premium, Ultimate
 
 ## 1. List code review information about project
 
