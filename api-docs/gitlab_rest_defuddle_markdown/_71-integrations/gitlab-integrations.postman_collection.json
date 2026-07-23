@@ -1,0 +1,212 @@
+{
+  "info": {
+    "name": "GitLab Integrations",
+    "_postman_id": "a502-gitlab-integrations-71",
+    "description": "GitLab Integrations API 모음 (서드파티 연동: Jira/Jenkins/Mattermost 설정·조회·비활성화).\n\n_71-integrations/summary.md에 명시된 API만 포함 (04, 26, 25, 43, 112, 111).\n\n== 필수 환경변수 (Variables 탭에서 입력) ==\n  baseUrl       : https://lab.ssafy.com\n  accessToken   : Bearer 인증용 토큰 (PAT/OAuth2/Project Token 등)\n  projectId     : 프로젝트 ID 또는 URL 인코딩 경로 (예) 1234\n  integrationSlug : 연동 서비스 slug (예) jira / jenkins / mattermost / slack / discord / datadog\n\n== 인증 ==\n컬렉션 레벨 Bearer({{accessToken}})로 인증. 토큰값은 Variables 탭에 직접 입력.\n\n== 권한 ==\n프로젝트 Maintainer / Owner",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{accessToken}}", "type": "string" }
+    ]
+  },
+  "event": [
+    { "listen": "prerequest", "script": { "type": "text/javascript", "exec": [""] } },
+    { "listen": "test", "script": { "type": "text/javascript", "exec": [""] } }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "https://lab.ssafy.com", "type": "string" },
+    { "key": "accessToken", "value": "PASTE_YOUR_TOKEN_HERE", "type": "string" },
+    { "key": "projectId", "value": "1234", "type": "string" },
+    { "key": "integrationSlug", "value": "jira", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "04. List all active integrations",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/integrations",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v4", "projects", "{{projectId}}", "integrations"]
+        },
+        "description": "프로젝트에 활성화되어 설정된 서드파티 연동(Integration) 서비스 목록을 조회한다. jira/mattermost/jenkins/slack/datadog 등의 연동 상태 포함. 프로젝트 Maintainer / Owner."
+      },
+      "response": [
+        {
+          "name": "200 OK",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/integrations", "host": ["{{baseUrl}}"], "path": ["api", "v4", "projects", "{{projectId}}", "integrations"] }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "body": "[\n  {\n    \"id\": 1,\n    \"title\": \"Jira\",\n    \"slug\": \"jira\",\n    \"created_at\": \"2026-07-23T10:00:00Z\",\n    \"updated_at\": \"2026-07-23T10:00:00Z\",\n    \"active\": true,\n    \"commit_events\": true,\n    \"merge_requests_events\": true\n  },\n  {\n    \"id\": 2,\n    \"title\": \"Mattermost notifications\",\n    \"slug\": \"mattermost\",\n    \"active\": true\n  }\n]"
+        }
+      ]
+    },
+    {
+      "name": "26. Create/Edit Jira integration",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"url\": \"https://ssafy.atlassian.net\",\n  \"username\": \"user@ssafy.com\",\n  \"password\": \"jira-api-token-xxx\",\n  \"project_key\": \"S15P11A502\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/integrations/jira",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v4", "projects", "{{projectId}}", "integrations", "jira"]
+        },
+        "description": "프로젝트의 Atlassian Jira 이슈 트래커 연동 설정을 등록하거나 수정한다. url/username/password 필수. project_key 선택. 프로젝트 Maintainer / Owner. SSAFY 워크스페이스와 ssafy.atlassian.net Jira 연동용."
+      },
+      "response": [
+        {
+          "name": "200 OK",
+          "originalRequest": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"url\": \"https://ssafy.atlassian.net\",\n  \"username\": \"user@ssafy.com\",\n  \"password\": \"xxx\",\n  \"project_key\": \"S15P11A502\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/integrations/jira", "host": ["{{baseUrl}}"], "path": ["api", "v4", "projects", "{{projectId}}", "integrations", "jira"] }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "body": "{\n  \"id\": 1,\n  \"title\": \"Jira\",\n  \"slug\": \"jira\",\n  \"active\": true\n}"
+        }
+      ]
+    },
+    {
+      "name": "25. Create/Edit Jenkins integration",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jenkins_url\": \"https://jenkins.ssafy.com\",\n  \"project_name\": \"A502-CI-Job\",\n  \"username\": \"ssafy\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/integrations/jenkins",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v4", "projects", "{{projectId}}", "integrations", "jenkins"]
+        },
+        "description": "프로젝트와 Jenkins CI/CD 서버 간 통합 연동 설정을 등록/수정한다. jenkins_url/project_name 필수. username 선택. 프로젝트 Maintainer / Owner."
+      },
+      "response": [
+        {
+          "name": "200 OK",
+          "originalRequest": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"jenkins_url\": \"https://jenkins.ssafy.com\",\n  \"project_name\": \"A502-CI-Job\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/integrations/jenkins", "host": ["{{baseUrl}}"], "path": ["api", "v4", "projects", "{{projectId}}", "integrations", "jenkins"] }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "body": "{\n  \"id\": 3,\n  \"title\": \"Jenkins CI\",\n  \"slug\": \"jenkins\",\n  \"active\": true\n}"
+        }
+      ]
+    },
+    {
+      "name": "43. Create/Edit Mattermost integration",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"webhook\": \"https://mattermost.ssafy.io/hooks/xxx\",\n  \"username\": \"GitLab Bot\",\n  \"push_events\": true,\n  \"issues_events\": true,\n  \"merge_requests_events\": true\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/integrations/mattermost",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v4", "projects", "{{projectId}}", "integrations", "mattermost"]
+        },
+        "description": "프로젝트의 Mattermost 실시간 알림 채널 연동 설정을 구성한다. webhook 필수. username/push_events/issues_events/merge_requests_events 선택. 프로젝트 Maintainer / Owner."
+      },
+      "response": [
+        {
+          "name": "200 OK",
+          "originalRequest": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"webhook\": \"https://mattermost.ssafy.io/hooks/xxx\",\n  \"push_events\": true\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/integrations/mattermost", "host": ["{{baseUrl}}"], "path": ["api", "v4", "projects", "{{projectId}}", "integrations", "mattermost"] }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "body": "{\n  \"id\": 2,\n  \"title\": \"Mattermost notifications\",\n  \"slug\": \"mattermost\",\n  \"active\": true\n}"
+        }
+      ]
+    },
+    {
+      "name": "112. Get an integration settings",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/integrations/{{integrationSlug}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v4", "projects", "{{projectId}}", "integrations", "{{integrationSlug}}"]
+        },
+        "description": "프로젝트에 등록된 특정 서드파티 연동 서비스의 상세 구성 정보를 조회한다. integrationSlug 변수로 jira/jenkins/mattermost 등 지정. 프로젝트 Maintainer / Owner."
+      },
+      "response": [
+        {
+          "name": "200 OK",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/integrations/jira", "host": ["{{baseUrl}}"], "path": ["api", "v4", "projects", "{{projectId}}", "integrations", "jira"] }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "body": "{\n  \"id\": 1,\n  \"title\": \"Jira\",\n  \"slug\": \"jira\",\n  \"active\": true,\n  \"url\": \"https://ssafy.atlassian.net\",\n  \"project_key\": \"S15P11A502\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "111. Disable an integration",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/integrations/{{integrationSlug}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v4", "projects", "{{projectId}}", "integrations", "{{integrationSlug}}"]
+        },
+        "description": "프로젝트의 특정 서드파티 연동 서비스를 비활성화 및 설정 해제한다. integrationSlug 변수로 대상 서비스 지정. 프로젝트 Maintainer / Owner."
+      },
+      "response": [
+        {
+          "name": "204 No Content",
+          "originalRequest": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/integrations/jira", "host": ["{{baseUrl}}"], "path": ["api", "v4", "projects", "{{projectId}}", "integrations", "jira"] }
+          },
+          "status": "No Content",
+          "code": 204,
+          "_postman_previewlanguage": "text",
+          "body": ""
+        }
+      ]
+    }
+  ]
+}

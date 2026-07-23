@@ -1,0 +1,169 @@
+{
+  "info": {
+    "name": "GitLab Members",
+    "_postman_id": "a502-gitlab-members-91",
+    "description": "GitLab Members API 모음 (그룹/프로젝트 멤버 조회·추가·권한 변경).\n\n_91-members/summary.md에 명시된 API만 포함 (03, 02, 10, 12/13).\n\n== 필수 환경변수 (Variables 탭에서 입력) ==\n  baseUrl       : https://lab.ssafy.com\n  accessToken   : Bearer 인증용 토큰 (PAT/OAuth2/Project Token 등)\n  groupId       : 그룹 ID 또는 URL 인코딩 경로 (예) s15p11a502\n  projectId     : 프로젝트 ID 또는 URL 인코딩 경로 (예) 1234\n  userId        : 대상 사용자 ID (예) 12\n\n== 인증 ==\n컬렉션 레벨 Bearer({{accessToken}})로 인증. 토큰값은 Variables 탭에 직접 입력.\n\n== 권한 ==\n조류(List/all): Guest 이상 / 추가·수정: Maintainer / Owner",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{accessToken}}", "type": "string" }
+    ]
+  },
+  "event": [
+    { "listen": "prerequest", "script": { "type": "text/javascript", "exec": [""] } },
+    { "listen": "test", "script": { "type": "text/javascript", "exec": [""] } }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "https://lab.ssafy.com", "type": "string" },
+    { "key": "accessToken", "value": "PASTE_YOUR_TOKEN_HERE", "type": "string" },
+    { "key": "groupId", "value": "s15p11a502", "type": "string" },
+    { "key": "projectId", "value": "1234", "type": "string" },
+    { "key": "userId", "value": "12", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Group Members (03, 02)",
+      "description": "그룹 멤버 조회(상속 포함) 및 추가. SSAFY 팀 프로젝트 확정 시 팀원 초청에 활용.",
+      "item": [
+        {
+          "name": "03. List all members of a group (상속 포함)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/groups/{{groupId}}/members/all",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "groups", "{{groupId}}", "members", "all"],
+              "query": [
+                { "key": "query", "value": "kkh", "disabled": true, "description": "멤버 사용자 이름/아이디 검색어" },
+                { "key": "user_ids", "value": "[12,15]", "disabled": true, "description": "특정 유저 ID 배열로 필터링" },
+                { "key": "page", "value": "1", "disabled": true, "description": "페이지 번호 (기본 1)" },
+                { "key": "per_page", "value": "20", "disabled": true, "description": "페이지당 항목 수 (기본 20)" }
+              ]
+            },
+            "description": "특정 그룹 및 상위 그룹으로부터 상속받은 모든 멤버 목록을 조회한다. access_level/expires_at 포함. 그룹 멤버 (Guest 이상)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{baseUrl}}/api/v4/groups/{{groupId}}/members/all", "host": ["{{baseUrl}}"], "path": ["api", "v4", "groups", "{{groupId}}", "members", "all"] }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "[\n  {\n    \"id\": 12,\n    \"username\": \"kkh_ssafy\",\n    \"name\": \"강기후\",\n    \"state\": \"active\",\n    \"access_level\": 40,\n    \"created_at\": \"2026-07-23T10:00:00Z\",\n    \"expires_at\": null\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "02. Add a member to a group",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": {{userId}},\n  \"access_level\": 30,\n  \"expires_at\": \"2026-12-31\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/groups/{{groupId}}/members",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "groups", "{{groupId}}", "members"]
+            },
+            "description": "그룹에 새로운 팀원 계정을 추가하고 역할 권한을 부여한다. user_id/access_level 필수. expires_at 선택. 그룹 Maintainer / Owner."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"user_id\": 12,\n  \"access_level\": 30\n}" },
+                "url": { "raw": "{{baseUrl}}/api/v4/groups/{{groupId}}/members", "host": ["{{baseUrl}}"], "path": ["api", "v4", "groups", "{{groupId}}", "members"] }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": 12,\n  \"username\": \"kkh_ssafy\",\n  \"access_level\": 30\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Project Members (10, 12/13)",
+      "description": "프로젝트 멤버 조회(상속 포함) 및 권한 레벨 변경.",
+      "item": [
+        {
+          "name": "10. List all members of a project (상속 포함)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/members/all",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "members", "all"]
+            },
+            "description": "특정 프로젝트의 전체 멤버 목록(그룹 상속 멤버 포함)을 조회한다. 프로젝트 멤버 (Guest 이상)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/members/all", "host": ["{{baseUrl}}"], "path": ["api", "v4", "projects", "{{projectId}}", "members", "all"] }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "[\n  {\n    \"id\": 12,\n    \"username\": \"kkh_ssafy\",\n    \"name\": \"강기후\",\n    \"access_level\": 30\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "12. Update a project member access level",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"access_level\": 40,\n  \"expires_at\": \"2026-12-31\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/members/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "members", "{{userId}}"]
+            },
+            "description": "프로젝트 멤버의 권한 레벨(access_level)을 변경한다. summary.md에 별도 body 명세 없음 — 그룹 02번 Add와 동일한 access_level/expires_at 필드로 작성. 프로젝트 Maintainer / Owner. (13번 Delete는 동일 엔드포인트 DELETE 메서드로 호출.)"
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"access_level\": 40\n}" },
+                "url": { "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/members/{{userId}}", "host": ["{{baseUrl}}"], "path": ["api", "v4", "projects", "{{projectId}}", "members", "{{userId}}"] }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": 12,\n  \"username\": \"kkh_ssafy\",\n  \"access_level\": 40\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,63 @@
+{
+  "info": {
+    "name": "GitLab Markdown",
+    "_postman_id": "a502-gitlab-markdown-89",
+    "description": "GitLab Markdown API 모음 (마크다운 → HTML 렌더링).\n\n_89-markdown/summary.md에 명시된 API만 포함 (01).\n\n== 필수 환경변수 (Variables 탭에서 입력) ==\n  baseUrl       : https://lab.ssafy.com\n  accessToken   : Bearer 인증용 토큰 (선택 사항, 공개 렌더링 시 불필요)\n  projectPath   : GFM 상대 링크 처리용 프로젝트 경로 (예) s15p11a502/A502-api\n\n== 인증 ==\n컬렉션 레벨 Bearer({{accessToken}})로 인증. 공개 렌더링은 토큰 없이도 호출 가능.\n\n== 권한 ==\n모든 사용자 (인증 유저 및 공개 렌더링)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{accessToken}}", "type": "string" }
+    ]
+  },
+  "event": [
+    { "listen": "prerequest", "script": { "type": "text/javascript", "exec": [""] } },
+    { "listen": "test", "script": { "type": "text/javascript", "exec": [""] } }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "https://lab.ssafy.com", "type": "string" },
+    { "key": "accessToken", "value": "PASTE_YOUR_TOKEN_HERE", "type": "string" },
+    { "key": "projectPath", "value": "s15p11a502/A502-api", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "01. Render Markdown content",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"text\": \"# Feature Proposal\\n\\nPlease check ~backend label and @kkh_ssafy.\",\n  \"gfm\": true,\n  \"project\": \"{{projectPath}}\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v4/markdown",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v4", "markdown"]
+        },
+        "description": "전달된 마크다운(GitLab Flavored Markdown) 텍스트를 파싱하여 HTML로 렌더링 변환한다. text 필수. gfm=true 시 이슈/MR 링크, @멘션, :이모지:, 코드 하이라이팅 등 자동 처리. project 컨텍스트로 상대 링크 생성. 모든 사용자 (인증 선택)."
+      },
+      "response": [
+        {
+          "name": "200 OK",
+          "originalRequest": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"# Feature Proposal\\n\\nPlease check ~backend label and @kkh_ssafy.\",\n  \"gfm\": true,\n  \"project\": \"s15p11a502/A502-api\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v4/markdown", "host": ["{{baseUrl}}"], "path": ["api", "v4", "markdown"] }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "body": "{\n  \"html\": \"<h1>Feature Proposal</h1>\\n<p>Please check <span class=\\\"label\\\">backend</span> label and <a href=\\\"https://lab.ssafy.com/kkh_ssafy\\\">@kkh_ssafy</a>.</p>\"\n}"
+        }
+      ]
+    }
+  ]
+}

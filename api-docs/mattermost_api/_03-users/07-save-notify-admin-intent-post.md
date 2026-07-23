@@ -1,9 +1,9 @@
-# 08-Trigger notify-admin posts [POST]
+# 07-Save notify-admin intent [POST]
 
-`POST /api/v4/users/trigger-notify-admin-posts`
+`POST /api/v4/users/notify-admin`
 
-Trigger admin notification posts manually when enabled by configuration.
-##### Permissions Must be authenticated and have `manage_system` permission.
+Save a notify-admin request for upgrade or trial flows.
+##### Permissions Must be authenticated.
 
 
 ### Request Body (application/json)
@@ -17,7 +17,7 @@ Trigger admin notification posts manually when enabled by configuration.
 ```
 ### Responses
 
-#### 200 - Notify-admin posts triggered successfully
+#### 200 - Notify-admin request saved
 
 Schema (application/json):
 ```json
@@ -29,6 +29,4 @@ Schema (application/json):
 #### 400 - 
 
 #### 401 - 
-
-#### 403 - 
 

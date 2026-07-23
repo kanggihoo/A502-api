@@ -1,0 +1,275 @@
+{
+  "info": {
+    "name": "GitLab Discussions",
+    "_postman_id": "a502-gitlab-discussions-46",
+    "description": "GitLab Discussions API 모음 (Merge Request 코드 리뷰 스레드/답글 관리).\n\n_46-discussions/summary.md에 명시된 API만 포함 (18 ~ 26: MR Discussions).\n\n== 필수 환경변수 (Variables 탭에서 입력) ==\n  baseUrl            : https://lab.ssafy.com\n  accessToken        : Bearer 인증용 토큰 (PAT/OAuth2/Project Token 등)\n  projectId          : 프로젝트 ID 또는 URL 인코딩 경로 (예) 1234\n  mergeRequestIid    : Merge Request IID (예) 15\n  discussionId       : 토론 스레드 ID\n  noteId             : 스레드 내 답글(Note) ID\n\n== 인증 ==\n컬렉션 레벨 Bearer({{accessToken}})로 인증. 토큰값은 Variables 탭에 직접 입력.\n\n== 권한 ==\n프로젝트 멤버 (Developer 이상). 핵심 코드 리뷰 기능.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{accessToken}}", "type": "string" }
+    ]
+  },
+  "event": [
+    { "listen": "prerequest", "script": { "type": "text/javascript", "exec": [""] } },
+    { "listen": "test", "script": { "type": "text/javascript", "exec": [""] } }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "https://lab.ssafy.com", "type": "string" },
+    { "key": "accessToken", "value": "PASTE_YOUR_TOKEN_HERE", "type": "string" },
+    { "key": "projectId", "value": "1234", "type": "string" },
+    { "key": "mergeRequestIid", "value": "15", "type": "string" },
+    { "key": "discussionId", "value": "abc123def", "type": "string" },
+    { "key": "noteId", "value": "1001", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Merge Request Discussions (18 ~ 26)",
+      "description": "MR 상의 코드 리뷰 스레드 생성, 인라인 피드백 작성 및 스레드 해결(resolved) 관리. 프로젝트 멤버 (Developer 이상).",
+      "item": [
+        {
+          "name": "18. List MR discussions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/merge_requests/{{mergeRequestIid}}/discussions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "merge_requests", "{{mergeRequestIid}}", "discussions"]
+            },
+            "description": "MR 토론 스레드 목록을 조회한다. 프로젝트 멤버 (Developer 이상)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/merge_requests/{{mergeRequestIid}}/discussions",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "projects", "{{projectId}}", "merge_requests", "{{mergeRequestIid}}", "discussions"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "[\n  {\n    \"id\": \"abc123def\",\n    \"individual_note\": false,\n    \"notes\": [\n      {\n        \"id\": 1001,\n        \"body\": \"이 부분 널 체크 필요해 보입니다.\",\n        \"author\": { \"id\": 12, \"username\": \"kkh_ssafy\" },\n        \"resolvable\": true,\n        \"resolved\": false,\n        \"created_at\": \"2026-07-23T10:00:00Z\"\n      }\n    ]\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "19. Create MR discussion (또는 인라인 Diff 리뷰)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"코드 리뷰 코멘트입니다.\",\n  \"position\": {\n    \"base_sha\": \"a1b2c3d4e5f6...\",\n    \"start_sha\": \"a1b2c3d4e5f6...\",\n    \"head_sha\": \"d4e5f6a7b8c9...\",\n    \"position_type\": \"text\",\n    \"new_path\": \"src/main/App.java\",\n    \"new_line\": 42\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/merge_requests/{{mergeRequestIid}}/discussions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "merge_requests", "{{mergeRequestIid}}", "discussions"]
+            },
+            "description": "MR 토론 또는 특정 코드 라인 인라인 Diff 리뷰 스레드를 생성한다. body 필수. 인라인 리뷰 시 position 객체(base_sha/start_sha/head_sha/position_type/new_path/new_line 등) 포함. 프로젝트 멤버 (Developer 이상)."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"body\": \"코드 리뷰 코멘트입니다.\"\n}" },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/merge_requests/{{mergeRequestIid}}/discussions",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "projects", "{{projectId}}", "merge_requests", "{{mergeRequestIid}}", "discussions"]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": \"abc123def\",\n  \"individual_note\": false,\n  \"notes\": [\n    {\n      \"id\": 1002,\n      \"body\": \"코드 리뷰 코멘트입니다.\",\n      \"author\": { \"id\": 12, \"username\": \"kkh_ssafy\" },\n      \"resolvable\": true,\n      \"resolved\": false,\n      \"created_at\": \"2026-07-23T10:05:00Z\"\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "20. Retrieve a single MR discussion",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/merge_requests/{{mergeRequestIid}}/discussions/{{discussionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "merge_requests", "{{mergeRequestIid}}", "discussions", "{{discussionId}}"]
+            },
+            "description": "단일 MR 토론 스레드를 조회한다. 프로젝트 멤버 (Developer 이상)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/merge_requests/{{mergeRequestIid}}/discussions/{{discussionId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "projects", "{{projectId}}", "merge_requests", "{{mergeRequestIid}}", "discussions", "{{discussionId}}"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": \"abc123def\",\n  \"individual_note\": false,\n  \"notes\": [\n    {\n      \"id\": 1001,\n      \"body\": \"이 부분 널 체크 필요해 보입니다.\",\n      \"author\": { \"id\": 12, \"username\": \"kkh_ssafy\" },\n      \"resolvable\": true,\n      \"resolved\": false\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "21. Resolve / unresolve a MR discussion thread",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resolved\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/merge_requests/{{mergeRequestIid}}/discussions/{{discussionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "merge_requests", "{{mergeRequestIid}}", "discussions", "{{discussionId}}"]
+            },
+            "description": "MR 코드 리뷰 스레드를 해결 완료(resolved: true) 또는 미해결(false) 처리한다. 프로젝트 멤버 (Developer 이상)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"resolved\": true\n}" },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/merge_requests/{{mergeRequestIid}}/discussions/{{discussionId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "projects", "{{projectId}}", "merge_requests", "{{mergeRequestIid}}", "discussions", "{{discussionId}}"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": \"abc123def\",\n  \"notes\": [\n    {\n      \"id\": 1001,\n      \"resolved\": true,\n      \"resolved_by\": { \"id\": 12, \"username\": \"kkh_ssafy\" }\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "22. List notes of a MR discussion",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/merge_requests/{{mergeRequestIid}}/discussions/{{discussionId}}/notes",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "merge_requests", "{{mergeRequestIid}}", "discussions", "{{discussionId}}", "notes"]
+            },
+            "description": "MR 스레드의 답글(Note) 목록을 조회한다. 프로젝트 멤버 (Developer 이상)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/merge_requests/{{mergeRequestIid}}/discussions/{{discussionId}}/notes",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "projects", "{{projectId}}", "merge_requests", "{{mergeRequestIid}}", "discussions", "{{discussionId}}", "notes"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "[\n  {\n    \"id\": 1001,\n    \"body\": \"이 부분 널 체크 필요해 보입니다.\",\n    \"author\": { \"id\": 12, \"username\": \"kkh_ssafy\" },\n    \"created_at\": \"2026-07-23T10:00:00Z\"\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "23. Add a note to a MR discussion",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"확인했습니다. 수정하겠습니다.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/merge_requests/{{mergeRequestIid}}/discussions/{{discussionId}}/notes",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "merge_requests", "{{mergeRequestIid}}", "discussions", "{{discussionId}}", "notes"]
+            },
+            "description": "MR 리뷰 스레드에 답글을 등록한다. body 필수. 프로젝트 멤버 (Developer 이상)."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"body\": \"확인했습니다. 수정하겠습니다.\"\n}" },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/merge_requests/{{mergeRequestIid}}/discussions/{{discussionId}}/notes",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "projects", "{{projectId}}", "merge_requests", "{{mergeRequestIid}}", "discussions", "{{discussionId}}", "notes"]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": 1003,\n  \"body\": \"확인했습니다. 수정하겠습니다.\",\n  \"author\": { \"id\": 12, \"username\": \"kkh_ssafy\" },\n  \"created_at\": \"2026-07-23T10:10:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "24. Update / 25. Delete a note in a MR discussion",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/merge_requests/{{mergeRequestIid}}/discussions/{{discussionId}}/notes/{{noteId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "merge_requests", "{{mergeRequestIid}}", "discussions", "{{discussionId}}", "notes", "{{noteId}}"]
+            },
+            "description": "MR 스레드 답글(Note) 상세 조회. (동일 엔드포인트를 PUT으로 호출하면 body의 body 필드로 수정, DELETE로 호출하면 삭제. 프로젝트 멤버 Developer 이상.)"
+          },
+          "response": [
+            {
+              "name": "200 OK (GET)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/merge_requests/{{mergeRequestIid}}/discussions/{{discussionId}}/notes/{{noteId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "projects", "{{projectId}}", "merge_requests", "{{mergeRequestIid}}", "discussions", "{{discussionId}}", "notes", "{{noteId}}"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": 1001,\n  \"body\": \"이 부분 널 체크 필요해 보입니다.\",\n  \"author\": { \"id\": 12, \"username\": \"kkh_ssafy\" },\n  \"created_at\": \"2026-07-23T10:00:00Z\"\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,473 @@
+{
+  "info": {
+    "name": "GitLab Deploy Resources",
+    "_postman_id": "a502-gitlab-deploy-resources-45",
+    "description": "GitLab Deploy Resources API 모음 (배포 이력/상태, Deploy Token, Deploy Key).\n\n_45-deploy-resources/summary.md에 명시된 API만 포함.\n- 02~08 Project Deployments (4 endpoints)\n- 09~13 Project Deploy Tokens (4 endpoints)\n- 18, 20~25 Project Deploy Keys (5 endpoints)\n\n관리자(Admin) 전용 API (19번)는 제외됨 (summary.md 상단 명시).\n\n== 필수 환경변수 (Variables 탭에서 입력) ==\n  baseUrl       : https://lab.ssafy.com\n  accessToken   : Bearer 인증용 토큰 (PAT/OAuth2/Project Token 등)\n  projectId     : 프로젝트 ID 또는 URL 인코딩 경로 (예) 1234\n  deploymentId  : 배포 ID (예) 42\n  tokenId       : 디플로이 토큰 ID\n  keyId         : 디플로이 키 ID\n\n== 인증 ==\n컬렉션 레벨 Bearer({{accessToken}})로 인증. 토큰값은 Variables 탭에 직접 입력.\n\n== 권한 ==\nDeployments: Developer 이상 (승인은 Maintainer/Protected Environment 승인권자)\nDeploy Tokens / Deploy Keys: 프로젝트 Maintainer / Owner",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{accessToken}}", "type": "string" }
+    ]
+  },
+  "event": [
+    { "listen": "prerequest", "script": { "type": "text/javascript", "exec": [""] } },
+    { "listen": "test", "script": { "type": "text/javascript", "exec": [""] } }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "https://lab.ssafy.com", "type": "string" },
+    { "key": "accessToken", "value": "PASTE_YOUR_TOKEN_HERE", "type": "string" },
+    { "key": "projectId", "value": "1234", "type": "string" },
+    { "key": "deploymentId", "value": "42", "type": "string" },
+    { "key": "tokenId", "value": "1", "type": "string" },
+    { "key": "keyId", "value": "1", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Project Deployments (02 ~ 08)",
+      "description": "프로젝트 배포(Deployment) 이력/상세/상태갱신/연관 MR 조회. SSAFY EC2 자동 배포 트래킹 및 알림에 활용. 프로젝트 멤버 (Developer 이상).",
+      "item": [
+        {
+          "name": "02. List all project deployments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/deployments",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "deployments"]
+            },
+            "description": "프로젝트의 배포(Deployment) 이력 목록을 조회한다. 프로젝트 멤버 (Developer 이상)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/deployments",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "projects", "{{projectId}}", "deployments"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "[\n  {\n    \"id\": 42,\n    \"iid\": 1,\n    \"ref\": \"main\",\n    \"sha\": \"a1b2c3d4e5f6...\",\n    \"status\": \"success\",\n    \"created_at\": \"2026-07-23T10:00:00Z\",\n    \"deployable\": {\n      \"id\": 100,\n      \"status\": \"success\",\n      \"ref\": \"main\",\n      \"name\": \"deploy:production\"\n    },\n    \"environment\": {\n      \"id\": 5,\n      \"name\": \"production\",\n      \"external_url\": \"https://example.com\"\n    }\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "04. Retrieve a single deployment",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/deployments/{{deploymentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "deployments", "{{deploymentId}}"]
+            },
+            "description": "단일 배포 상세 정보를 조회한다. 프로젝트 멤버 (Developer 이상)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/deployments/{{deploymentId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "projects", "{{projectId}}", "deployments", "{{deploymentId}}"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": 42,\n  \"iid\": 1,\n  \"ref\": \"main\",\n  \"sha\": \"a1b2c3d4e5f6...\",\n  \"status\": \"success\",\n  \"created_at\": \"2026-07-23T10:00:00Z\",\n  \"environment\": {\n    \"id\": 5,\n    \"name\": \"production\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "05. Update a deployment status",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"success\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/deployments/{{deploymentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "deployments", "{{deploymentId}}"]
+            },
+            "description": "배포 상태를 업데이트한다. status 값: running | success | failed | canceled. 프로젝트 멤버 (Developer 이상)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"status\": \"success\"\n}" },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/deployments/{{deploymentId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "projects", "{{projectId}}", "deployments", "{{deploymentId}}"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": 42,\n  \"status\": \"success\",\n  \"updated_at\": \"2026-07-23T10:05:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "07. List merge requests associated with a deployment",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/deployments/{{deploymentId}}/merge_requests",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "deployments", "{{deploymentId}}", "merge_requests"]
+            },
+            "description": "해당 배포에 포함된 Merge Request 목록을 조회한다. 프로젝트 멤버 (Developer 이상)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/deployments/{{deploymentId}}/merge_requests",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "projects", "{{projectId}}", "deployments", "{{deploymentId}}", "merge_requests"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "[\n  {\n    \"id\": 102,\n    \"iid\": 15,\n    \"project_id\": 1234,\n    \"title\": \"Resolve login API issue\",\n    \"state\": \"merged\"\n  }\n]"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Project Deploy Tokens (09 ~ 13)",
+      "description": "프로젝트 디플로이 토큰 관리. CI/CD 파이프라인이나 EC2 서버에서 비밀번호 없이 저장소 코드 및 컨테이너 레지스트리 이미지 다운로드용. 프로젝트 Maintainer / Owner.",
+      "item": [
+        {
+          "name": "09. List all deploy tokens",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/deploy_tokens",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "deploy_tokens"]
+            },
+            "description": "접근 가능한 디플로이 토큰 목록을 조회한다. 프로젝트 Maintainer / Owner."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/deploy_tokens",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "deploy_tokens"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "[\n  {\n    \"id\": 1,\n    \"name\": \"EC2-deploy-token\",\n    \"username\": \"gitlab+deploy-token-1\",\n    \"scopes\": [\"read_repository\"],\n    \"expires_at\": null,\n    \"revoked\": false\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "10. List all project deploy tokens",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/deploy_tokens",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "deploy_tokens"]
+            },
+            "description": "프로젝트의 디플로이 토큰 목록을 조회한다. 프로젝트 Maintainer / Owner."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/deploy_tokens",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "projects", "{{projectId}}", "deploy_tokens"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "[\n  {\n    \"id\": 1,\n    \"name\": \"EC2-deploy-token\",\n    \"username\": \"gitlab+deploy-token-1\",\n    \"scopes\": [\"read_repository\", \"read_registry\"]\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "11. Create a project deploy token",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"EC2-deploy-token\",\n  \"scopes\": [\"read_repository\", \"read_registry\"],\n  \"expires_at\": \"2026-12-31\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/deploy_tokens",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "deploy_tokens"]
+            },
+            "description": "프로젝트 디플로이 토큰을 생성한다. name, scopes(read_repository, read_registry) 필수. 프로젝트 Maintainer / Owner."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"name\": \"EC2-deploy-token\",\n  \"scopes\": [\"read_repository\"]\n}" },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/deploy_tokens",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "projects", "{{projectId}}", "deploy_tokens"]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": 2,\n  \"name\": \"EC2-deploy-token\",\n  \"username\": \"gitlab+deploy-token-2\",\n  \"token\": \"glpt-xxxxxxxxxxxxxxxxxxxx\",\n  \"scopes\": [\"read_repository\", \"read_registry\"],\n  \"expires_at\": \"2026-12-31\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "12. Retrieve a project deploy token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/deploy_tokens/{{tokenId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "deploy_tokens", "{{tokenId}}"]
+            },
+            "description": "단일 프로젝트 디플로이 토큰 상세 정보를 조회한다. 프로젝트 Maintainer / Owner."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/deploy_tokens/{{tokenId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "projects", "{{projectId}}", "deploy_tokens", "{{tokenId}}"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": 1,\n  \"name\": \"EC2-deploy-token\",\n  \"username\": \"gitlab+deploy-token-1\",\n  \"scopes\": [\"read_repository\"],\n  \"expires_at\": null,\n  \"revoked\": false\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Project Deploy Keys (18, 20 ~ 25)",
+      "description": "SSH 디플로이 키 등록/조회/활성화. EC2 인스턴스에서 GitLab 저장소로 SSH 통신 수행용. 프로젝트 Maintainer / Owner.",
+      "item": [
+        {
+          "name": "18. List all deploy keys",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/deploy_keys",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "deploy_keys"]
+            },
+            "description": "전체 접근 가능한 디플로이 SSH 키 목록을 조회한다. 프로젝트 Maintainer / Owner."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/deploy_keys",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "deploy_keys"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "[\n  {\n    \"id\": 1,\n    \"title\": \"EC2-ssh-key\",\n    \"fingerprint\": \"SHA256:abc123...\",\n    \"created_at\": \"2026-07-23T10:00:00Z\"\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "20. List all deploy keys for a project",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/deploy_keys",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "deploy_keys"]
+            },
+            "description": "프로젝트에 등록된 SSH 디플로이 키 목록을 조회한다. 프로젝트 Maintainer / Owner."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/deploy_keys",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "projects", "{{projectId}}", "deploy_keys"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "[\n  {\n    \"id\": 1,\n    \"title\": \"EC2-ssh-key\",\n    \"fingerprint\": \"SHA256:abc123...\",\n    \"created_at\": \"2026-07-23T10:00:00Z\",\n    \"can_push\": false\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "21. Add a deploy key for a project",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"EC2-ssh-key\",\n  \"key\": \"ssh-rsa AAAAB3NzaC1yc2E... user@host\",\n  \"can_push\": false\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/deploy_keys",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "deploy_keys"]
+            },
+            "description": "프로젝트 전용 SSH 디플로이 키를 생성 및 등록한다. title, key 필수, can_push 옵션. 프로젝트 Maintainer / Owner."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"title\": \"EC2-ssh-key\",\n  \"key\": \"ssh-rsa AAAAB3...\"\n}" },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/deploy_keys",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "projects", "{{projectId}}", "deploy_keys"]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": 2,\n  \"title\": \"EC2-ssh-key\",\n  \"key\": \"ssh-rsa AAAAB3NzaC1yc2E...\",\n  \"fingerprint\": \"SHA256:abc123...\",\n  \"created_at\": \"2026-07-23T10:00:00Z\",\n  \"can_push\": false\n}"
+            }
+          ]
+        },
+        {
+          "name": "22. Retrieve a deploy key for a project",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/deploy_keys/{{keyId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "deploy_keys", "{{keyId}}"]
+            },
+            "description": "단일 디플로이 키 상세 정보를 조회한다. 프로젝트 Maintainer / Owner."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/deploy_keys/{{keyId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "projects", "{{projectId}}", "deploy_keys", "{{keyId}}"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": 1,\n  \"title\": \"EC2-ssh-key\",\n  \"key\": \"ssh-rsa AAAAB3NzaC1yc2E...\",\n  \"fingerprint\": \"SHA256:abc123...\",\n  \"created_at\": \"2026-07-23T10:00:00Z\",\n  \"can_push\": false\n}"
+            }
+          ]
+        },
+        {
+          "name": "25. Enable a deploy key for a project",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/deploy_keys/{{keyId}}/enable",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "deploy_keys", "{{keyId}}", "enable"]
+            },
+            "description": "기존 공개 디플로이 키를 프로젝트에 활성화 연결한다. 프로젝트 Maintainer / Owner."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/deploy_keys/{{keyId}}/enable",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "projects", "{{projectId}}", "deploy_keys", "{{keyId}}", "enable"]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": 1,\n  \"title\": \"EC2-ssh-key\",\n  \"fingerprint\": \"SHA256:abc123...\",\n  \"created_at\": \"2026-07-23T10:00:00Z\",\n  \"can_push\": false\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

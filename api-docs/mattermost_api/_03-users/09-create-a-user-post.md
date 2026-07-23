@@ -1,4 +1,12 @@
 # 09-Create a user [POST]
+
+`POST /api/v4/users`
+
+Create a new user on the system. Password is required for email login. For other authentication types such as LDAP or SAML, auth_data and auth_service fields are required.
+##### Permissions
+No permission required for creating email/username accounts on an open server. Auth Token is required for other authentication types such as LDAP or SAML.
+
+
 ### Parameters
 
 | Name | Type | In | Required | Description |

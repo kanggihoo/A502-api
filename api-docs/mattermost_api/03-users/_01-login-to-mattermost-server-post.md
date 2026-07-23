@@ -1,50 +1,22 @@
-# 09-Create a user [POST]
-### Parameters
-
-| Name | Type | In | Required | Description |
-| --- | --- | --- | --- | --- |
-| `t` | `string` | `query` | No | Token id from an email invitation |
-| `iid` | `string` | `query` | No | Token id from an invitation link |
+# 01-Login to Mattermost server [POST]
 
 ### Request Body (application/json)
 
 ```json
 {
-  "email": string (required),
-  "username": string (required),
-  "first_name": string,
-  "last_name": string,
-  "nickname": string,
-  "position": string,
-  "timezone": {
-    "useAutomaticTimezone": string, // Set to "true" to use the browser/system timezone, "false" to set manually. Defaults to "true".
-    "manualTimezone": string, // Value when setting manually the timezone, i.e. "Europe/Berlin".
-    "automaticTimezone": string, // This value is set automatically when the "useAutomaticTimezone" is set to "true".
-  },
-  "auth_data": string, // Service-specific authentication data, such as email address.
-  "auth_service": string, // The authentication service, one of "email", "gitlab", "ldap", "saml", "office365", "google", and "".
+  "id": string,
+  "login_id": string,
+  "token": string,
+  "device_id": string,
+  "voip_device_id": string, // VoIP push token. Same prefix shape as device_id. Optional; when provided, enables ring-style call push notifications.
+  "ldap_only": boolean,
   "password": string, // The password used for email authentication.
-  "locale": string,
-  "props": {},
-  "notify_props": {
-    "email": string, // Set to "true" to enable email notifications, "false" to disable. Defaults to "true".
-    "push": string, // Set to "all" to receive push notifications for all activity, "mention" for mentions and direct messages only, and "none" to disable. Defaults to "mention".
-    "desktop": string, // Set to "all" to receive desktop notifications for all activity, "mention" for mentions and direct messages only, and "none" to disable. Defaults to "all".
-    "desktop_sound": string, // Set to "true" to enable sound on desktop notifications, "false" to disable. Defaults to "true".
-    "mention_keys": string, // A comma-separated list of words to count as mentions. Defaults to username and @username.
-    "channel": string, // Set to "true" to enable channel-wide notifications (@channel, @all, etc.), "false" to disable. Defaults to "true".
-    "first_name": string, // Set to "true" to enable mentions for first name. Defaults to "true" if a first name is set, "false" otherwise.
-    "auto_responder_message": string, // The message sent to users when they are auto-responded to. Defaults to "".
-    "push_threads": string, // Set to "all" to enable mobile push notifications for followed threads and "none" to disable. Defaults to "all".
-    "comments": string, // Set to "any" to enable notifications for comments to any post you have replied to, "root" for comments on your posts, and "never" to disable. Only affects users with collapsed reply threads disabled. Defaults to "never".
-    "desktop_threads": string, // Set to "all" to enable desktop notifications for followed threads and "none" to disable. Defaults to "all".
-    "email_threads": string, // Set to "all" to enable email notifications for followed threads and "none" to disable. Defaults to "all".
-  },
+  "magic_link_token": string, // Magic link token for passwordless guest authentication. When provided, authenticates the user using the magic link token instead of password. Requires guest magic link feature to be enabled.
 }
 ```
 ### Responses
 
-#### 201 - User creation successful
+#### 201 - User login successful
 
 Schema (application/json):
 ```json

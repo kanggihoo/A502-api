@@ -1,0 +1,117 @@
+{
+  "info": {
+    "name": "GitLab Groups",
+    "_postman_id": "a502-gitlab-groups-67",
+    "description": "GitLab Groups API 모음 (그룹 목록/상세/그룹 내 프로젝트 조회).\n\n_67-groups/summary.md에 명시된 API만 포함 (19, 22, 29).\n\n== 필수 환경변수 (Variables 탭에서 입력) ==\n  baseUrl       : https://lab.ssafy.com\n  accessToken   : Bearer 인증용 토큰 (PAT/OAuth2/Project Token 등)\n  groupId       : 그룹 ID 또는 URL 인코딩 경로 (예) s15p11a502\n\n== 인증 ==\n컬렉션 레벨 Bearer({{accessToken}})로 인증. 토큰값은 Variables 탭에 직접 입력.\n\n== 권한 ==\n19번 List: 인증된 사용자 / 22, 29번: 그룹 멤버 (Guest 이상)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{accessToken}}", "type": "string" }
+    ]
+  },
+  "event": [
+    { "listen": "prerequest", "script": { "type": "text/javascript", "exec": [""] } },
+    { "listen": "test", "script": { "type": "text/javascript", "exec": [""] } }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "https://lab.ssafy.com", "type": "string" },
+    { "key": "accessToken", "value": "PASTE_YOUR_TOKEN_HERE", "type": "string" },
+    { "key": "groupId", "value": "s15p11a502", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "19. List all groups",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v4/groups",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v4", "groups"],
+          "query": [
+            { "key": "search", "value": "s15p11a502", "disabled": true, "description": "그룹 이름/경로 검색어" },
+            { "key": "min_access_level", "value": "30", "disabled": true, "description": "최소 권한 레벨 (10:Guest, 20:Reporter, 30:Developer, 40:Maintainer, 50:Owner)" },
+            { "key": "top_level_only", "value": "true", "disabled": true, "description": "최상위 그룹만 포함 (기본 false)" },
+            { "key": "page", "value": "1", "disabled": true, "description": "페이지 번호 (기본 1)" },
+            { "key": "per_page", "value": "20", "disabled": true, "description": "페이지당 항목 수 (기본 20)" }
+          ]
+        },
+        "description": "GitLab 인스턴스의 접근 가능한 모든 그룹 목록을 조회한다. search/min_access_level/top_level_only로 필터링. 인증된 사용자."
+      },
+      "response": [
+        {
+          "name": "200 OK",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v4/groups", "host": ["{{baseUrl}}"], "path": ["api", "v4", "groups"] }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "body": "[\n  {\n    \"id\": 105,\n    \"name\": \"S15P11A502\",\n    \"path\": \"s15p11a502\",\n    \"description\": \"SSAFY A502 Team Workspace\",\n    \"visibility\": \"private\",\n    \"web_url\": \"https://lab.ssafy.com/groups/s15p11a502\"\n  }\n]"
+        }
+      ]
+    },
+    {
+      "name": "22. Retrieve a group",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v4/groups/{{groupId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v4", "groups", "{{groupId}}"]
+        },
+        "description": "특정 그룹의 상세 프로필, 서브그룹 및 프로젝트 정보를 조회한다. 그룹 멤버 (Guest 이상)."
+      },
+      "response": [
+        {
+          "name": "200 OK",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v4/groups/{{groupId}}", "host": ["{{baseUrl}}"], "path": ["api", "v4", "groups", "{{groupId}}"] }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "body": "{\n  \"id\": 105,\n  \"name\": \"S15P11A502\",\n  \"path\": \"s15p11a502\",\n  \"projects\": [\n    {\n      \"id\": 1234,\n      \"name\": \"A502-api\",\n      \"path_with_namespace\": \"s15p11a502/A502-api\"\n    }\n  ]\n}"
+        }
+      ]
+    },
+    {
+      "name": "29. List all projects in a group",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v4/groups/{{groupId}}/projects",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v4", "groups", "{{groupId}}", "projects"],
+          "query": [
+            { "key": "archived", "value": "false", "disabled": true, "description": "아카이브된 프로젝트 포함 여부" },
+            { "key": "include_subgroups", "value": "true", "disabled": true, "description": "하위 서브그룹 내 프로젝트 포함 여부" }
+          ]
+        },
+        "description": "특정 그룹에 속한 모든 프로젝트 목록을 조회한다. archived/include_subgroups로 필터링. 그룹 멤버 (Guest 이상)."
+      },
+      "response": [
+        {
+          "name": "200 OK",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v4/groups/{{groupId}}/projects", "host": ["{{baseUrl}}"], "path": ["api", "v4", "groups", "{{groupId}}", "projects"] }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "body": "[\n  {\n    \"id\": 1234,\n    \"name\": \"A502-api\",\n    \"ssh_url_to_repo\": \"git@lab.ssafy.com:s15p11a502/A502-api.git\",\n    \"http_url_to_repo\": \"https://lab.ssafy.com/s15p11a502/A502-api.git\"\n  }\n]"
+        }
+      ]
+    }
+  ]
+}

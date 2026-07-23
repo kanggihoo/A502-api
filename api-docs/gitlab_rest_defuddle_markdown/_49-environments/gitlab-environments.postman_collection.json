@@ -1,0 +1,179 @@
+{
+  "info": {
+    "name": "GitLab Environments",
+    "_postman_id": "a502-gitlab-environments-49",
+    "description": "GitLab Environments API 모음 (배포 환경 목록/생성/수정/상세 조회).\n\n_49-environments/summary.md에 명시된 API만 포함 (01, 02, 03, 05).\n\n== 필수 환경변수 (Variables 탭에서 입력) ==\n  baseUrl        : https://lab.ssafy.com\n  accessToken    : Bearer 인증용 토큰 (PAT/OAuth2/Project Token 등)\n  projectId      : 프로젝트 ID 또는 URL 인코딩 경로 (예) 1234\n  environmentId  : 환경 ID (예) 10\n\n== 인증 ==\n컬렉션 레벨 Bearer({{accessToken}})로 인증. 토큰값은 Variables 탭에 직접 입력.\n\n== 권한 ==\n조회(List/Retrieve): Guest 이상 / 생성·수정(Create/Update): Developer 이상",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{accessToken}}", "type": "string" }
+    ]
+  },
+  "event": [
+    { "listen": "prerequest", "script": { "type": "text/javascript", "exec": [""] } },
+    { "listen": "test", "script": { "type": "text/javascript", "exec": [""] } }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "https://lab.ssafy.com", "type": "string" },
+    { "key": "accessToken", "value": "PASTE_YOUR_TOKEN_HERE", "type": "string" },
+    { "key": "projectId", "value": "1234", "type": "string" },
+    { "key": "environmentId", "value": "10", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "01. List all environments",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/environments",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v4", "projects", "{{projectId}}", "environments"],
+          "query": [
+            { "key": "name", "value": "production", "disabled": true, "description": "특정 환경 이름 정확한 매칭" },
+            { "key": "search", "value": "prod", "disabled": true, "description": "환경 이름 검색어 (3자 이상)" },
+            { "key": "states", "value": "available", "disabled": true, "description": "상태 필터 (available | stopping | stopped)" },
+            { "key": "page", "value": "1", "disabled": true, "description": "페이지 번호 (기본 1)" },
+            { "key": "per_page", "value": "20", "disabled": true, "description": "페이지당 항목 수 (기본 20)" }
+          ]
+        },
+        "description": "프로젝트에 등록된 모든 배포 환경(Environment) 목록을 조회한다. 환경별 상태, external_url, 최신 배포 기록 포함. name/search/states로 필터링. 프로젝트 멤버 (Guest 이상)."
+      },
+      "response": [
+        {
+          "name": "200 OK",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/environments",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "environments"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "body": "[\n  {\n    \"id\": 10,\n    \"name\": \"production\",\n    \"slug\": \"production\",\n    \"external_url\": \"https://a502.ssafy.io\",\n    \"created_at\": \"2026-07-23T10:00:00Z\",\n    \"tier\": \"production\",\n    \"state\": \"available\",\n    \"last_deployment\": {\n      \"id\": 50,\n      \"iid\": 1,\n      \"ref\": \"main\",\n      \"sha\": \"a1b2c3d4e5f6...\",\n      \"status\": \"success\"\n    }\n  }\n]"
+        }
+      ]
+    },
+    {
+      "name": "02. Create an environment",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"production\",\n  \"external_url\": \"https://a502.ssafy.io\",\n  \"tier\": \"production\",\n  \"description\": \"SSAFY EC2 Main Production Server\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/environments",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v4", "projects", "{{projectId}}", "environments"]
+        },
+        "description": "프로젝트에 신규 배포 환경을 등록한다. name 필수. external_url/tier(production|staging|testing|development|other)/description 설정 가능. 프로젝트 멤버 (Developer 이상)."
+      },
+      "response": [
+        {
+          "name": "201 Created",
+          "originalRequest": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"production\",\n  \"external_url\": \"https://a502.ssafy.io\",\n  \"tier\": \"production\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/environments",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "environments"]
+            }
+          },
+          "status": "Created",
+          "code": 201,
+          "_postman_previewlanguage": "json",
+          "body": "{\n  \"id\": 10,\n  \"name\": \"production\",\n  \"slug\": \"production\",\n  \"external_url\": \"https://a502.ssafy.io\",\n  \"tier\": \"production\",\n  \"state\": \"available\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "03. Update an existing environment",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"production\",\n  \"external_url\": \"https://a502.ssafy.io\",\n  \"description\": \"SSAFY EC2 Main Production Server (updated)\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/environments/{{environmentId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v4", "projects", "{{projectId}}", "environments", "{{environmentId}}"]
+        },
+        "description": "기존 배포 환경의 이름, 외부 URL, 설명 등의 설정을 수정한다. summary.md에 별도 body 명세 없음 — 02번 Create와 동일한 필드 구조로 변경 가능 필드 작성. 프로젝트 멤버 (Developer 이상)."
+      },
+      "response": [
+        {
+          "name": "200 OK",
+          "originalRequest": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"production\",\n  \"external_url\": \"https://a502.ssafy.io\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/environments/{{environmentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "environments", "{{environmentId}}"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "body": "{\n  \"id\": 10,\n  \"name\": \"production\",\n  \"slug\": \"production\",\n  \"external_url\": \"https://a502.ssafy.io\",\n  \"tier\": \"production\",\n  \"state\": \"available\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "05. Retrieve an environment",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/environments/{{environmentId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v4", "projects", "{{projectId}}", "environments", "{{environmentId}}"]
+        },
+        "description": "단일 배포 환경의 상세 정보 및 최신 배포 내역을 조회한다. 프로젝트 멤버 (Guest 이상)."
+      },
+      "response": [
+        {
+          "name": "200 OK",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/environments/{{environmentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "environments", "{{environmentId}}"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "body": "{\n  \"id\": 10,\n  \"name\": \"production\",\n  \"slug\": \"production\",\n  \"external_url\": \"https://a502.ssafy.io\",\n  \"tier\": \"production\",\n  \"state\": \"available\",\n  \"last_deployment\": {\n    \"id\": 50,\n    \"iid\": 1,\n    \"ref\": \"main\",\n    \"sha\": \"a1b2c3d4e5f6...\",\n    \"status\": \"success\"\n  }\n}"
+        }
+      ]
+    }
+  ]
+}

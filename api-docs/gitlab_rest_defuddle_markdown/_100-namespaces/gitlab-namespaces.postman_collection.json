@@ -40,7 +40,15 @@
       "response": [
         {
           "name": "200 OK",
-          "originalRequest": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v4/namespaces/{{namespaceId}}/gitlab_subscription", "host": ["{{baseUrl}}"], "path": ["api", "v4", "namespaces", "{{namespaceId}}", "gitlab_subscription"] } },
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/namespaces/{{namespaceId}}/gitlab_subscription",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "namespaces", "{{namespaceId}}", "gitlab_subscription"]
+            }
+          },
           "status": "OK",
           "code": 200,
           "_postman_previewlanguage": "json",
@@ -63,7 +71,15 @@
       "response": [
         {
           "name": "200 OK",
-          "originalRequest": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v4/namespaces/{{namespaceId}}", "host": ["{{baseUrl}}"], "path": ["api", "v4", "namespaces", "{{namespaceId}}"] } },
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/namespaces/{{namespaceId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "namespaces", "{{namespaceId}}"]
+            }
+          },
           "status": "OK",
           "code": 200,
           "_postman_previewlanguage": "json",
@@ -95,7 +111,15 @@
       "response": [
         {
           "name": "200 OK",
-          "originalRequest": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v4/namespaces", "host": ["{{baseUrl}}"], "path": ["api", "v4", "namespaces"] } },
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/namespaces",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "namespaces"]
+            }
+          },
           "status": "OK",
           "code": 200,
           "_postman_previewlanguage": "json",

@@ -1,0 +1,97 @@
+{
+  "info": {
+    "name": "GitLab Repository Files",
+    "_postman_id": "a502-gitlab-files-57",
+    "description": "GitLab Repository Files API 모음 (파일 Blame 이력 / Raw 원본 다운로드).\n\n_57-files/summary.md에 명시된 API만 포함 (02, 03).\n\n== 필수 환경변수 (Variables 탭에서 입력) ==\n  baseUrl       : https://lab.ssafy.com\n  accessToken   : Bearer 인증용 토큰 (PAT/OAuth2/Project Token 등)\n  projectId     : 프로젝트 ID 또는 URL 인코딩 경로 (예) 1234\n  filePath      : URL 인코딩된 파일 상대 경로 (예) src%2Fmain%2FApp.java\n  ref           : 브랜치명/태그명 또는 커밋 SHA (예) main\n\n== 인증 ==\n컬렉션 레벨 Bearer({{accessToken}})로 인증. 토큰값은 Variables 탭에 직접 입력.\n\n== 번호 매핑 ==\n02 File blame / 03 Raw file download\n\n== 권한 ==\n프로젝트 멤버 (Guest 이상).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{accessToken}}", "type": "string" }
+    ]
+  },
+  "event": [
+    { "listen": "prerequest", "script": { "type": "text/javascript", "exec": [""] } },
+    { "listen": "test", "script": { "type": "text/javascript", "exec": [""] } }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "https://lab.ssafy.com", "type": "string" },
+    { "key": "accessToken", "value": "PASTE_YOUR_TOKEN_HERE", "type": "string" },
+    { "key": "projectId", "value": "1234", "type": "string" },
+    { "key": "filePath", "value": "src%2Fmain%2FApp.java", "type": "string" },
+    { "key": "ref", "value": "main", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "02. Retrieve file blame history from a repository",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/repository/files/{{filePath}}/blame?ref={{ref}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v4", "projects", "{{projectId}}", "repository", "files", "{{filePath}}", "blame"],
+          "query": [
+            { "key": "ref", "value": "{{ref}}", "description": "브랜치명, 태그명 또는 커밋 SHA — 필수" }
+          ]
+        },
+        "description": "저장소 특정 파일의 라인별 Blame(작성자 및 최신 커밋 이력) 히스토리를 조회한다. file_path는 URL 인코딩 필수. ref 필수. 각 라인 그룹별 작성자, 커밋 SHA, 작성 시각, 변경 메시지 포함. 프로젝트 멤버 (Guest 이상)."
+      },
+      "response": [
+        {
+          "name": "200 OK",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/repository/files/{{filePath}}/blame?ref=main",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "repository", "files", "{{filePath}}", "blame"],
+              "query": [{ "key": "ref", "value": "main" }]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "body": "[\n  {\n    \"commit\": {\n      \"id\": \"a1b2c3d4...\",\n      \"title\": \"feat: add user login API\",\n      \"author_name\": \"강기후\",\n      \"authored_date\": \"2026-07-23T10:00:00Z\"\n    },\n    \"lines\": [\n      \"public class App {\",\n      \"    public static void main(String[] args) {\",\n      \"    }\",\n      \"}\"\n    ]\n  }\n]"
+        }
+      ]
+    },
+    {
+      "name": "03. Retrieve a raw file from a repository",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/repository/files/{{filePath}}/raw?ref={{ref}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v4", "projects", "{{projectId}}", "repository", "files", "{{filePath}}", "raw"],
+          "query": [
+            { "key": "ref", "value": "{{ref}}", "description": "브랜치명 또는 커밋 SHA — 필수" }
+          ]
+        },
+        "description": "저장소 특정 파일의 원본 텍스트/바이너리(Raw) 데이터를 다운로드한다. 파일 메타데이터 JSON 래핑 없이 소스코드/이미지 등 원본 파일 내용을 스트림으로 반환. ref 필수. 프로젝트 멤버 (Guest 이상)."
+      },
+      "response": [
+        {
+          "name": "200 OK",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/repository/files/{{filePath}}/raw?ref=main",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "repository", "files", "{{filePath}}", "raw"],
+              "query": [{ "key": "ref", "value": "main" }]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "text",
+          "body": "(raw file content — text or binary stream)"
+        }
+      ]
+    }
+  ]
+}

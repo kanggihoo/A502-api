@@ -1,0 +1,140 @@
+{
+  "info": {
+    "name": "GitLab Events",
+    "_postman_id": "a502-gitlab-events-52",
+    "description": "GitLab Events API 모음 (프로젝트/전역/사용자 기여 이벤트 타임라인 조회).\n\n_52-events/summary.md에 명시된 API만 포함 (01, 02, 03).\n\n== 필수 환경변수 (Variables 탭에서 입력) ==\n  baseUrl       : https://lab.ssafy.com\n  accessToken   : Bearer 인증용 토큰 (PAT/OAuth2/Project Token 등)\n  projectId     : 프로젝트 ID 또는 URL 인코딩 경로 (예) 1234\n  userId        : 사용자 ID (예) 12\n\n== 인증 ==\n컬렉션 레벨 Bearer({{accessToken}})로 인증. 토큰값은 Variables 탭에 직접 입력.\n\n== 번호 매핑 ==\n01 List project events / 02 List all events / 03 List user contribution events\n\n== 권한 ==\n인증된 사용자 (01은 프로젝트 멤버 Guest 이상).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{accessToken}}", "type": "string" }
+    ]
+  },
+  "event": [
+    { "listen": "prerequest", "script": { "type": "text/javascript", "exec": [""] } },
+    { "listen": "test", "script": { "type": "text/javascript", "exec": [""] } }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "https://lab.ssafy.com", "type": "string" },
+    { "key": "accessToken", "value": "PASTE_YOUR_TOKEN_HERE", "type": "string" },
+    { "key": "projectId", "value": "1234", "type": "string" },
+    { "key": "userId", "value": "12", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "01. List all visible events for a project",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/events",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v4", "projects", "{{projectId}}", "events"],
+          "query": [
+            { "key": "action", "value": "pushed", "disabled": true, "description": "이벤트 액션 종류 (created | updated | closed | reopened | pushed | commented | merged | joined | left | destroyed | expired)" },
+            { "key": "target_type", "value": "issue", "disabled": true, "description": "이벤트 대상 유형 (issue | milestone | merge_request | note | project | snippet | user)" },
+            { "key": "before", "value": "2026-07-01", "disabled": true, "description": "이 시각 이전 이벤트만 조회 (YYYY-MM-DD)" },
+            { "key": "after", "value": "2026-07-23", "disabled": true, "description": "이 시각 이후 이벤트만 조회 (YYYY-MM-DD)" },
+            { "key": "sort", "value": "desc", "disabled": true, "description": "정렬 방식 (asc | desc, 기본 desc)" },
+            { "key": "page", "value": "1", "disabled": true, "description": "페이지 번호 (기본 1)" },
+            { "key": "per_page", "value": "20", "disabled": true, "description": "페이지당 항목 수 (기본 20)" }
+          ]
+        },
+        "description": "특정 프로젝트에서 발생한 전체 이벤트(푸시, 이슈 생성/닫기, MR 생성/머지, 댓글 등) 목록을 조회한다. action/target_type/before/after로 필터링. 프로젝트 멤버 (Guest 이상)."
+      },
+      "response": [
+        {
+          "name": "200 OK",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/events",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "events"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "body": "[\n  {\n    \"id\": 1001,\n    \"project_id\": 1234,\n    \"action_name\": \"pushed to\",\n    \"target_id\": null,\n    \"target_type\": null,\n    \"author_id\": 12,\n    \"target_title\": null,\n    \"created_at\": \"2026-07-23T10:00:00Z\",\n    \"author\": {\n      \"id\": 12,\n      \"username\": \"kkh_ssafy\",\n      \"name\": \"강기후\"\n    },\n    \"push_data\": {\n      \"commit_count\": 1,\n      \"action\": \"pushed\",\n      \"ref_type\": \"branch\",\n      \"commit_from\": \"a1b2c3...\",\n      \"commit_to\": \"d4e5f6...\",\n      \"ref\": \"main\"\n    },\n    \"author_username\": \"kkh_ssafy\"\n  }\n]"
+        }
+      ]
+    },
+    {
+      "name": "02. List all events",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v4/events",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v4", "events"],
+          "query": [
+            { "key": "action", "value": "commented", "disabled": true, "description": "이벤트 액션 종류" },
+            { "key": "target_type", "value": "merge_request", "disabled": true, "description": "이벤트 대상 유형" },
+            { "key": "before", "value": "2026-07-23", "disabled": true, "description": "이전 날짜 필터 (YYYY-MM-DD)" },
+            { "key": "after", "value": "2026-07-01", "disabled": true, "description": "이후 날짜 필터 (YYYY-MM-DD)" },
+            { "key": "page", "value": "1", "disabled": true, "description": "페이지 번호 (기본 1)" },
+            { "key": "per_page", "value": "20", "disabled": true, "description": "페이지당 항목 수 (기본 20)" }
+          ]
+        },
+        "description": "인증된 사용자가 접근 가능한 모든 프로젝트의 통합 이벤트 목록을 조회한다. SSAFY 워크스페이스 대시보드 실시간 타임라인 피드 구현에 주로 사용. 인증된 사용자."
+      },
+      "response": [
+        {
+          "name": "200 OK",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/events",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "events"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "body": "[\n  {\n    \"id\": 1002,\n    \"project_id\": 1234,\n    \"action_name\": \"commented on\",\n    \"target_type\": \"Note\",\n    \"author_username\": \"kkh_ssafy\",\n    \"created_at\": \"2026-07-23T10:05:00Z\"\n  }\n]"
+        }
+      ]
+    },
+    {
+      "name": "03. Retrieve contribution events for a user",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v4/users/{{userId}}/events",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v4", "users", "{{userId}}", "events"],
+          "query": [
+            { "key": "action", "value": "pushed", "disabled": true, "description": "액션 필터" },
+            { "key": "target_type", "value": "issue", "disabled": true, "description": "대상 유형 필터" }
+          ]
+        },
+        "description": "특정 사용자가 수행한 기여(Contribution) 이벤트 이력을 조회한다. 프로필 타임라인 잔디 그래프 및 기여 활동(커밋 푸시, 이슈 생성, MR 오픈/머지 등) 내역 포함. 인증된 사용자."
+      },
+      "response": [
+        {
+          "name": "200 OK",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/users/{{userId}}/events",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "users", "{{userId}}", "events"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "body": "[\n  {\n    \"id\": 1003,\n    \"action_name\": \"closed\",\n    \"target_type\": \"Issue\",\n    \"author_username\": \"kkh_ssafy\",\n    \"created_at\": \"2026-07-23T10:10:00Z\"\n  }\n]"
+        }
+      ]
+    }
+  ]
+}

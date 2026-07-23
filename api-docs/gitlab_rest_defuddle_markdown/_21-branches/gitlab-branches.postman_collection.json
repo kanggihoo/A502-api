@@ -1,0 +1,168 @@
+{
+  "info": {
+    "name": "GitLab Branches",
+    "_postman_id": "a502-gitlab-branches-21",
+    "description": "GitLab Branches API 모음 (브랜치 목록/상세 조회, 보호 설정 및 해제).\n\n_21-branches/summary.md에 명시된 API만 포함 (01, 04, 06, 07).\n\n== 필수 환경변수 (Variables 탭에서 입력) ==\n  baseUrl       : https://lab.ssafy.com\n  accessToken   : Bearer 인증용 토큰 (PAT/OAuth2/Project Token 등)\n  projectId     : 프로젝트 ID 또는 URL 인코딩 경로 (예) 1234\n  branchName    : 브랜치 이름 (예) main — URL 인코딩 필요 (예 feature/login → feature%2Flogin)\n\n== 인증 ==\n컬렉션 레벨 Bearer({{accessToken}})로 인증. 토큰값은 Variables 탭에 직접 입력.\n\n== 번호 매핑 ==\n01 List branches / 04 Retrieve branch / 06 Protect branch / 07 Unprotect branch\n\n== 권한 ==\n조회(List/Retrieve): Guest 이상 / 보호 설정(Protect/Unprotect): Maintainer 또는 Owner",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{accessToken}}", "type": "string" }
+    ]
+  },
+  "event": [
+    { "listen": "prerequest", "script": { "type": "text/javascript", "exec": [""] } },
+    { "listen": "test", "script": { "type": "text/javascript", "exec": [""] } }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "https://lab.ssafy.com", "type": "string" },
+    { "key": "accessToken", "value": "PASTE_YOUR_TOKEN_HERE", "type": "string" },
+    { "key": "projectId", "value": "1234", "type": "string" },
+    { "key": "branchName", "value": "main", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "01. List all repository branches",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/repository/branches",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v4", "projects", "{{projectId}}", "repository", "branches"],
+          "query": [
+            { "key": "search", "value": "feature", "disabled": true, "description": "브랜치 이름 검색어" },
+            { "key": "regex", "value": "^feature/.*", "disabled": true, "description": "브랜치 이름 정규식 패턴" },
+            { "key": "sort", "value": "updated_desc", "disabled": true, "description": "정렬 기준 (name_asc | updated_asc | updated_desc)" },
+            { "key": "page", "value": "1", "disabled": true, "description": "페이지 번호 (기본 1)" },
+            { "key": "per_page", "value": "20", "disabled": true, "description": "페이지당 항목 수 (기본 20)" }
+          ]
+        },
+        "description": "프로젝트 저장소의 모든 브랜치 목록을 조회한다. 사전순 정렬. 각 브랜치의 최신 커밋, 머지 여부(merged), 보호 여부(protected), 푸시 가능 여부(can_push) 포함. search/regex/sort로 필터링. 프로젝트 멤버 (Guest 이상)."
+      },
+      "response": [
+        {
+          "name": "200 OK",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/repository/branches",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "repository", "branches"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "body": "[\n  {\n    \"name\": \"main\",\n    \"commit\": {\n      \"id\": \"a1b2c3d4e5f6...\",\n      \"short_id\": \"a1b2c3d4\",\n      \"title\": \"feat: init project structure\",\n      \"author_name\": \"홍길동\",\n      \"created_at\": \"2026-07-23T10:00:00Z\"\n    },\n    \"merged\": false,\n    \"protected\": true,\n    \"developers_can_push\": false,\n    \"developers_can_merge\": true,\n    \"can_push\": true,\n    \"default\": true,\n    \"web_url\": \"https://lab.ssafy.com/my-org/my-project/-/tree/main\"\n  }\n]"
+        }
+      ]
+    },
+    {
+      "name": "04. Retrieve a repository branch",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/repository/branches/{{branchName}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v4", "projects", "{{projectId}}", "repository", "branches", "{{branchName}}"]
+        },
+        "description": "단일 브랜치의 상세 정보 및 최신 Head 커밋 내역을 조회한다. URL 인코딩된 브랜치 이름 지정. 프로젝트 멤버 (Guest 이상)."
+      },
+      "response": [
+        {
+          "name": "200 OK",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/repository/branches/{{branchName}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "repository", "branches", "{{branchName}}"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "body": "{\n  \"name\": \"main\",\n  \"commit\": {\n    \"id\": \"a1b2c3d4e5f6...\",\n    \"title\": \"latest commit\"\n  },\n  \"merged\": false,\n  \"protected\": true,\n  \"default\": true\n}"
+        }
+      ]
+    },
+    {
+      "name": "06. Protect a single branch",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"developers_can_push\": false,\n  \"developers_can_merge\": true\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/repository/branches/{{branchName}}/protect",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v4", "projects", "{{projectId}}", "repository", "branches", "{{branchName}}", "protect"]
+        },
+        "description": "단일 브랜치에 대해 기본적인 보호(Protection) 설정을 적용한다. developers_can_push, developers_can_merge 옵션으로 Developer 역할 권한 제어 가능. 프로젝트 Maintainer / Owner."
+      },
+      "response": [
+        {
+          "name": "200 OK",
+          "originalRequest": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"developers_can_push\": false,\n  \"developers_can_merge\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/repository/branches/{{branchName}}/protect",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "repository", "branches", "{{branchName}}", "protect"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "body": "{\n  \"name\": \"main\",\n  \"protected\": true,\n  \"developers_can_push\": false,\n  \"developers_can_merge\": true\n}"
+        }
+      ]
+    },
+    {
+      "name": "07. Unprotect a single branch",
+      "request": {
+        "method": "PUT",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/repository/branches/{{branchName}}/unprotect",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v4", "projects", "{{projectId}}", "repository", "branches", "{{branchName}}", "unprotect"]
+        },
+        "description": "단일 브랜치의 기본 보호 설정을 해제한다. summary.md에 별도 body 명세 없음 — 본문 없이 PUT 호출. 프로젝트 Maintainer / Owner."
+      },
+      "response": [
+        {
+          "name": "200 OK",
+          "originalRequest": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/repository/branches/{{branchName}}/unprotect",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "repository", "branches", "{{branchName}}", "unprotect"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "body": "{\n  \"name\": \"main\",\n  \"protected\": false\n}"
+        }
+      ]
+    }
+  ]
+}

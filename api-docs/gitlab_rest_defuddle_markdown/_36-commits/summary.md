@@ -227,60 +227,7 @@ Git CLI 클라이언트 통신 없이 REST API를 통해 하나 이상의 파일
 ]
 ```
 
----
-
-## 05. List all commit comments [GET]
-
-### 기본 정보
-
-- **기능:** 특정 커밋에 작성된 인라인 및 일반 댓글(Comment) 목록을 조회한다.
-- **Endpoint:** `GET /api/v4/projects/{id}/repository/commits/{sha}/comments`
-- **인증:** Bearer Token 필요
-
----
-
-## 06. Create a comment on a commit [POST]
-
-### 기본 정보
-
-- **기능:** 특정 커밋 전체 또는 파일의 지정 라인에 인라인 댓글을 등록한다.
-- **Endpoint:** `POST /api/v4/projects/{id}/repository/commits/{sha}/comments`
-- **인증:** Bearer Token 필요
-- **권한:** 프로젝트 멤버 (Guest 이상)
-
-### Request
-
-#### Body
-
-| 필드 | 타입 | 필수 | 설명 | 예시 |
-|---|---|---:|---|---|
-| `note` | string | Y | 댓글 본문 내용 | `Good implementation!` |
-| `path` | string | N | 인라인 댓글 대상 파일 상대 경로 | `src/App.java` |
-| `line` | integer | N | 변경된 코드 라인 번호 | `42` |
-| `line_type` | string | N | 라인 종류 (`new` \| `old`) | `new` |
-
-```json
-{
-  "note": "이 부분의 에러 핸들링 코드를 추가하는 것이 좋겠습니다.",
-  "path": "src/main/java/App.java",
-  "line": 42,
-  "line_type": "new"
-}
-```
-
-### Response
-
-#### `201 Created`
-
-```json
-{
-  "note": "이 부분의 에러 핸들링 코드를 추가하는 것이 좋겠습니다.",
-  "author": { "username": "kkh_ssafy" }
-}
-```
-
----
-
+-
 ## 07. Retrieve a commit sequence [GET]
 
 ### 기본 정보
@@ -289,68 +236,6 @@ Git CLI 클라이언트 통신 없이 REST API를 통해 하나 이상의 파일
 - **Endpoint:** `GET /api/v4/projects/{id}/repository/commits/{sha}/sequence`
 - **인증:** Bearer Token 필요
 
----
-
-## 08. Cherry-pick a commit [POST]
-
-### 기본 정보
-
-- **기능:** 특정 커밋을 대상 브랜치로 체리픽(Cherry-pick) 적용한다.
-- **Endpoint:** `POST /api/v4/projects/{id}/repository/commits/{sha}/cherry_pick`
-- **인증:** Bearer Token 필요
-- **권한:** 프로젝트 멤버 (Developer 이상)
-
-### Request
-
-#### Body
-
-| 필드 | 타입 | 필수 | 설명 | 예시 |
-|---|---|---:|---|---|
-| `branch` | string | Y | 체리픽을 적용할 대상 브랜치명 | `release-v1.0` |
-
-```json
-{
-  "branch": "release-v1.0"
-}
-```
-
-### Response
-
-#### `200 OK`
-
-```json
-{
-  "id": "c3d4e5f6...",
-  "title": "feat: add user login API"
-}
-```
-
----
-
-## 09. Revert a commit [POST]
-
-### 기본 정보
-
-- **기능:** 특정 커밋의 변경사항을 되돌리는 Revert 커밋을 생성한다.
-- **Endpoint:** `POST /api/v4/projects/{id}/repository/commits/{sha}/revert`
-- **인증:** Bearer Token 필요
-- **권한:** 프로젝트 멤버 (Developer 이상)
-
-### Request
-
-#### Body
-
-| 필드 | 타입 | 필수 | 설명 | 예시 |
-|---|---|---:|---|---|
-| `branch` | string | Y | Revert 커밋을 적용할 대상 브랜치명 | `main` |
-
-```json
-{
-  "branch": "main"
-}
-```
-
----
 
 ## 10. List all references a commit is pushed to [GET]
 
@@ -405,25 +290,4 @@ Git CLI 클라이언트 통신 없이 REST API를 통해 하나 이상의 파일
 ]
 ```
 
----
 
-## 12. Retrieve a commit signature [GET]
-
-### 기본 정보
-
-- **기능:** 커밋의 GPG/SSH 서명 및 서명 검증 상태를 조회한다.
-- **Endpoint:** `GET /api/v4/projects/{id}/repository/commits/{sha}/signature`
-- **인증:** Bearer Token 필요
-
-### Response
-
-#### `200 OK`
-
-```json
-{
-  "signature_type": "PGP",
-  "verification_status": "verified",
-  "gpg_key_id": 1,
-  "gpg_key_primary_keyid": "281912A34..."
-}
-```

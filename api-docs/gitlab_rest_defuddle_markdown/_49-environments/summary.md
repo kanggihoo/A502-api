@@ -154,18 +154,6 @@
 - **인증:** Bearer Token 필요
 - **권한:** 프로젝트 멤버 (Developer 이상)
 
----
-
-## 04. Delete an environment [DEL]
-
-### 기본 정보
-
-- **기능:** 지정한 배포 환경을 삭제한다.
-- **Endpoint:** `DELETE /api/v4/projects/{id}/environments/{environment_id}`
-- **인증:** Bearer Token 필요
-- **권한:** 프로젝트 멤버 (Maintainer / Owner)
-
----
 
 ## 05. Retrieve an environment [GET]
 
@@ -176,63 +164,5 @@
 - **인증:** Bearer Token 필요
 - **권한:** 프로젝트 멤버 (Guest 이상)
 
----
 
-## 06. Schedule multiple stopped review apps for deletion [DEL]
-
-### 기본 정보
-
-- **기능:** 중지된 리뷰 앱(Review App) 동적 환경들을 일괄 삭제 스케줄링한다.
-- **Endpoint:** `DELETE /api/v4/projects/{id}/environments/review_apps`
-- **인증:** Bearer Token 필요
-- **권한:** 프로젝트 멤버 (Maintainer / Owner)
-
----
-
-## 07. Stop an environment [POST]
-
-### 기본 정보
-
-- **기능:** 활성화 상태인 특정 배포 환경을 중지(`stopped`) 상태로 변경한다.
-- **Endpoint:** `POST /api/v4/projects/{id}/environments/{environment_id}/stop`
-- **인증:** Bearer Token 필요
-- **권한:** 프로젝트 멤버 (Developer 이상)
-
-### 설명
-
-리뷰 앱이나 테스트 서버와 같은 임시 배포 환경을 사용 완료 후 즉시 수동 중지 상태로 변경합니다.
-
----
-
-## 08. Stop stale environments [POST]
-
-### 기본 정보
-
-- **기능:** 지정한 날짜 이전부터 배포 업데이트가 없는 오래된(Stale) 환경들을 일괄 중지한다.
-- **Endpoint:** `POST /api/v4/projects/{id}/environments/stop_stale`
-- **인증:** Bearer Token 필요
-- **권한:** 프로젝트 멤버 (Maintainer / Owner)
-
-### Request
-
-#### Body
-
-| 필드 | 타입 | 필수 | 설명 | 예시 |
-|---|---|---:|---|---|
-| `before` | string | Y | 이 시각 이전에 업데이트된 환경을 중지 (ISO 8601) | `2026-07-01T00:00:00Z` |
-
-```json
-{
-  "before": "2026-07-01T00:00:00Z"
-}
-```
-
-### Response
-
-#### `200 OK`
-
-```json
-{
-  "message": "200 OK"
-}
 ```

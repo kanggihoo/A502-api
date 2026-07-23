@@ -1,0 +1,182 @@
+{
+  "info": {
+    "name": "GitLab Merge Requests",
+    "_postman_id": "a502-gitlab-merge-requests-93",
+    "description": "GitLab Merge Requests API 모음 (프로젝트 MR 목록/상세/변경사항, 전역·그룹 MR 목록).\n\n_93-merge-requests/summary.md에 명시된 API만 포함.\n- Project MR: 16, 19, 27\n- Global & Group MR: 09, 10\n\n== 필수 환경변수 (Variables 탭에서 입력) ==\n  baseUrl            : https://lab.ssafy.com\n  accessToken        : Bearer 인증용 토큰 (PAT/OAuth2/Project Token 등)\n  projectId          : 프로젝트 ID 또는 URL 인코딩 경로 (예) 1234\n  groupId            : 그룹 ID 또는 URL 인코딩 경로 (예) s15p11a502\n  mergeRequestIid    : Merge Request IID (예) 15\n\n== 인증 ==\n컬렉션 레벨 Bearer({{accessToken}})로 인증. 토큰값은 Variables 탭에 직접 입력.\n\n== 권한 ==\n조회류: 프로젝트 멤버 (Guest 이상) 또는 인증된 사용자",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{accessToken}}", "type": "string" }
+    ]
+  },
+  "event": [
+    { "listen": "prerequest", "script": { "type": "text/javascript", "exec": [""] } },
+    { "listen": "test", "script": { "type": "text/javascript", "exec": [""] } }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "https://lab.ssafy.com", "type": "string" },
+    { "key": "accessToken", "value": "PASTE_YOUR_TOKEN_HERE", "type": "string" },
+    { "key": "projectId", "value": "1234", "type": "string" },
+    { "key": "groupId", "value": "s15p11a502", "type": "string" },
+    { "key": "mergeRequestIid", "value": "15", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Project Merge Requests (16, 19, 27)",
+      "description": "프로젝트 범위 MR 목록/상세/변경사항 조회.",
+      "item": [
+        {
+          "name": "16. List all project merge requests",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/merge_requests",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "merge_requests"],
+              "query": [
+                { "key": "state", "value": "opened", "disabled": true, "description": "MR 상태 (opened | closed | locked | merged | all, 기본 opened)" },
+                { "key": "search", "value": "login", "disabled": true, "description": "제목/설명 키워드 검색어" },
+                { "key": "author_id", "value": "12", "disabled": true, "description": "작성자 유저 ID" },
+                { "key": "assignee_id", "value": "15", "disabled": true, "description": "담당자 유저 ID" },
+                { "key": "page", "value": "1", "disabled": true, "description": "페이지 번호 (기본 1)" },
+                { "key": "per_page", "value": "20", "disabled": true, "description": "페이지당 항목 수 (기본 20)" }
+              ]
+            },
+            "description": "특정 프로젝트의 MR 목록을 조회한다. state/search/author_id/assignee_id로 필터링. 프로젝트 멤버 (Guest 이상)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/merge_requests", "host": ["{{baseUrl}}"], "path": ["api", "v4", "projects", "{{projectId}}", "merge_requests"] }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "[\n  {\n    \"id\": 102,\n    \"iid\": 15,\n    \"project_id\": 1234,\n    \"title\": \"Resolve user login API issue\",\n    \"state\": \"opened\",\n    \"author\": { \"id\": 12, \"username\": \"kkh_ssafy\" },\n    \"web_url\": \"https://lab.ssafy.com/s15p11a502/A502-api/-/merge_requests/15\"\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "19. Retrieve a merge request",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/merge_requests/{{mergeRequestIid}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "merge_requests", "{{mergeRequestIid}}"]
+            },
+            "description": "특정 MR 단일 항목의 상세 정보 및 머지 가능 상태를 조회한다. 프로젝트 멤버 (Guest 이상)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/merge_requests/{{mergeRequestIid}}", "host": ["{{baseUrl}}"], "path": ["api", "v4", "projects", "{{projectId}}", "merge_requests", "{{mergeRequestIid}}"] }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": 102,\n  \"iid\": 15,\n  \"project_id\": 1234,\n  \"title\": \"Resolve user login API issue\",\n  \"state\": \"opened\",\n  \"merge_status\": \"can_be_merged\",\n  \"author\": { \"id\": 12, \"username\": \"kkh_ssafy\" },\n  \"source_branch\": \"feature/login\",\n  \"target_branch\": \"main\",\n  \"web_url\": \"https://lab.ssafy.com/s15p11a502/A502-api/-/merge_requests/15\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "27. Retrieve merge request changes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/merge_requests/{{mergeRequestIid}}/changes",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "merge_requests", "{{mergeRequestIid}}", "changes"]
+            },
+            "description": "MR의 전체 변경된 소스코드 패치 Diff 및 추가/삭제 파일 목록을 조회한다. 프로젝트 멤버 (Guest 이상)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/merge_requests/{{mergeRequestIid}}/changes", "host": ["{{baseUrl}}"], "path": ["api", "v4", "projects", "{{projectId}}", "merge_requests", "{{mergeRequestIid}}", "changes"] }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": 102,\n  \"iid\": 15,\n  \"changes\": [\n    {\n      \"old_path\": \"src/Login.java\",\n      \"new_path\": \"src/Login.java\",\n      \"new_file\": false,\n      \"renamed_file\": false,\n      \"deleted_file\": false,\n      \"diff\": \"@@ -1,3 +1,5 @@\\n+import auth;\\n\"\n    }\n  ]\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Global & Group Merge Requests (09, 10)",
+      "description": "접근 가능한 전체 프로젝트 통합 MR 목록 및 특정 그룹 범위 MR 목록 조회.",
+      "item": [
+        {
+          "name": "09. List all merge requests (global)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/merge_requests",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "merge_requests"]
+            },
+            "description": "접근 가능한 전체 프로젝트 통합 MR 목록을 조회한다. 인증된 사용자."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{baseUrl}}/api/v4/merge_requests", "host": ["{{baseUrl}}"], "path": ["api", "v4", "merge_requests"] }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "[\n  {\n    \"id\": 102,\n    \"iid\": 15,\n    \"project_id\": 1234,\n    \"title\": \"Resolve user login API issue\",\n    \"state\": \"opened\"\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "10. List all merge requests in a group",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/groups/{{groupId}}/merge_requests",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "groups", "{{groupId}}", "merge_requests"]
+            },
+            "description": "특정 그룹 범위 내 모든 MR 목록을 조회한다. 인증된 사용자."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{baseUrl}}/api/v4/groups/{{groupId}}/merge_requests", "host": ["{{baseUrl}}"], "path": ["api", "v4", "groups", "{{groupId}}", "merge_requests"] }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "[\n  {\n    \"id\": 102,\n    \"iid\": 15,\n    \"project_id\": 1234,\n    \"title\": \"Resolve user login API issue\",\n    \"state\": \"opened\"\n  }\n]"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

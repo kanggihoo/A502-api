@@ -98,14 +98,6 @@ SSAFY 팀 프로젝트 확정 시 팀원들의 유저 ID(`user_id`)를 지정하
 
 ---
 
-## 05, 06. Group Member Update & Removal (PUT, DEL)
-
-- **Endpoints:**
-  - `PUT /api/v4/groups/{id}/members/{user_id}`: 기존 그룹 멤버의 역할 권한 레벨(`access_level`) 또는 만료일 수정
-  - `DELETE /api/v4/groups/{id}/members/{user_id}`: 그룹에서 해당 멤버 제명/삭제
-
----
-
 ## 10. List all members of a project [GET]
 
 ### 기본 정보
@@ -115,29 +107,9 @@ SSAFY 팀 프로젝트 확정 시 팀원들의 유저 ID(`user_id`)를 지정하
 - **인증:** Bearer Token 필요
 - **권한:** 프로젝트 멤버 (Guest 이상)
 
----
 
-## 09. Add a member to a project [POST]
-
-### 기본 정보
-
-- **기능:** 프로젝트 저장소에 새로운 팀원을 멤버로 추가한다.
-- **Endpoint:** `POST /api/v4/projects/{id}/members`
-- **인증:** Bearer Token 필요
-- **권한:** 프로젝트 Maintainer / Owner
-
-### Request
-
-#### Body
-| 필드 | 타입 | 필수 | 설명 | 예시 |
-|---|---|---:|---|---|
-| `user_id` | string/integer | Y | 대상 유저 ID | `12` |
-| `access_level` | integer | Y | 권한 레벨 (30:Developer, 40:Maintainer) | `40` |
-
----
-
-## 12, 13. Project Member Update & Removal (PUT, DEL)
+## 12, 13. Project Member Update & Removal (PUT)
 
 - **Endpoints:**
   - `PUT /api/v4/projects/{id}/members/{user_id}`: 프로젝트 멤버의 권한 레벨(`access_level`) 변경
-  - `DELETE /api/v4/projects/{id}/members/{user_id}`: 프로젝트에서 해당 멤버 삭제/제명
+

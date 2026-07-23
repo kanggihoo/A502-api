@@ -1,0 +1,272 @@
+{
+  "info": {
+    "name": "GitLab Webhooks & Hooks",
+    "_postman_id": "a502-gitlab-hooks-68",
+    "description": "GitLab Project Webhooks API 모음 (웹훅 CRUD / 테스트 / 로그 / 재전송).\n\n_68-hooks/summary.md에 명시된 API만 포함.\n- 27 ~ 31 Project Webhooks Management (List/Create/Retrieve/Update/Delete)\n- 32 ~ 34 Project Webhook Testing & Log (Events/Test/Resend)\n\n== 필수 환경변수 (Variables 탭에서 입력) ==\n  baseUrl       : https://lab.ssafy.com\n  accessToken   : Bearer 인증용 토큰 (PAT/OAuth2/Project Token 등)\n  projectId     : 프로젝트 ID 또는 URL 인코딩 경로 (예) 1234\n  hookId        : 웹훅 ID\n  trigger       : 테스트 트리거 종류 (push | tag_push | issue | merge_request | wiki | pipeline | job)\n  eventId       : 웹훅 이벤트 ID\n\n== 인증 ==\n컬렉션 레벨 Bearer({{accessToken}})로 인증. 토큰값은 Variables 탭에 직접 입력.\n\n== 권한 ==\n프로젝트 Maintainer / Owner",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{accessToken}}", "type": "string" }
+    ]
+  },
+  "event": [
+    { "listen": "prerequest", "script": { "type": "text/javascript", "exec": [""] } },
+    { "listen": "test", "script": { "type": "text/javascript", "exec": [""] } }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "https://lab.ssafy.com", "type": "string" },
+    { "key": "accessToken", "value": "PASTE_YOUR_TOKEN_HERE", "type": "string" },
+    { "key": "projectId", "value": "1234", "type": "string" },
+    { "key": "hookId", "value": "101", "type": "string" },
+    { "key": "trigger", "value": "push", "type": "string" },
+    { "key": "eventId", "value": "1", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Project Webhooks Management (27 ~ 31)",
+      "description": "프로젝트 레벨 웹훅 CRUD. 이벤트(Push/Issue/MR/Pipeline/Job/Tag Push/Wiki) 구독 옵션 설정. 프로젝트 Maintainer / Owner.",
+      "item": [
+        {
+          "name": "27. List all project webhooks",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/hooks",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "hooks"]
+            },
+            "description": "프로젝트에 등록된 웹훅 목록을 조회한다. 프로젝트 Maintainer / Owner."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/hooks", "host": ["{{baseUrl}}"], "path": ["api", "v4", "projects", "{{projectId}}", "hooks"] }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "[\n  {\n    \"id\": 101,\n    \"url\": \"https://api.ssafy.io/v1/gitlab/webhooks\",\n    \"project_id\": 1234,\n    \"push_events\": true,\n    \"merge_requests_events\": true,\n    \"job_events\": true,\n    \"active\": true,\n    \"created_at\": \"2026-07-23T10:00:00Z\"\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "28. Create a project webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"url\": \"https://api.ssafy.io/v1/gitlab/webhooks\",\n  \"push_events\": true,\n  \"merge_requests_events\": true,\n  \"job_events\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/hooks",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "hooks"]
+            },
+            "description": "프로젝트 웹훅을 등록한다. url 필수. push_events/merge_requests_events/job_events 등 이벤트 구독 옵션 설정. 프로젝트 Maintainer / Owner."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"url\": \"https://api.ssafy.io/v1/gitlab/webhooks\",\n  \"push_events\": true\n}" },
+                "url": { "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/hooks", "host": ["{{baseUrl}}"], "path": ["api", "v4", "projects", "{{projectId}}", "hooks"] }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": 101,\n  \"url\": \"https://api.ssafy.io/v1/gitlab/webhooks\",\n  \"project_id\": 1234,\n  \"push_events\": true,\n  \"merge_requests_events\": true\n}"
+            }
+          ]
+        },
+        {
+          "name": "29. Retrieve a project webhook",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/hooks/{{hookId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "hooks", "{{hookId}}"]
+            },
+            "description": "단일 프로젝트 웹훅 상세 정보를 조회한다. 프로젝트 Maintainer / Owner."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/hooks/{{hookId}}", "host": ["{{baseUrl}}"], "path": ["api", "v4", "projects", "{{projectId}}", "hooks", "{{hookId}}"] }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": 101,\n  \"url\": \"https://api.ssafy.io/v1/gitlab/webhooks\",\n  \"project_id\": 1234,\n  \"push_events\": true,\n  \"merge_requests_events\": true\n}"
+            }
+          ]
+        },
+        {
+          "name": "30. Update a project webhook",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"url\": \"https://api.ssafy.io/v1/gitlab/webhooks\",\n  \"push_events\": true,\n  \"merge_requests_events\": false,\n  \"job_events\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/hooks/{{hookId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "hooks", "{{hookId}}"]
+            },
+            "description": "프로젝트 웹훅 설정을 수정한다. summary.md에 별도 body 명세 없음 — 28번 Create와 동일한 필드 구조로 작성. 프로젝트 Maintainer / Owner."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"url\": \"https://api.ssafy.io/v1/gitlab/webhooks\",\n  \"push_events\": true\n}" },
+                "url": { "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/hooks/{{hookId}}", "host": ["{{baseUrl}}"], "path": ["api", "v4", "projects", "{{projectId}}", "hooks", "{{hookId}}"] }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": 101,\n  \"url\": \"https://api.ssafy.io/v1/gitlab/webhooks\",\n  \"push_events\": true,\n  \"merge_requests_events\": false,\n  \"job_events\": true\n}"
+            }
+          ]
+        },
+        {
+          "name": "31. Delete a project webhook",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/hooks/{{hookId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "hooks", "{{hookId}}"]
+            },
+            "description": "프로젝트 웹훅을 삭제한다. 프로젝트 Maintainer / Owner."
+          },
+          "response": [
+            {
+              "name": "204 No Content",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [],
+                "url": { "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/hooks/{{hookId}}", "host": ["{{baseUrl}}"], "path": ["api", "v4", "projects", "{{projectId}}", "hooks", "{{hookId}}"] }
+              },
+              "status": "No Content",
+              "code": 204,
+              "_postman_previewlanguage": "text",
+              "body": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Project Webhook Testing & Log (32 ~ 34)",
+      "description": "프로젝트 웹훅 전송 이벤트 로그 조회, 테스트 실행, 실패 이벤트 재전송. 프로젝트 Maintainer / Owner.",
+      "item": [
+        {
+          "name": "32. List webhook events (logs)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/hooks/{{hookId}}/events",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "hooks", "{{hookId}}", "events"]
+            },
+            "description": "프로젝트 웹훅 전송 이벤트 록(log) 목록을 조회한다. 프로젝트 Maintainer / Owner."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/hooks/{{hookId}}/events", "host": ["{{baseUrl}}"], "path": ["api", "v4", "projects", "{{projectId}}", "hooks", "{{hookId}}", "events"] }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "[\n  {\n    \"id\": 1,\n    \"event_type\": \"push\",\n    \"status\": \"success\",\n    \"created_at\": \"2026-07-23T10:00:00Z\"\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "33. Test a project webhook",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/hooks/{{hookId}}/test/{{trigger}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "hooks", "{{hookId}}", "test", "{{trigger}}"]
+            },
+            "description": "프로젝트 테스트 웹훅을 실행한다. trigger 경로에 push|tag_push|issue|merge_request|wiki|pipeline|job 중 하나 지정. 프로젝트 Maintainer / Owner."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": { "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/hooks/{{hookId}}/test/push", "host": ["{{baseUrl}}"], "path": ["api", "v4", "projects", "{{projectId}}", "hooks", "{{hookId}}", "test", "push"] }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"message\": \"Test webhook executed\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "34. Resend a webhook event",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/hooks/{{hookId}}/events/{{eventId}}/resend",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "hooks", "{{hookId}}", "events", "{{eventId}}", "resend"]
+            },
+            "description": "프로젝트 웹훅 이벤트를 재전송한다. 실패한 이벤트 재시도에 사용. 프로젝트 Maintainer / Owner."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": { "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/hooks/{{hookId}}/events/{{eventId}}/resend", "host": ["{{baseUrl}}"], "path": ["api", "v4", "projects", "{{projectId}}", "hooks", "{{hookId}}", "events", "{{eventId}}", "resend"] }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"message\": \"Webhook event resend queued\"\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

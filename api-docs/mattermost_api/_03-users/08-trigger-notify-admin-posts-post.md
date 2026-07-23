@@ -1,3 +1,11 @@
+# 08-Trigger notify-admin posts [POST]
+
+`POST /api/v4/users/trigger-notify-admin-posts`
+
+Trigger admin notification posts manually when enabled by configuration.
+
+
+
 ### Request Body (application/json)
 
 ```json
@@ -9,7 +17,7 @@
 ```
 ### Responses
 
-#### 200 - Notify-admin request saved
+#### 200 - Notify-admin posts triggered successfully
 
 Schema (application/json):
 ```json
@@ -21,4 +29,6 @@ Schema (application/json):
 #### 400 - 
 
 #### 401 - 
+
+#### 403 - 
 

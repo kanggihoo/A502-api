@@ -1,0 +1,108 @@
+{
+  "info": {
+    "name": "GitLab Commit Statuses",
+    "_postman_id": "a502-gitlab-commit-statuses-35",
+    "description": "GitLab Commit Statuses API 모음 (외부 CI와 연동한 커밋 빌드 상태 조회/등록).\n\n_35-commit-statuses/summary.md에 명시된 API만 포함 (01, 02).\n\n== 필수 환경변수 (Variables 탭에서 입력) ==\n  baseUrl       : https://lab.ssafy.com\n  accessToken   : Bearer 인증용 토큰 (PAT/OAuth2/Project Token 등)\n  projectId     : 프로젝트 ID 또는 URL 인코딩 경로 (예) 1234\n  commitSha     : 대상 커밋 SHA 해시값\n\n== 인증 ==\n컬렉션 레벨 Bearer({{accessToken}})로 인증. 토큰값은 Variables 탭에 직접 입력.\n\n== 번호 매핑 ==\n01 List all commit statuses (GET) / 02 Create or update a commit pipeline status (POST)\n\n== 사용 맥락 ==\nSSAFY 환경 EC2 t3.xlarge 의 Jenkins 빌드 후 GitLab 커밋 상태를 갱신(02)하거나,\n특정 커밋의 빌드 상태 이력을 조회(01)할 때 사용.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{accessToken}}", "type": "string" }
+    ]
+  },
+  "event": [
+    { "listen": "prerequest", "script": { "type": "text/javascript", "exec": [""] } },
+    { "listen": "test", "script": { "type": "text/javascript", "exec": [""] } }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "https://lab.ssafy.com", "type": "string" },
+    { "key": "accessToken", "value": "PASTE_YOUR_TOKEN_HERE", "type": "string" },
+    { "key": "projectId", "value": "1234", "type": "string" },
+    { "key": "commitSha", "value": "a1b2c3d4e5f6g7h8", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "01. List all commit statuses",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/repository/commits/{{commitSha}}/statuses",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v4", "projects", "{{projectId}}", "repository", "commits", "{{commitSha}}", "statuses"],
+          "query": [
+            { "key": "ref", "value": "main", "disabled": true, "description": "대상 브랜치명 또는 태그명 (기본: default branch)" },
+            { "key": "stage", "value": "test", "disabled": true, "description": "빌드 스테이지 필터 (build | test | deploy)" },
+            { "key": "name", "value": "jenkins-build", "disabled": true, "description": "잡(Job) 이름 필터" },
+            { "key": "pipeline_id", "value": "567", "disabled": true, "description": "파이프라인 ID 필터" },
+            { "key": "all", "value": "false", "disabled": true, "description": "최신 상태만(false) 또는 전체 히스토리 포함(true), 기본 false" },
+            { "key": "page", "value": "1", "disabled": true, "description": "페이지 번호 (기본 1)" },
+            { "key": "per_page", "value": "20", "disabled": true, "description": "페이지당 항목 수 (기본 20)" }
+          ]
+        },
+        "description": "특정 커밋 SHA에 대한 모든 파이프라인/빌드 상태(Status) 목록을 조회한다. pending/running/success/failed/canceled/skipped 상태값 포함. all=true 옵션으로 전체 히스토리 조회 가능. 프로젝트 멤버 (Guest 이상)."
+      },
+      "response": [
+        {
+          "name": "200 OK",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/repository/commits/{{commitSha}}/statuses",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "repository", "commits", "{{commitSha}}", "statuses"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "body": "[\n  {\n    \"id\": 890,\n    \"sha\": \"a1b2c3d4e5f6...\",\n    \"ref\": \"main\",\n    \"status\": \"success\",\n    \"name\": \"jenkins/build\",\n    \"target_url\": \"https://jenkins.example.com/job/my-app/12/\",\n    \"description\": \"Jenkins build succeeded\",\n    \"created_at\": \"2026-07-23T10:00:00Z\",\n    \"started_at\": \"2026-07-23T10:00:05Z\",\n    \"finished_at\": \"2026-07-23T10:02:30Z\",\n    \"allow_failure\": false,\n    \"coverage\": 85.5,\n    \"pipeline_id\": 567\n  }\n]"
+        }
+      ]
+    },
+    {
+      "name": "02. Create or update a commit pipeline status",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"state\": \"success\",\n  \"ref\": \"main\",\n  \"name\": \"jenkins/build\",\n  \"target_url\": \"https://jenkins.ssafy.com/job/A502/15\",\n  \"description\": \"Jenkins build #15 succeeded\",\n  \"coverage\": 88.5\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/statuses/{{commitSha}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v4", "projects", "{{projectId}}", "statuses", "{{commitSha}}"]
+        },
+        "description": "외부 CI 도구(Jenkins 등)에서 특정 커밋의 파이프라인 빌드 상태를 등록하거나 업데이트한다. state 필수 (pending | running | success | failed | canceled | skipped). target_url/description/coverage/ref/name 등 부가 정보 설정 가능. 프로젝트 멤버 (Developer 이상). SSAFY EC2 Jenkins 빌드 후 GitLab 커밋 상태 갱신에 필수."
+      },
+      "response": [
+        {
+          "name": "200 OK",
+          "originalRequest": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"state\": \"success\",\n  \"ref\": \"main\",\n  \"name\": \"jenkins/build\",\n  \"target_url\": \"https://jenkins.ssafy.com/job/A502/15\",\n  \"description\": \"Jenkins build #15 succeeded\",\n  \"coverage\": 88.5\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/statuses/{{commitSha}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "statuses", "{{commitSha}}"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "body": "{\n  \"id\": 891,\n  \"sha\": \"a1b2c3d4e5f6...\",\n  \"ref\": \"main\",\n  \"status\": \"success\",\n  \"name\": \"jenkins/build\",\n  \"target_url\": \"https://jenkins.ssafy.com/job/A502/15\",\n  \"description\": \"Jenkins build #15 succeeded\",\n  \"created_at\": \"2026-07-23T10:05:00Z\",\n  \"finished_at\": \"2026-07-23T10:07:30Z\",\n  \"coverage\": 88.5\n}"
+        }
+      ]
+    }
+  ]
+}

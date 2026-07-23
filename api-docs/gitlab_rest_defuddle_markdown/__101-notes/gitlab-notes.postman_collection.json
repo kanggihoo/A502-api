@@ -1,0 +1,1273 @@
+{
+  "info": {
+    "name": "GitLab Notes",
+    "_postman_id": "a502-gitlab-notes-001",
+    "description": "GitLab Notes API 모음 (이슈/MR/스니펫/위키/에픽/취약점/그룹위키 댓글).\n\n_101-notes/summary.md에 명시된 API만 포함 (01 ~ 35, 총 35개).\n\n== 필수 환경변수 (Variables 탭에서 입력) ==\n  baseUrl       : https://lab.ssafy.com\n  accessToken   : Bearer 인증용 토큰 (PAT/OAuth2/Project Token 등)\n  projectId     : 프로젝트 ID 또는 URL 인코딩 경로 (예) 1234\n  groupId       : 그룹 ID 또는 경로 (예) my-group\n  noteableId    : 대상 리소스 ID (이슈/MR/스니펫/위키/에픽/취약점 ID)\n  noteId        : 댓글(Note) ID\n\n== 인증 ==\n컬렉션 레벨 Bearer({{accessToken}})로 인증. 토큰값은 Variables 탭에 직접 입력.\n\n== 번호 매핑 ==\n01-05 Issue notes / 06-10 Merge request notes / 11-15 Snippet notes\n16-20 Project wiki page meta notes / 21-25 Epic notes\n26-30 Vulnerability notes / 31-35 Group wiki page meta notes",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{accessToken}}", "type": "string" }
+    ]
+  },
+  "event": [
+    { "listen": "prerequest", "script": { "type": "text/javascript", "exec": [""] } },
+    { "listen": "test", "script": { "type": "text/javascript", "exec": [""] } }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "https://lab.ssafy.com", "type": "string" },
+    { "key": "accessToken", "value": "PASTE_YOUR_TOKEN_HERE", "type": "string" },
+    { "key": "projectId", "value": "1234", "type": "string" },
+    { "key": "groupId", "value": "my-group", "type": "string" },
+    { "key": "noteableId", "value": "567", "type": "string" },
+    { "key": "noteId", "value": "1001", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Issue Notes (01-05)",
+      "item": [
+        {
+          "name": "01. Get a list of issue notes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/issues/{{noteableId}}/notes",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "issues", "{{noteableId}}", "notes"],
+              "query": [
+                { "key": "order_by", "value": "created_at", "disabled": true, "description": "정렬 기준 (created_at 또는 updated_at, 기본 created_at)" },
+                { "key": "sort", "value": "desc", "disabled": true, "description": "정렬 방식 (asc 또는 desc, 기본 desc)" },
+                { "key": "activity_filter", "value": "all", "disabled": true, "description": "활동 타입 필터" },
+                { "key": "page", "value": "1", "disabled": true, "description": "페이지 번호 (기본 1)" },
+                { "key": "per_page", "value": "20", "disabled": true, "description": "페이지당 항목 수 (기본 20)" }
+              ]
+            },
+            "description": "특정 이슈(Issue)에 작성된 댓글(Note) 목록을 조회한다. 프로젝트 멤버 (Guest 이상)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/issues/{{noteableId}}/notes",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "projects", "{{projectId}}", "issues", "{{noteableId}}", "notes"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "[\n  {\n    \"id\": 1001,\n    \"body\": \"이슈 확인하였습니다. 수정 진행할게요.\",\n    \"author\": {\n      \"id\": 12,\n      \"username\": \"user1\",\n      \"name\": \"홍길동\"\n    },\n    \"created_at\": \"2026-07-23T10:00:00Z\",\n    \"system\": false,\n    \"internal\": false\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "02. Create a new issue note",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"수정 완료되었습니다.\",\n  \"internal\": false\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/issues/{{noteableId}}/notes",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "issues", "{{noteableId}}", "notes"]
+            },
+            "description": "특정 이슈(Issue)에 새로운 댓글(Note)을 등록한다. body 필수. 프로젝트 멤버 (Reporter 이상)."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"body\": \"수정 완료되었습니다.\",\n  \"internal\": false\n}" },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/issues/{{noteableId}}/notes",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "projects", "{{projectId}}", "issues", "{{noteableId}}", "notes"]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": 1002,\n  \"body\": \"수정 완료되었습니다.\",\n  \"noteable_id\": 567,\n  \"created_at\": \"2026-07-23T10:05:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "03. Get a single issue note",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/issues/{{noteableId}}/notes/{{noteId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "issues", "{{noteableId}}", "notes", "{{noteId}}"]
+            },
+            "description": "특정 이슈의 단일 댓글(Note) 상세 정보를 조회한다. 프로젝트 멤버 (Guest 이상)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/issues/{{noteableId}}/notes/{{noteId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "projects", "{{projectId}}", "issues", "{{noteableId}}", "notes", "{{noteId}}"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": 1001,\n  \"body\": \"이슈 확인하였습니다.\",\n  \"author\": {\n    \"id\": 12,\n    \"username\": \"user1\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "04. Update an existing issue note",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"수정된 댓글 내용입니다.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/issues/{{noteableId}}/notes/{{noteId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "issues", "{{noteableId}}", "notes", "{{noteId}}"]
+            },
+            "description": "특정 이슈 댓글(Note)의 본문을 수정한다. body 필수. 댓글 작성자 또는 프로젝트 Maintainer 이상."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"body\": \"수정된 댓글 내용입니다.\"\n}" },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/issues/{{noteableId}}/notes/{{noteId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "projects", "{{projectId}}", "issues", "{{noteableId}}", "notes", "{{noteId}}"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": 1001,\n  \"body\": \"수정된 댓글 내용입니다.\",\n  \"updated_at\": \"2026-07-23T10:10:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "05. Delete a issue note",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/issues/{{noteableId}}/notes/{{noteId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "issues", "{{noteableId}}", "notes", "{{noteId}}"]
+            },
+            "description": "특정 이슈 댓글(Note)을 삭제한다. 삭제 후 복구 불가. 댓글 작성자 또는 프로젝트 Owner/Maintainer."
+          },
+          "response": [
+            {
+              "name": "204 No Content",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/issues/{{noteableId}}/notes/{{noteId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "projects", "{{projectId}}", "issues", "{{noteableId}}", "notes", "{{noteId}}"]
+                }
+              },
+              "status": "No Content",
+              "code": 204,
+              "_postman_previewlanguage": "text",
+              "body": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Merge Request Notes (06-10)",
+      "item": [
+        {
+          "name": "06. Get a list of merge request notes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/merge_requests/{{noteableId}}/notes",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "merge_requests", "{{noteableId}}", "notes"],
+              "query": [
+                { "key": "order_by", "value": "created_at", "disabled": true, "description": "정렬 기준 (기본 created_at)" },
+                { "key": "sort", "value": "desc", "disabled": true, "description": "정렬 순서 (기본 desc)" },
+                { "key": "page", "value": "1", "disabled": true, "description": "페이지 번호 (기본 1)" },
+                { "key": "per_page", "value": "20", "disabled": true, "description": "페이지당 항목 수 (기본 20)" }
+              ]
+            },
+            "description": "특정 머지 리퀘스트(MR)에 작성된 댓글 목록을 조회한다. 프로젝트 멤버 (Developer 이상)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/merge_requests/{{noteableId}}/notes",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "projects", "{{projectId}}", "merge_requests", "{{noteableId}}", "notes"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "[\n  {\n    \"id\": 2001,\n    \"body\": \"코드 리뷰 반영 요청드립니다.\",\n    \"author\": {\n      \"id\": 15,\n      \"username\": \"reviewer1\"\n    }\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "07. Create a new merge request note",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"LGTM! 승인합니다.\",\n  \"internal\": false\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/merge_requests/{{noteableId}}/notes",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "merge_requests", "{{noteableId}}", "notes"]
+            },
+            "description": "특정 머지 리퀘스트(MR)에 새 댓글을 추가한다. body 필수. 프로젝트 멤버 (Developer 이상)."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"body\": \"LGTM! 승인합니다.\"\n}" },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/merge_requests/{{noteableId}}/notes",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "projects", "{{projectId}}", "merge_requests", "{{noteableId}}", "notes"]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": 2002,\n  \"body\": \"LGTM! 승인합니다.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "08. Get a single merge request note",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/merge_requests/{{noteableId}}/notes/{{noteId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "merge_requests", "{{noteableId}}", "notes", "{{noteId}}"]
+            },
+            "description": "머지 리퀘스트(MR)의 단일 댓글 상세 정보를 조회한다. 프로젝트 멤버 (Developer 이상)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/merge_requests/{{noteableId}}/notes/{{noteId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "projects", "{{projectId}}", "merge_requests", "{{noteableId}}", "notes", "{{noteId}}"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": 2001,\n  \"body\": \"코드 리뷰 반영 요청드립니다.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "09. Update an existing merge request note",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"내용 수정되었습니다.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/merge_requests/{{noteableId}}/notes/{{noteId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "merge_requests", "{{noteableId}}", "notes", "{{noteId}}"]
+            },
+            "description": "기존 머지 리퀘스트(MR) 댓글을 수정한다. body 필수. 작성자 본인 또는 Maintainer 이상."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"body\": \"내용 수정되었습니다.\"\n}" },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/merge_requests/{{noteableId}}/notes/{{noteId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "projects", "{{projectId}}", "merge_requests", "{{noteableId}}", "notes", "{{noteId}}"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": 2001,\n  \"body\": \"내용 수정되었습니다.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "10. Delete a merge request note",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/merge_requests/{{noteableId}}/notes/{{noteId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "merge_requests", "{{noteableId}}", "notes", "{{noteId}}"]
+            },
+            "description": "머지 리퀘스트(MR) 댓글을 삭제한다. 작성자 본인 또는 Maintainer 이상."
+          },
+          "response": [
+            {
+              "name": "204 No Content",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/merge_requests/{{noteableId}}/notes/{{noteId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "projects", "{{projectId}}", "merge_requests", "{{noteableId}}", "notes", "{{noteId}}"]
+                }
+              },
+              "status": "No Content",
+              "code": 204,
+              "_postman_previewlanguage": "text",
+              "body": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Snippet Notes (11-15)",
+      "item": [
+        {
+          "name": "11. Get a list of snippet notes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/snippets/{{noteableId}}/notes",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "snippets", "{{noteableId}}", "notes"]
+            },
+            "description": "프로젝트 스니펫(Snippet)에 등록된 댓글 목록을 조회한다. 스니펫 접근 권한이 있는 사용자."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/snippets/{{noteableId}}/notes",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "projects", "{{projectId}}", "snippets", "{{noteableId}}", "notes"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "[\n  {\n    \"id\": 3001,\n    \"body\": \"유용한 스니펫이네요!\"\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "12. Create a new snippet note",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"감사합니다. 잘 쓰겠습니다.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/snippets/{{noteableId}}/notes",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "snippets", "{{noteableId}}", "notes"]
+            },
+            "description": "프로젝트 스니펫(Snippet)에 새 댓글을 추가한다. body 필수. 스니펫 접근 및 작성 권한이 있는 사용자."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"body\": \"감사합니다. 잘 쓰겠습니다.\"\n}" },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/snippets/{{noteableId}}/notes",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "projects", "{{projectId}}", "snippets", "{{noteableId}}", "notes"]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": 3002,\n  \"body\": \"감사합니다. 잘 쓰겠습니다.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "13. Get a single snippet note",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/snippets/{{noteableId}}/notes/{{noteId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "snippets", "{{noteableId}}", "notes", "{{noteId}}"]
+            },
+            "description": "단일 스니펫 댓글 상세 정보를 조회한다. 스니펫 접근 권한 사용자."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/snippets/{{noteableId}}/notes/{{noteId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "projects", "{{projectId}}", "snippets", "{{noteableId}}", "notes", "{{noteId}}"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": 3001,\n  \"body\": \"유용한 스니펫이네요!\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "14. Update an existing snippet note",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"댓글 수정본입니다.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/snippets/{{noteableId}}/notes/{{noteId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "snippets", "{{noteableId}}", "notes", "{{noteId}}"]
+            },
+            "description": "스니펫 댓글을 수정한다. body 필수. 작성자 본인 또는 관리 권한자."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"body\": \"댓글 수정본입니다.\"\n}" },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/snippets/{{noteableId}}/notes/{{noteId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "projects", "{{projectId}}", "snippets", "{{noteableId}}", "notes", "{{noteId}}"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": 3001,\n  \"body\": \"댓글 수정본입니다.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "15. Delete a snippet note",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/snippets/{{noteableId}}/notes/{{noteId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "snippets", "{{noteableId}}", "notes", "{{noteId}}"]
+            },
+            "description": "스니펫 댓글을 삭제한다. 작성자 본인 또는 관리 권한자."
+          },
+          "response": [
+            {
+              "name": "204 No Content",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/snippets/{{noteableId}}/notes/{{noteId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "projects", "{{projectId}}", "snippets", "{{noteableId}}", "notes", "{{noteId}}"]
+                }
+              },
+              "status": "No Content",
+              "code": 204,
+              "_postman_previewlanguage": "text",
+              "body": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Project Wiki Page Meta Notes (16-20)",
+      "item": [
+        {
+          "name": "16. Get a list of wiki page meta notes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/wiki_pages/{{noteableId}}/notes",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "wiki_pages", "{{noteableId}}", "notes"]
+            },
+            "description": "프로젝트 위키 페이지 메타(Wiki Page Meta)에 등록된 노트/댓글 목록을 조회한다. 프로젝트 위키 접근 권한 사용자."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/wiki_pages/{{noteableId}}/notes",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "projects", "{{projectId}}", "wiki_pages", "{{noteableId}}", "notes"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "[\n  {\n    \"id\": 4001,\n    \"body\": \"위키 내용 확인했습니다.\"\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "17. Create a new wiki page meta note",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"위키 내용 검토 바랍니다.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/wiki_pages/{{noteableId}}/notes",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "wiki_pages", "{{noteableId}}", "notes"]
+            },
+            "description": "프로젝트 위키 페이지에 새 댓글/노트를 등록한다. body 필수. 프로젝트 위키 편집 권한 사용자."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"body\": \"위키 내용 검토 바랍니다.\"\n}" },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/wiki_pages/{{noteableId}}/notes",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "projects", "{{projectId}}", "wiki_pages", "{{noteableId}}", "notes"]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": 4002,\n  \"body\": \"위키 내용 검토 바랍니다.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "18. Get a single wiki page meta note",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/wiki_pages/{{noteableId}}/notes/{{noteId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "wiki_pages", "{{noteableId}}", "notes", "{{noteId}}"]
+            },
+            "description": "단일 프로젝트 위키 노트를 조회한다."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/wiki_pages/{{noteableId}}/notes/{{noteId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "projects", "{{projectId}}", "wiki_pages", "{{noteableId}}", "notes", "{{noteId}}"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": 4001,\n  \"body\": \"위키 내용 확인했습니다.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "19. Update an existing wiki page meta note",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"수정된 위키 노트 내용입니다.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/wiki_pages/{{noteableId}}/notes/{{noteId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "wiki_pages", "{{noteableId}}", "notes", "{{noteId}}"]
+            },
+            "description": "프로젝트 위키 노트를 수정한다. body 필수."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"body\": \"수정된 위키 노트 내용입니다.\"\n}" },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/wiki_pages/{{noteableId}}/notes/{{noteId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "projects", "{{projectId}}", "wiki_pages", "{{noteableId}}", "notes", "{{noteId}}"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": 4001,\n  \"body\": \"수정된 위키 노트 내용입니다.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "20. Delete a wiki page meta note",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/wiki_pages/{{noteableId}}/notes/{{noteId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "wiki_pages", "{{noteableId}}", "notes", "{{noteId}}"]
+            },
+            "description": "프로젝트 위키 노트를 삭제한다."
+          },
+          "response": [
+            {
+              "name": "204 No Content",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/wiki_pages/{{noteableId}}/notes/{{noteId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "projects", "{{projectId}}", "wiki_pages", "{{noteableId}}", "notes", "{{noteId}}"]
+                }
+              },
+              "status": "No Content",
+              "code": 204,
+              "_postman_previewlanguage": "text",
+              "body": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Epic Notes (21-25)",
+      "item": [
+        {
+          "name": "21. Get a list of epic notes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/groups/{{groupId}}/epics/{{noteableId}}/notes",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "groups", "{{groupId}}", "epics", "{{noteableId}}", "notes"]
+            },
+            "description": "그룹 에픽(Epic)에 등록된 댓글 목록을 조회한다. 그룹 에픽 접근 권한 사용자 (Premium / Ultimate)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/groups/{{groupId}}/epics/{{noteableId}}/notes",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "groups", "{{groupId}}", "epics", "{{noteableId}}", "notes"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "[\n  {\n    \"id\": 5001,\n    \"body\": \"에픽 범위를 검토했습니다.\"\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "22. Create a new epic note",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"에픽 일정을 조정합니다.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/groups/{{groupId}}/epics/{{noteableId}}/notes",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "groups", "{{groupId}}", "epics", "{{noteableId}}", "notes"]
+            },
+            "description": "그룹 에픽(Epic)에 새 댓글을 추가한다. body 필수. 그룹 에픽 편집 권한 사용자."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"body\": \"에픽 일정을 조정합니다.\"\n}" },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/groups/{{groupId}}/epics/{{noteableId}}/notes",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "groups", "{{groupId}}", "epics", "{{noteableId}}", "notes"]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": 5002,\n  \"body\": \"에픽 일정을 조정합니다.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "23. Get a single epic note",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/groups/{{groupId}}/epics/{{noteableId}}/notes/{{noteId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "groups", "{{groupId}}", "epics", "{{noteableId}}", "notes", "{{noteId}}"]
+            },
+            "description": "단일 에픽 댓글을 조회한다."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/groups/{{groupId}}/epics/{{noteableId}}/notes/{{noteId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "groups", "{{groupId}}", "epics", "{{noteableId}}", "notes", "{{noteId}}"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": 5001,\n  \"body\": \"에픽 범위를 검토했습니다.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "24. Update an existing epic note",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"에픽 노트 수정되었습니다.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/groups/{{groupId}}/epics/{{noteableId}}/notes/{{noteId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "groups", "{{groupId}}", "epics", "{{noteableId}}", "notes", "{{noteId}}"]
+            },
+            "description": "에픽 댓글을 수정한다. body 필수."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"body\": \"에픽 노트 수정되었습니다.\"\n}" },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/groups/{{groupId}}/epics/{{noteableId}}/notes/{{noteId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "groups", "{{groupId}}", "epics", "{{noteableId}}", "notes", "{{noteId}}"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": 5001,\n  \"body\": \"에픽 노트 수정되었습니다.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "25. Delete a epic note",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/groups/{{groupId}}/epics/{{noteableId}}/notes/{{noteId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "groups", "{{groupId}}", "epics", "{{noteableId}}", "notes", "{{noteId}}"]
+            },
+            "description": "에픽 댓글을 삭제한다."
+          },
+          "response": [
+            {
+              "name": "204 No Content",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/groups/{{groupId}}/epics/{{noteableId}}/notes/{{noteId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "groups", "{{groupId}}", "epics", "{{noteableId}}", "notes", "{{noteId}}"]
+                }
+              },
+              "status": "No Content",
+              "code": 204,
+              "_postman_previewlanguage": "text",
+              "body": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Vulnerability Notes (26-30)",
+      "item": [
+        {
+          "name": "26. Get a list of vulnerability notes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/vulnerabilities/{{noteableId}}/notes",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "vulnerabilities", "{{noteableId}}", "notes"]
+            },
+            "description": "프로젝트 취약점(Vulnerability) 항목에 등록된 노트 목록을 조회한다. 보안 취약점 접근 권한 사용자 (Ultimate)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/vulnerabilities/{{noteableId}}/notes",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "projects", "{{projectId}}", "vulnerabilities", "{{noteableId}}", "notes"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "[\n  {\n    \"id\": 6001,\n    \"body\": \"취약점 조사 시작했습니다.\"\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "27. Create a new vulnerability note",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"패치 적용 준비 중입니다.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/vulnerabilities/{{noteableId}}/notes",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "vulnerabilities", "{{noteableId}}", "notes"]
+            },
+            "description": "보안 취약점 항목에 새 조치 노트를 추가한다. body 필수."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"body\": \"패치 적용 준비 중입니다.\"\n}" },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/vulnerabilities/{{noteableId}}/notes",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "projects", "{{projectId}}", "vulnerabilities", "{{noteableId}}", "notes"]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": 6002,\n  \"body\": \"패치 적용 준비 중입니다.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "28. Get a single vulnerability note",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/vulnerabilities/{{noteableId}}/notes/{{noteId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "vulnerabilities", "{{noteableId}}", "notes", "{{noteId}}"]
+            },
+            "description": "단일 취약점 노트를 조회한다."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/vulnerabilities/{{noteableId}}/notes/{{noteId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "projects", "{{projectId}}", "vulnerabilities", "{{noteableId}}", "notes", "{{noteId}}"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": 6001,\n  \"body\": \"취약점 조사 시작했습니다.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "29. Update an existing vulnerability note",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"취약점 노트 수정되었습니다.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/vulnerabilities/{{noteableId}}/notes/{{noteId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "vulnerabilities", "{{noteableId}}", "notes", "{{noteId}}"]
+            },
+            "description": "취약점 노트를 수정한다. body 필수."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"body\": \"취약점 노트 수정되었습니다.\"\n}" },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/vulnerabilities/{{noteableId}}/notes/{{noteId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "projects", "{{projectId}}", "vulnerabilities", "{{noteableId}}", "notes", "{{noteId}}"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": 6001,\n  \"body\": \"취약점 노트 수정되었습니다.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "30. Delete a vulnerability note",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/vulnerabilities/{{noteableId}}/notes/{{noteId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "projects", "{{projectId}}", "vulnerabilities", "{{noteableId}}", "notes", "{{noteId}}"]
+            },
+            "description": "취약점 노트를 삭제한다."
+          },
+          "response": [
+            {
+              "name": "204 No Content",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/vulnerabilities/{{noteableId}}/notes/{{noteId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "projects", "{{projectId}}", "vulnerabilities", "{{noteableId}}", "notes", "{{noteId}}"]
+                }
+              },
+              "status": "No Content",
+              "code": 204,
+              "_postman_previewlanguage": "text",
+              "body": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Group Wiki Page Meta Notes (31-35)",
+      "item": [
+        {
+          "name": "31. Get a list of group wiki page meta notes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/groups/{{groupId}}/wiki_pages/{{noteableId}}/notes",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "groups", "{{groupId}}", "wiki_pages", "{{noteableId}}", "notes"]
+            },
+            "description": "그룹 위키 페이지(Group Wiki Page)에 등록된 노트 목록을 조회한다. 그룹 위키 접근 권한 사용자."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/groups/{{groupId}}/wiki_pages/{{noteableId}}/notes",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "groups", "{{groupId}}", "wiki_pages", "{{noteableId}}", "notes"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "[\n  {\n    \"id\": 7001,\n    \"body\": \"그룹 위키 검토했습니다.\"\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "32. Create a new group wiki page meta note",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"그룹 문서 업데이트 진행\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/groups/{{groupId}}/wiki_pages/{{noteableId}}/notes",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "groups", "{{groupId}}", "wiki_pages", "{{noteableId}}", "notes"]
+            },
+            "description": "그룹 위키 페이지에 새 노트를 추가한다. body 필수."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"body\": \"그룹 문서 업데이트 진행\"\n}" },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/groups/{{groupId}}/wiki_pages/{{noteableId}}/notes",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "groups", "{{groupId}}", "wiki_pages", "{{noteableId}}", "notes"]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": 7002,\n  \"body\": \"그룹 문서 업데이트 진행\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "33. Get a single group wiki page meta note",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/groups/{{groupId}}/wiki_pages/{{noteableId}}/notes/{{noteId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "groups", "{{groupId}}", "wiki_pages", "{{noteableId}}", "notes", "{{noteId}}"]
+            },
+            "description": "단일 그룹 위키 노트를 조회한다."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/groups/{{groupId}}/wiki_pages/{{noteableId}}/notes/{{noteId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "groups", "{{groupId}}", "wiki_pages", "{{noteableId}}", "notes", "{{noteId}}"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": 7001,\n  \"body\": \"그룹 위키 검토했습니다.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "34. Update an existing group wiki page meta note",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"그룹 위키 노트 수정되었습니다.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/groups/{{groupId}}/wiki_pages/{{noteableId}}/notes/{{noteId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "groups", "{{groupId}}", "wiki_pages", "{{noteableId}}", "notes", "{{noteId}}"]
+            },
+            "description": "그룹 위키 노트를 수정한다. body 필수."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"body\": \"그룹 위키 노트 수정되었습니다.\"\n}" },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/groups/{{groupId}}/wiki_pages/{{noteableId}}/notes/{{noteId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "groups", "{{groupId}}", "wiki_pages", "{{noteableId}}", "notes", "{{noteId}}"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": 7001,\n  \"body\": \"그룹 위키 노트 수정되었습니다.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "35. Delete a group wiki page meta note",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v4/groups/{{groupId}}/wiki_pages/{{noteableId}}/notes/{{noteId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v4", "groups", "{{groupId}}", "wiki_pages", "{{noteableId}}", "notes", "{{noteId}}"]
+            },
+            "description": "그룹 위키 노트를 삭제한다."
+          },
+          "response": [
+            {
+              "name": "204 No Content",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v4/groups/{{groupId}}/wiki_pages/{{noteableId}}/notes/{{noteId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v4", "groups", "{{groupId}}", "wiki_pages", "{{noteableId}}", "notes", "{{noteId}}"]
+                }
+              },
+              "status": "No Content",
+              "code": 204,
+              "_postman_previewlanguage": "text",
+              "body": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

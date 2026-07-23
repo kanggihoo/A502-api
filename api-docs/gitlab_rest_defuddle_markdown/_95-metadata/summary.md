@@ -61,28 +61,4 @@ Self-hosted 및 SaaS GitLab 인스턴스의 현재 소프트웨어 버전(`versi
 }
 ```
 
----
 
-## 02. Retrieves version information for the GitLab instance [GET]
-
-### 기본 정보
-
-- **기능:** GitLab 인스턴스의 버전 정보를 조회한다 (구버전 호환용 endpoint).
-- **Endpoint:** `GET /api/v4/version`
-- **인증:** Bearer Token 필요
-- **권한:** 인증된 사용자
-
-### 설명
-
-GitLab 인스턴스의 버전 정보를 반환하는 기존 API 엔드포인트입니다. (*참고: GitLab 15.5부터 Deprecated 되었으며 신규 연동 시 `GET /api/v4/metadata` 권장*)
-
-### Response
-
-#### `200 OK`
-
-```json
-{
-  "version": "17.1.0-ee",
-  "revision": "a1b2c3d4e5f"
-}
-```
