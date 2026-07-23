@@ -1,0 +1,228 @@
+{
+  "info": {
+    "name": "GitLab Analytics (OAuth2)",
+    "_postman_id": "a502-gitlab-analytics-001",
+    "description": "GitLab Analytics API 모음 — OAuth2 기반 인증.\n\n_10-analytics/summary.md에 명시된 API만 포함 (01, 이슈 개수, 06).\n\n== 필수 환경변수 (Variables 탭에서 입력) ==\n  baseUrl             : https://lab.ssafy.com\n  oauthClientId       : A502 OAuth 앱 Application ID (lab.ssafy.com에 등록)\n  oauthClientSecret   : A502 OAuth 앱 Secret\n  oauthRedirectUri    : 콜백 URL (예) http://localhost:8080/oauth/callback)\n  refreshToken        : 최초 발급받은 refresh_token\n  accessToken        : (자동 채워짐) 발급된 access_token\n  projectId           : 예) 1234\n  groupPath           : 그룹 경로 (예) my-org/my-group)\n\n== 인증 흐름 ==\n1. '0. OAuth2 Authorize' 폴더에서 Authorization Code 발급 (브라우저 필요)\n2. 같은 폴더의 Refresh 요청으로 access_token 갱신 → accessToken 변수 자동 저장\n3. 이후 모든 API 요청은 컬렉션 레벨 Bearer({{accessToken}})로 인증\n\n== ✅ 모든 API가 OAuth2 access_token으로 동작 ==",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    { "listen": "prerequest", "script": { "type": "text/javascript", "exec": [""] } },
+    { "listen": "test", "script": { "type": "text/javascript", "exec": [""] } }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "https://lab.ssafy.com", "type": "string" },
+    { "key": "oauthClientId", "value": "PASTE_OAUTH_APP_ID", "type": "string" },
+    { "key": "oauthClientSecret", "value": "PASTE_OAUTH_APP_SECRET", "type": "string" },
+    { "key": "oauthRedirectUri", "value": "http://localhost:8080/oauth/callback", "type": "string" },
+    { "key": "oauthScopes", "value": "api read_user read_repository", "type": "string" },
+    { "key": "authCode", "value": "PASTE_CODE_FROM_CALLBACK_URL", "type": "string" },
+    { "key": "refreshToken", "value": "PASTE_REFRESH_TOKEN", "type": "string" },
+    { "key": "accessToken", "value": "AUTO_FILLED_BY_TOKEN_REQUEST", "type": "string" },
+    { "key": "projectId", "value": "1234", "type": "string" },
+    { "key": "groupPath", "value": "my-org/my-group", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "0. OAuth2 Authorize & Token",
+      "description": "GitLab OAuth2 Authorization Code Flow. access_token을 발급받아 accessToken 변수에 저장하면 이후 모든 API가 자동 인증됩니다.\n\n흐름:\n  1) Authorize URL을 브라우저로 열어 로그인 → 콜백 URL의 code 값을 authCode 변수에 저장\n  2) 'Get token (code → access_token)' 요청 실행 → accessToken / refreshToken 자동 저장\n  3) 토큰 만료 시 'Refresh token' 요청으로 accessToken 갱신",
+      "item": [
+        {
+          "name": "0-1. Authorize (브라우저에서 열기)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/oauth/authorize?client_id={{oauthClientId}}&redirect_uri={{oauthRedirectUri}}&response_type=code&scope={{oauthScopes}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["oauth", "authorize"],
+              "query": [
+                { "key": "client_id", "value": "{{oauthClientId}}" },
+                { "key": "redirect_uri", "value": "{{oauthRedirectUri}}" },
+                { "key": "response_type", "value": "code" },
+                { "key": "scope", "value": "{{oauthScopes}}" }
+              ]
+            },
+            "description": "GitLab OAuth2 인증 화면을 브라우저로 엽니다. URL을 복사해 브라우저로 직접 여세요. 로그인 후 redirect_uri로 리다이렉트되며, URL의 ?code=... 값을 authCode 변수에 넣으세요."
+          },
+          "response": []
+        },
+        {
+          "name": "0-2. Get token (code → access_token)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.access_token) {",
+                  "  pm.collectionVariables.set('accessToken', json.access_token);",
+                  "  console.log('accessToken saved');",
+                  "}",
+                  "if (json.refresh_token) {",
+                  "  pm.collectionVariables.set('refreshToken', json.refresh_token);",
+                  "  console.log('refreshToken saved');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "client_id", "value": "{{oauthClientId}}", "type": "text" },
+                { "key": "client_secret", "value": "{{oauthClientSecret}}", "type": "text" },
+                { "key": "grant_type", "value": "authorization_code", "type": "text" },
+                { "key": "code", "value": "{{authCode}}", "type": "text" },
+                { "key": "redirect_uri", "value": "{{oauthRedirectUri}}", "type": "text" }
+              ]
+            },
+            "url": { "raw": "{{baseUrl}}/oauth/token", "host": ["{{baseUrl}}"], "path": ["oauth", "token"] },
+            "description": "Authorization Code를 access_token으로 교환. 응답의 access_token / refresh_token이 자동으로 컬렉션 변수에 저장됩니다. authCode는 일회용."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": { "method": "POST", "header": [], "url": { "raw": "{{baseUrl}}/oauth/token", "host": ["{{baseUrl}}"], "path": ["oauth", "token"] } },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"access_token\": \"glpt-oauth-xxxx\",\n  \"token_type\": \"bearer\",\n  \"expires_in\": 7200,\n  \"refresh_token\": \"glprt-xxxx\",\n  \"scope\": \"api read_user read_repository\",\n  \"created_at\": 1730000000\n}"
+            }
+          ]
+        },
+        {
+          "name": "0-3. Refresh token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.access_token) {",
+                  "  pm.collectionVariables.set('accessToken', json.access_token);",
+                  "  console.log('accessToken refreshed');",
+                  "}",
+                  "if (json.refresh_token) {",
+                  "  pm.collectionVariables.set('refreshToken', json.refresh_token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "client_id", "value": "{{oauthClientId}}", "type": "text" },
+                { "key": "client_secret", "value": "{{oauthClientSecret}}", "type": "text" },
+                { "key": "grant_type", "value": "refresh_token", "type": "text" },
+                { "key": "refresh_token", "value": "{{refreshToken}}", "type": "text" }
+              ]
+            },
+            "url": { "raw": "{{baseUrl}}/oauth/token", "host": ["{{baseUrl}}"], "path": ["oauth", "token"] },
+            "description": "refresh_token으로 access_token 갱신. access_token 만료 시 사용. 새 access_token이 자동 저장됩니다."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "01. List deployment frequencies for the project",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/analytics/deployment_frequency",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v4", "projects", "{{projectId}}", "analytics", "deployment_frequency"],
+          "query": [
+            { "key": "environment", "value": "production", "description": "Y — 필터링할 환경 이름" },
+            { "key": "from", "value": "2026-01-01T00:00:00Z", "description": "Y — 조회 시작 일시 (포함, ISO 8601)" },
+            { "key": "to", "value": "2026-07-01T00:00:00Z", "disabled": true, "description": "N — 조회 종료 일시 (미포함, ISO 8601)" },
+            { "key": "interval", "value": "daily", "disabled": true, "description": "N — 집계 주기 (all / monthly / daily)" }
+          ]
+        },
+        "description": "프로젝트의 배포 빈도(Deployment Frequency) 분석 데이터 조회. Project 멤버 (Developer 이상). environment와 from은 필수 쿼리."
+      },
+      "response": [
+        {
+          "name": "200 OK",
+          "originalRequest": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v4/projects/{{projectId}}/analytics/deployment_frequency", "host": ["{{baseUrl}}"], "path": ["api", "v4", "projects", "{{projectId}}", "analytics", "deployment_frequency"] } },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "body": "{\n  \"value\": \"12\",\n  \"from\": \"2026-01-01T00:00:00Z\",\n  \"to\": \"2026-07-01T00:00:00Z\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "05. Retrieve count of recently created issues for a group",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v4/analytics/group_activity/issues_count",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v4", "analytics", "group_activity", "issues_count"],
+          "query": [
+            { "key": "group_path", "value": "{{groupPath}}", "description": "Y — 대상 그룹 경로" }
+          ]
+        },
+        "description": "지정한 그룹에서 최근 생성된 이슈 개수 조회. Group 멤버 (Reporter 이상). 최대 1,000개 제한.\n\n※ summary.md에서 번호 헤더가 빠져 있어(### 기본 정보로 시작) 임의로 05번으로 표기함."
+      },
+      "response": [
+        {
+          "name": "200 OK",
+          "originalRequest": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v4/analytics/group_activity/issues_count", "host": ["{{baseUrl}}"], "path": ["api", "v4", "analytics", "group_activity", "issues_count"] } },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "body": "{\n  \"issues_count\": 42\n}"
+        }
+      ]
+    },
+    {
+      "name": "06. Retrieve count of recently created merge requests for a group",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v4/analytics/group_activity/merge_requests_count",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v4", "analytics", "group_activity", "merge_requests_count"],
+          "query": [
+            { "key": "group_path", "value": "{{groupPath}}", "description": "Y — 대상 그룹 경로" }
+          ]
+        },
+        "description": "지정한 그룹에서 최근 생성된 MR 개수 조회. Group 멤버 (Reporter 이상). 최대 1,000개 제한."
+      },
+      "response": [
+        {
+          "name": "200 OK",
+          "originalRequest": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v4/analytics/group_activity/merge_requests_count", "host": ["{{baseUrl}}"], "path": ["api", "v4", "analytics", "group_activity", "merge_requests_count"] } },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "body": "{\n  \"merge_requests_count\": 18\n}"
+        }
+      ]
+    }
+  ]
+}

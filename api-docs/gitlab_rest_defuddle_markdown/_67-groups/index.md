@@ -1,0 +1,60 @@
+# Groups
+
+Operations related to groups.
+
+  ### 1. Groups API
+
+  • 유용성: P0 (핵심 / 매우 유용 - 팀 구조 탐색 및 그룹 단위 통계).
+      • List groups (19번), Retrieve group (22번): 유저가 속한 팀/반 그룹 식별.
+      • List projects in a group (29번), List subgroups (31번): SSAFY 그룹 내 팀 프로젝트 자동 탐색.
+      • List group issues (11번), Group issue statistics (12번): 그룹 단위 이슈 및 통계 집계.
+  • 제약 사항 (일부 기능 제한):
+      • Billable members (03번): 유료(Premium/Ultimate) 티어 전용.
+      • Reset runner token (17~18번): Admin / Owner 전용 권한.
+      • Audit event (40번), SAML (41번), Provisioned (42번): 유료 티어 및 Admin 전용.
+  • 결론: 조회 API(11, 12, 19, 22, 29, 31) 중심으로 P0 필수 활용.
+
+## Endpoints
+
+- [01-Update group security settings [PUT]](./01-update-group-security-settings-put.md)
+- [02-List all groups available to invite to a project [GET]](./02-list-all-groups-available-to-invite-to-a-project-get.md)
+- [03-List all billable group members [GET]](./03-list-all-billable-group-members-get.md)
+- [04-Workhorse authorize the file upload [POST]](./04-workhorse-authorize-the-file-upload-post.md)
+- [05-Upload a file to a group [POST]](./05-upload-a-file-to-a-group-post.md)
+- [06-List all uploads for a group [GET]](./06-list-all-uploads-for-a-group-get.md)
+- [07-Download an uploaded file by ID [GET]](./07-download-an-uploaded-file-by-id-get.md)
+- [08-Delete an uploaded file by ID [DEL]](./08-delete-an-uploaded-file-by-id-del.md)
+- [09-Download an uploaded file by secret and filename [GET]](./09-download-an-uploaded-file-by-secret-and-filename-get.md)
+- [10-Delete an uploaded file by secret and filename [DEL]](./10-delete-an-uploaded-file-by-secret-and-filename-del.md)
+- [11-List all issues for a group [GET]](./11-list-all-issues-for-a-group-get.md)
+- [12-Retrieve issues statistics for a group [GET]](./12-retrieve-issues-statistics-for-a-group-get.md)
+- [13-Retrieve pending reassignments [GET]](./13-retrieve-pending-reassignments-get.md)
+- [14-Reassign placeholders [POST]](./14-reassign-placeholders-post.md)
+- [15-Workhorse authorization for the reassignment CSV file [POST]](./15-workhorse-authorization-for-the-reassignment-csv-file-post.md)
+- [16-List all runners in a group [GET]](./16-list-all-runners-in-a-group-get.md)
+- [17-Reset the runner registration token for the instance [POST]](./17-reset-the-runner-registration-token-for-the-instance-post.md)
+- [18-Reset the runner registration token for a group [POST]](./18-reset-the-runner-registration-token-for-a-group-post.md)
+- [19-List all groups [GET]](./19-list-all-groups-get.md)
+- [20-Create a group [POST]](./20-create-a-group-post.md)
+- [21-Update group attributes [PUT]](./21-update-group-attributes-put.md)
+- [22-Retrieve a group [GET]](./22-retrieve-a-group-get.md)
+- [23-Schedule a group for deletion [DEL]](./23-schedule-a-group-for-deletion-del.md)
+- [24-Archive a group [POST]](./24-archive-a-group-post.md)
+- [25-Unarchive a group [POST]](./25-unarchive-a-group-post.md)
+- [26-Restore a group [POST]](./26-restore-a-group-post.md)
+- [27-List all shared groups [GET]](./27-list-all-shared-groups-get.md)
+- [28-List all invited groups [GET]](./28-list-all-invited-groups-get.md)
+- [29-List all projects in a group [GET]](./29-list-all-projects-in-a-group-get.md)
+- [30-List all shared projects [GET]](./30-list-all-shared-projects-get.md)
+- [31-List all subgroups [GET]](./31-list-all-subgroups-get.md)
+- [32-List all descendant groups [GET]](./32-list-all-descendant-groups-get.md)
+- [33-Transfer a project to a group [POST]](./33-transfer-a-project-to-a-group-post.md)
+- [34-List all transfer locations for a group [GET]](./34-list-all-transfer-locations-for-a-group-get.md)
+- [35-Transfer a group [POST]](./35-transfer-a-group-post.md)
+- [36-Transfer a group to an organization [POST]](./36-transfer-a-group-to-an-organization-post.md)
+- [37-Add a group to a group [POST]](./37-add-a-group-to-a-group-post.md)
+- [38-Remove a group from a group [DEL]](./38-remove-a-group-from-a-group-del.md)
+- [39-Remove a shared project from a group [DEL]](./39-remove-a-shared-project-from-a-group-del.md)
+- [40-Retrieve a group audit event [GET]](./40-retrieve-a-group-audit-event-get.md)
+- [41-List all SAML users [GET]](./41-list-all-saml-users-get.md)
+- [42-List all provisioned users [GET]](./42-list-all-provisioned-users-get.md)

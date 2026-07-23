@@ -1,0 +1,107 @@
+{
+  "info": {
+    "name": "GitLab Namespaces",
+    "_postman_id": "a502-gitlab-namespaces-001",
+    "description": "GitLab Namespaces API 모음.\n\n_100-namespaces/summary.md에 명시된 API만 포함 (01, 03, 04).\n\n== 필수 환경변수 (Variables 탭에서 입력) ==\n  baseUrl       : https://lab.ssafy.com\n  accessToken   : Bearer 인증용 토큰 (PAT/OAuth2/Project Token 등)\n  namespaceId   : 네임스페이스 ID 또는 URL 인코딩 경로 (예) 1234 / my-org/my-namespace)\n\n== 인증 ==\n컬렉션 레벨 Bearer({{accessToken}})로 인증. 토큰값은 Variables 탭에 직접 입력.\n별도 OAuth2 발급 폴더 없음 — 이미 발급받은 토큰을 사용.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    { "listen": "prerequest", "script": { "type": "text/javascript", "exec": [""] } },
+    { "listen": "test", "script": { "type": "text/javascript", "exec": [""] } }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "https://lab.ssafy.com", "type": "string" },
+    { "key": "accessToken", "value": "PASTE_YOUR_TOKEN_HERE", "type": "string" },
+    { "key": "namespaceId", "value": "1234", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "01. Retrieve namespace subscription",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v4/namespaces/{{namespaceId}}/gitlab_subscription",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v4", "namespaces", "{{namespaceId}}", "gitlab_subscription"]
+        },
+        "description": "특정 네임스페이스의 GitLab 구독(Subscription) 상세 정보 조회. plan/usage/billing 포함. Namespace Owner 또는 멤버 권한 필요."
+      },
+      "response": [
+        {
+          "name": "200 OK",
+          "originalRequest": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v4/namespaces/{{namespaceId}}/gitlab_subscription", "host": ["{{baseUrl}}"], "path": ["api", "v4", "namespaces", "{{namespaceId}}", "gitlab_subscription"] } },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "body": "{\n  \"plan\": {\n    \"code\": \"ultimate\",\n    \"name\": \"Ultimate\"\n  },\n  \"usage\": {\n    \"seats_in_use\": 10\n  },\n  \"billing\": {\n    \"pay_method\": \"credit_card\"\n  }\n}"
+        }
+      ]
+    },
+    {
+      "name": "03. Retrieve namespace details",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v4/namespaces/{{namespaceId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v4", "namespaces", "{{namespaceId}}"]
+        },
+        "description": "특정 네임스페이스 상세 정보 조회. 이름/path/kind/projects_count/members_count_with_descendants 포함. 인증된 사용자 (접근 허용된 경우)."
+      },
+      "response": [
+        {
+          "name": "200 OK",
+          "originalRequest": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v4/namespaces/{{namespaceId}}", "host": ["{{baseUrl}}"], "path": ["api", "v4", "namespaces", "{{namespaceId}}"] } },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "body": "{\n  \"id\": 1234,\n  \"name\": \"My Namespace\",\n  \"path\": \"my-namespace\",\n  \"kind\": \"group\",\n  \"full_path\": \"my-org/my-namespace\",\n  \"web_url\": \"https://gitlab.com/groups/my-org/my-namespace\",\n  \"projects_count\": 5,\n  \"members_count_with_descendants\": 12\n}"
+        }
+      ]
+    },
+    {
+      "name": "04. List all namespaces",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v4/namespaces",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v4", "namespaces"],
+          "query": [
+            { "key": "search", "value": "my-team", "disabled": true, "description": "이름/경로 검색어" },
+            { "key": "owned_only", "value": "true", "disabled": true, "description": "직접 소유한 네임스페이스만" },
+            { "key": "top_level_only", "value": "true", "disabled": true, "description": "최상위 네임스페이스만" },
+            { "key": "full_path_search", "value": "true", "disabled": true, "description": "search 시 전체 경로 매칭" },
+            { "key": "page", "value": "1", "disabled": true, "description": "페이지 번호 (기본 1)" },
+            { "key": "per_page", "value": "20", "disabled": true, "description": "페이지당 항목 수 (기본 20)" },
+            { "key": "requested_hosted_plan", "value": "ultimate", "disabled": true, "description": "요청된 호스팅 플랜 이름" }
+          ]
+        },
+        "description": "현재 인증된 사용자가 접근 가능한 모든 네임스페이스 목록 조회. 일반 사용자는 접근 권한 있는 목록, 관리자는 전역. search/owned_only/top_level_only 등으로 필터링."
+      },
+      "response": [
+        {
+          "name": "200 OK",
+          "originalRequest": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v4/namespaces", "host": ["{{baseUrl}}"], "path": ["api", "v4", "namespaces"] } },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "body": "[\n  {\n    \"id\": 1234,\n    \"name\": \"My Team\",\n    \"path\": \"my-team\",\n    \"kind\": \"group\",\n    \"full_path\": \"my-team\",\n    \"web_url\": \"https://gitlab.com/groups/my-team\"\n  }\n]"
+        }
+      ]
+    }
+  ]
+}
