@@ -61,21 +61,52 @@ SSAFY 팀 프로젝트에 필요한 도구와 정보를 한곳에서 연결하�
 - 외부 서비스 주소, 토큰, webhook URL, 사용자 식별 정보 등 민감 정보는 저장소에 커밋하지 않는다.
 - 구현이나 연동 제안 시에는 대상 도구, 필요한 권한, 예상 데이터 흐름, 실패·권한 부족 시 동작을 명확히 적는다.
 
-## Mattermost 계정 부여 권한 (`system_user`)
+## Mattermost 계정 실효 권한 지도 (실측: 2026-07-25)
 
-현재 테스트 계정에 부여된 Mattermost 권한 목록:
+> **중요**: Mattermost 권한은 시스템/팀/채널 3계층 역할(role)의 **합집합**이다. 아래는 `GET /api/v4/roles/name/{role}` 실측 결과. 특정 API의 사용 가능 여부는 한 계층 목록이 아니라 세 계층 전체와 대조해 판정할 것. (과거 `system_user` 12개만 보고 웹훅·발송을 "불가"로 오판한 사례 있음 — 실제 UI/API로 웹훅 생성 가능함을 실증으로 확인)
 
-- `manage_custom_group_members`
-- `create_custom_group`
-- `join_public_teams`
-- `create_group_channel`
-- `manage_own_agent`
-- `manage_oauth`
-- `restore_custom_group`
-- `edit_custom_group`
-- `view_members`
-- `create_direct_channel`
-- `list_public_teams`
-- `delete_custom_group`
+### `system_user` — 시스템 레벨 (계정 자체에 부여)
 
-> **참고**: 시스템 관리자 권한(`manage_system`)이나 팀 생성 권한(`create_team`) 등은 포함되어 있지 않으므로, 팀/채널 생성 자동화 시 해당 권한 범위를 고려하여 설계해야 함.
+- `manage_oauth` — OAuth 앱 등록/관리 (본인 생성 앱 한정) → **SSAGY를 MM OAuth 클라이언트로 등록 가능**
+- `create_direct_channel` — DM 채널 생성 → 개인 알림 경로
+- `create_group_channel` — 그룹 메시지(GM) 채널 생성
+- `create_custom_group` / `edit_custom_group` / `delete_custom_group` / `restore_custom_group` / `manage_custom_group_members` — 커스텀 멘션 그룹(`@a502`) 생성·관리
+- `view_members` — 멤버 조회
+- `join_public_teams` / `list_public_teams` — 공개 팀 목록 조회·가입
+- `manage_own_agent` — 본인 AI 에이전트 관리
+
+### `team_user` — 팀 레벨 (팀 가입 시 자동 부여)
+
+- `manage_own_incoming_webhooks` — **Incoming Webhook 생성/관리 (본인 생성분)** → 팀 채널 알림 발송 경로
+- `manage_own_outgoing_webhooks` — Outgoing Webhook 생성/관리 (본인 생성분)
+- `bypass_incoming_webhook_channel_lock` — 웹훅 발송 시 `channel` 필드로 기본 채널 외 발송 허용 → **웹훅 1개로 여러 채널 커버**
+- `manage_own_slash_commands` — 슬래시 명령어(`/ssagy`) 등록/관리 (본인 생성분)
+- `create_public_channel` / `create_private_channel` — **채널 자동 생성 가능** (알림 전용 채널)
+- `view_team` / `list_team_channels` / `read_public_channel` / `join_public_channels` — 팀·채널 탐색
+- `playbook_public_create` / `playbook_private_create` — 플레이북 생성
+- `create_emojis` / `delete_emojis` — 커스텀 이모지
+
+### `channel_user` — 채널 레벨 (채널 멤버 시 자동 부여)
+
+- `create_post` — **메시지 발송** (봇/연동 계정의 알림 발송 성립 근거)
+- `manage_public_channel_members` / `manage_private_channel_members` — **채널에 팀원 추가/제거** (같은 팀 소속이면 가능)
+- `manage_public_channel_properties` / `manage_private_channel_properties` — 채널 이름·헤더·목적 수정
+- `use_channel_mentions` / `use_group_mentions` — `@channel`, `@a502` 등 멘션 사용
+- `upload_file` / `edit_file_attachment` — 파일 첨부 (리포트 이미지 등)
+- `edit_post` / `delete_post` — 본인 게시물 수정·삭제 (발송 알림 갱신에 활용 가능)
+- `add_reaction` / `remove_reaction` — 리액션
+- `use_slash_commands` — 슬래시 명령어 실행
+- `read_channel` / `read_channel_content` / `read_public_channel_groups` / `read_private_channel_groups` — 채널 읽기
+- 북마크 관리: `add/edit/delete/order_bookmark_public_channel`, `add/edit/delete/order_bookmark_private_channel`
+
+### 설계에 미치는 결론
+
+- **가능**: 채널 생성(공개/비공개) + 채널 멤버 추가 + incoming/outgoing webhook 생성(own) + 슬래시 명령어(own) + 메시지 발송(`create_post`) + DM/GM 채널 + 커스텀 그룹(@멘션) + OAuth 앱 등록 → **MM 팀 채널·웹훅·알림 초기 세팅 전체를 API로 자동화 가능**
+- **불가(여전히)**: 팀 생성(`create_team`), 타인을 팀에 추가(`add_user_to_team`), 타인 웹훅 관리(`manage_others_*`), 타 유저 조작(`edit_other_users`), 시스템 관리(`manage_system`)
+- **재검증 필요**: 예약 발송(scheduled post)은 `create_post` 확보로 가능성 있음 — POC에서 확인
+- `manage_own_*`은 자기가 만든 리소스만 관리 가능하다는 의미 — 자동화 리소스는 연동 계정 명의로 생성되므로 문제 없으나, **생성자 계정을 DB에 기록**해 연동 계정 교체 시 잔여 리소스 정리가 가능하게 할 것
+
+## GitLab 인스턴스 정보 (`GET /api/v4/metadata` 확인)
+
+- SSAFY GitLab(`lab.ssafy.com`)은 **Community Edition** (`enterprise: false`) 기반이다.
+- Enterprise 전용 기능(고급 승인 규칙, Advanced Security 스캔 등)은 이 인스턴스에서 지원되지 않을 수 있으므로, 연동 설계 시 CE 범위 내 기능인지 먼저 확인해야 한다.
