@@ -1,0 +1,24 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Mattermost Permissions API (권한 필터됨)",
+    "description": "조회 성격 유틸리티, 별도 named permission 없음. 서버 9.10+.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+  ],
+  "components": {
+    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/permissions/ancillary": {
+      "post": {
+        "summary": "1. Return all system console subsection ancillary permissions",
+        "requestBody": { "content": { "application/json": { "schema": { "type": "array", "items": { "type": "string" } } } } },
+        "responses": { "200": { "description": "Permission list (requested + ancillary)", "content": { "application/json": { "schema": { "type": "array", "items": { "type": "string" } } } } } }
+      }
+    }
+  }
+}

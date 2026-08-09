@@ -1,0 +1,26 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Mattermost SAML API (권한 필터됨)",
+    "description": "조회 전용, 인증 불필요. 서버에 SAML이 설정되어 있어야 사용 가능. SAML 설정/인증서 관리는 manage_system 필요해 summary.md에 없음.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+  ],
+  "paths": {
+    "/saml/metadata": {
+      "get": {
+        "summary": "2. Get metadata (인증 불필요)",
+        "responses": { "200": { "description": "SAML metadata (string)", "content": { "application/json": { "schema": { "type": "string" } } } } }
+      }
+    },
+    "/saml/metadatafromidp": {
+      "post": {
+        "summary": "3. Get metadata from Identity Provider (인증 불필요)",
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "saml_metadata_url": { "type": "string" } } } } } },
+        "responses": { "200": { "description": "SAML metadata from IdP (string)", "content": { "application/json": { "schema": { "type": "string" } } } } }
+      }
+    }
+  }
+}

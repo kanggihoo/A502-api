@@ -1,0 +1,24 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Mattermost Playbook Autofollows API (권한 필터됨)",
+    "description": "Playbooks 플러그인 API. 플레이북 멤버 기반 접근, 별도 named permission 없음.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "https://{host}/plugins/playbooks/api/v0", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+  ],
+  "components": {
+    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/playbooks/{id}/autofollows": {
+      "get": {
+        "summary": "1. Get the list of followers' user IDs of a playbook (플레이북 멤버)",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Follower id list", "content": { "application/json": { "schema": { "type": "object", "properties": { "total_count": { "type": "integer" }, "items": { "type": "array", "items": { "type": "string" } } } } } } } }
+      }
+    }
+  }
+}

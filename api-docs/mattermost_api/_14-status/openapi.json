@@ -1,0 +1,127 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Mattermost Status API (권한 필터됨)",
+    "description": "인증만 필요한 조회 API + 본인(user_id=me) 상태/커스텀 상태 CRUD. 타인 상태 변경은 edit_other_users 필요해 제외.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+  ],
+  "components": {
+    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } },
+    "schemas": {
+      "Status": {
+        "type": "object",
+        "properties": {
+          "user_id": { "type": "string" },
+          "status": { "type": "string", "enum": ["online", "away", "offline", "dnd"] },
+          "manual": { "type": "boolean" },
+          "last_activity_at": { "type": "integer" }
+        }
+      }
+    }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/users/{user_id}/status": {
+      "get": {
+        "summary": "1. Get user status (인증만 필요)",
+        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
+        "responses": { "200": { "description": "Status", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Status" } } } } }
+      },
+      "put": {
+        "summary": "2. Update user status (본인)",
+        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "user_id": { "type": "string" },
+                  "status": { "type": "string", "enum": ["online", "away", "offline", "dnd"] },
+                  "dnd_end_time": { "type": "integer" }
+                },
+                "required": ["user_id", "status"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Updated status", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Status" } } } } }
+      }
+    },
+    "/users/status/ids": {
+      "post": {
+        "summary": "3. Get user statuses by id (인증만 필요)",
+        "requestBody": { "content": { "application/json": { "schema": { "type": "array", "items": { "type": "string" } } } } },
+        "responses": { "200": { "description": "Status list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Status" } } } } } }
+      }
+    },
+    "/users/{user_id}/status/custom": {
+      "put": {
+        "summary": "4. Update user custom status (본인)",
+        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "emoji": { "type": "string" },
+                  "text": { "type": "string" },
+                  "duration": { "type": "string", "enum": ["thirty_minutes", "one_hour", "four_hours", "today", "this_week", "date_and_time"] },
+                  "expires_at": { "type": "string" }
+                },
+                "required": ["emoji", "text"]
+              },
+              "example": { "emoji": "spiral_calendar_pad", "text": "회의중", "duration": "today" }
+            }
+          }
+        },
+        "responses": { "200": { "description": "ok" } }
+      },
+      "delete": {
+        "summary": "5. Unsets user custom status (본인)",
+        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
+        "responses": { "200": { "description": "ok" } }
+      }
+    },
+    "/users/{user_id}/status/custom/recent": {
+      "delete": {
+        "summary": "6. Delete user's recent custom status (본인)",
+        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": { "emoji": { "type": "string" }, "text": { "type": "string" }, "duration": { "type": "string" }, "expires_at": { "type": "string" } },
+                "required": ["emoji", "text", "duration", "expires_at"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "ok" } }
+      }
+    },
+    "/users/{user_id}/status/custom/recent/delete": {
+      "post": {
+        "summary": "7. Delete user's recent custom status - POST 방식 (본인)",
+        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": { "emoji": { "type": "string" }, "text": { "type": "string" }, "duration": { "type": "string" }, "expires_at": { "type": "string" } },
+                "required": ["emoji", "text", "duration", "expires_at"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "ok" } }
+      }
+    }
+  }
+}

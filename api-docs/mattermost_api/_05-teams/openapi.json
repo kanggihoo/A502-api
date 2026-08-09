@@ -1,0 +1,163 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Mattermost Teams API (권한 필터됨)",
+    "description": "AGENTS.md 실효 권한 지도 기준, system_user/team_user 계정으로 호출 가능한 Teams API만 포함. 팀 생성(create_team), 타인 팀 추가/제거(add_user_to_team/remove_user_from_team), 비공개 팀 전체 조회(manage_system)는 제외.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer" }
+    },
+    "schemas": {
+      "Team": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "create_at": { "type": "integer" },
+          "update_at": { "type": "integer" },
+          "delete_at": { "type": "integer" },
+          "display_name": { "type": "string" },
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "email": { "type": "string" },
+          "type": { "type": "string" },
+          "allowed_domains": { "type": "string" },
+          "invite_id": { "type": "string" },
+          "allow_open_invite": { "type": "boolean" },
+          "policy_id": { "type": "string" }
+        }
+      },
+      "TeamMember": {
+        "type": "object",
+        "properties": {
+          "team_id": { "type": "string" },
+          "user_id": { "type": "string" },
+          "roles": { "type": "string" },
+          "delete_at": { "type": "integer" },
+          "scheme_user": { "type": "boolean" },
+          "scheme_admin": { "type": "boolean" },
+          "explicit_roles": { "type": "string" }
+        }
+      }
+    }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/teams": {
+      "get": {
+        "summary": "2. Get teams (일반 계정은 open 팀만 조회됨)",
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "per_page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "include_total_count", "in": "query", "schema": { "type": "boolean" } }
+        ],
+        "responses": { "200": { "description": "Team list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Team" } } } } } }
+      }
+    },
+    "/teams/search": {
+      "post": {
+        "summary": "10. Search teams (일반 계정은 open 팀만 검색됨)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "term": { "type": "string" },
+                  "page": { "type": "string" },
+                  "per_page": { "type": "string" },
+                  "allow_open_invite": { "type": "boolean" }
+                }
+              },
+              "example": { "term": "a502" }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Team list (page/per_page 없으면 배열, 있으면 {teams,total_count})" } }
+      }
+    },
+    "/teams/name/{team_name}/exists": {
+      "get": {
+        "summary": "11. Check if team exists",
+        "parameters": [{ "name": "team_name", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "exists boolean", "content": { "application/json": { "schema": { "type": "object", "properties": { "exists": { "type": "boolean" } } } } } } }
+      }
+    },
+    "/users/{user_id}/teams": {
+      "get": {
+        "summary": "12. Get a user's teams (본인)",
+        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
+        "responses": { "200": { "description": "Team list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Team" } } } } } }
+      }
+    },
+    "/teams/{team_id}/members": {
+      "post": {
+        "summary": "14. Add user to team (open 팀에 자기 자신 추가)",
+        "parameters": [{ "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "properties": { "team_id": { "type": "string" }, "user_id": { "type": "string" } }, "required": ["team_id", "user_id"] },
+              "example": { "team_id": "{{team_id}}", "user_id": "{{my_user_id}}" }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Team member created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TeamMember" } } } } }
+      }
+    },
+    "/teams/members/invite": {
+      "post": {
+        "summary": "15. Add user to team from invite",
+        "parameters": [{ "name": "token", "in": "query", "required": true, "schema": { "type": "string" } }],
+        "responses": { "201": { "description": "Team member created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TeamMember" } } } } }
+      }
+    },
+    "/users/{user_id}/teams/members": {
+      "get": {
+        "summary": "17. Get team members for a user (본인)",
+        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
+        "responses": { "200": { "description": "Team member list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/TeamMember" } } } } } }
+      }
+    },
+    "/teams/{team_id}/members/{user_id}": {
+      "delete": {
+        "summary": "19. Remove user from team (본인 탈퇴)",
+        "parameters": [
+          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }
+        ],
+        "responses": { "200": { "description": "ok" } }
+      }
+    },
+    "/teams/{team_id}/image": {
+      "get": {
+        "summary": "24. Get the team icon (open 팀이면 인증만으로 조회 가능)",
+        "parameters": [{ "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Image binary" } }
+      }
+    },
+    "/users/{user_id}/teams/unread": {
+      "get": {
+        "summary": "29. Get team unreads for a user (본인)",
+        "parameters": [
+          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
+          { "name": "exclude_team", "in": "query", "required": true, "schema": { "type": "string" } },
+          { "name": "include_collapsed_threads", "in": "query", "schema": { "type": "boolean" } }
+        ],
+        "responses": { "200": { "description": "team unread list", "content": { "application/json": { "schema": { "type": "array", "items": { "type": "object", "properties": { "team_id": { "type": "string" }, "msg_count": { "type": "integer" }, "mention_count": { "type": "integer" } } } } } } } }
+      }
+    },
+    "/teams/invite/{invite_id}": {
+      "get": {
+        "summary": "35. Get invite info for a team (인증 불필요)",
+        "security": [],
+        "parameters": [{ "name": "invite_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Team invite info", "content": { "application/json": { "schema": { "type": "object", "properties": { "id": { "type": "string" }, "name": { "type": "string" }, "display_name": { "type": "string" }, "description": { "type": "string" } } } } } } }
+      }
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Mattermost Access Control API (권한 필터됨)",
+    "description": "AGENTS.md 실효 권한 지도 기준 포함: read_channel. 정책 CRUD/시뮬레이션/활성화 등 manage_system 계열 필요 항목은 전부 제외.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+  ],
+  "components": {
+    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/channels/{channel_id}/access_control/attributes": {
+      "get": {
+        "summary": "15. Get access control attributes for a channel (read_channel)",
+        "parameters": [{ "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Effective access control policy attributes" } }
+      }
+    }
+  }
+}

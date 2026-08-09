@@ -1,0 +1,45 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Mattermost Data Retention API (권한 필터됨)",
+    "description": "본인 조회 기준 조회 전용 API. E20 라이선스 필요 (라이선스 없는 서버에서는 501 예상).",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+  ],
+  "components": {
+    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/users/{user_id}/data_retention/team_policies": {
+      "get": {
+        "summary": "1. Get the policies which are applied to a user's teams (본인, E20 라이선스 필요)",
+        "parameters": [
+          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "per_page", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "Team retention policies" } }
+      }
+    },
+    "/users/{user_id}/data_retention/channel_policies": {
+      "get": {
+        "summary": "2. Get the policies which are applied to a user's channels (본인, E20 라이선스 필요)",
+        "parameters": [
+          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "per_page", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "Channel retention policies" } }
+      }
+    },
+    "/data_retention/policy": {
+      "get": {
+        "summary": "3. Get the global data retention policy (활성 세션만 필요, E20 라이선스 필요)",
+        "responses": { "200": { "description": "Global retention policy", "content": { "application/json": { "schema": { "type": "object", "properties": { "message_deletion_enabled": { "type": "boolean" }, "file_deletion_enabled": { "type": "boolean" }, "message_retention_cutoff": { "type": "integer" }, "file_retention_cutoff": { "type": "integer" } } } } } } }
+      }
+    }
+  }
+}

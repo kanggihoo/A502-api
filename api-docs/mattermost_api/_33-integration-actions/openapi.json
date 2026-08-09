@@ -1,0 +1,122 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Mattermost Integration Actions API (권한 필터됨)",
+    "description": "Interactive dialog(slash command/webhook 콜백 등 연동에서 사용)와 관련된 일반 사용자 대상 endpoint, 별도 named permission 불요.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+  ],
+  "components": {
+    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } },
+    "schemas": {
+      "StatusOk": { "type": "object", "properties": { "status": { "type": "string", "example": "ok" } } }
+    }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/actions/dialogs/open": {
+      "post": {
+        "summary": "1. Open a dialog (trigger_id 기반, 서버 5.6+)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "trigger_id": { "type": "string" },
+                  "url": { "type": "string" },
+                  "dialog": {
+                    "type": "object",
+                    "properties": {
+                      "callback_id": { "type": "string" },
+                      "title": { "type": "string" },
+                      "introduction_text": { "type": "string" },
+                      "elements": { "type": "array", "items": { "type": "object" } },
+                      "submit_label": { "type": "string" },
+                      "notify_on_cancel": { "type": "boolean" },
+                      "state": { "type": "string" }
+                    },
+                    "required": ["title", "elements"]
+                  }
+                },
+                "required": ["trigger_id", "url", "dialog"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "ok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOk" } } } } }
+      }
+    },
+    "/actions/dialogs/submit": {
+      "post": {
+        "summary": "2. Submit a dialog (서버 5.6+)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "url": { "type": "string" },
+                  "channel_id": { "type": "string" },
+                  "submission": { "type": "object" },
+                  "callback_id": { "type": "string" },
+                  "state": { "type": "string" },
+                  "cancelled": { "type": "boolean" },
+                  "file_ids": { "type": "array", "items": { "type": "string" } }
+                },
+                "required": ["url", "channel_id", "submission"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "ok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOk" } } } } }
+      }
+    },
+    "/actions/dialogs/lookup": {
+      "post": {
+        "summary": "3. Lookup dialog elements (서버 11.0+)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "url": { "type": "string" },
+                  "channel_id": { "type": "string" },
+                  "submission": { "type": "object" },
+                  "callback_id": { "type": "string" },
+                  "state": { "type": "string" }
+                },
+                "required": ["url", "channel_id", "submission"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "options list" } }
+      }
+    },
+    "/actions/dialogs/execute": {
+      "post": {
+        "summary": "4. Execute a dialog action button (서버 11.10+)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "url": { "type": "string" },
+                  "context": { "type": "object" },
+                  "channel_id": { "type": "string" }
+                },
+                "required": ["url", "channel_id"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "status + trigger_id" } }
+      }
+    }
+  }
+}

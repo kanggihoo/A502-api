@@ -1,0 +1,99 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Mattermost Threads API (권한 필터됨)",
+    "description": "본인(user_id=me) 대상 스레드 팔로우/읽음 관리. 타인 대상은 edit_other_users 필요해 제외. 최소 서버 버전 5.29 (일부 6.7).",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+  ],
+  "components": {
+    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/users/{user_id}/teams/{team_id}/threads": {
+      "get": {
+        "summary": "1. Get all threads that user is following (본인)",
+        "parameters": [
+          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
+          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "since", "in": "query", "schema": { "type": "integer" } },
+          { "name": "deleted", "in": "query", "schema": { "type": "boolean" } },
+          { "name": "extended", "in": "query", "schema": { "type": "boolean" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "per_page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "totalsOnly", "in": "query", "schema": { "type": "boolean" } },
+          { "name": "threadsOnly", "in": "query", "schema": { "type": "boolean" } }
+        ],
+        "responses": { "200": { "description": "Thread list" } }
+      }
+    },
+    "/users/{user_id}/teams/{team_id}/threads/read": {
+      "put": {
+        "summary": "2. Mark all threads that user is following as read (본인)",
+        "parameters": [
+          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
+          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "ok" } }
+      }
+    },
+    "/users/{user_id}/teams/{team_id}/threads/{thread_id}/read/{timestamp}": {
+      "put": {
+        "summary": "3. Mark a thread read state to the timestamp (본인)",
+        "parameters": [
+          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
+          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "thread_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "timestamp", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "ok" } }
+      }
+    },
+    "/users/{user_id}/teams/{team_id}/threads/{thread_id}/set_unread/{post_id}": {
+      "post": {
+        "summary": "4. Mark a thread as unread based on a post id (본인, read_channel, 서버 6.7+)",
+        "parameters": [
+          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
+          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "thread_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "post_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "ok" } }
+      }
+    },
+    "/users/{user_id}/teams/{team_id}/threads/{thread_id}/following": {
+      "put": {
+        "summary": "5. Start following a thread (본인)",
+        "parameters": [
+          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
+          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "thread_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "ok" } }
+      },
+      "delete": {
+        "summary": "6. Stop following a thread (본인)",
+        "parameters": [
+          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
+          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "thread_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "ok" } }
+      }
+    },
+    "/users/{user_id}/teams/{team_id}/threads/{thread_id}": {
+      "get": {
+        "summary": "7. Get a thread followed by the user (본인)",
+        "parameters": [
+          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
+          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "thread_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Thread" } }
+      }
+    }
+  }
+}

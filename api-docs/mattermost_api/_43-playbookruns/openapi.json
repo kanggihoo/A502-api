@@ -1,0 +1,316 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Mattermost Playbook Runs API (권한 필터됨)",
+    "description": "플레이북 런 멤버(참여자) 기반 접근, 별도 named permission 불요. Playbooks 플러그인 설치·활성화 필요.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "https://{host}/plugins/playbooks/api/v0", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+  ],
+  "components": {
+    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } },
+    "schemas": {
+      "PlaybookRun": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "summary": { "type": "string" },
+          "is_active": { "type": "boolean" },
+          "owner_user_id": { "type": "string" },
+          "team_id": { "type": "string" },
+          "channel_id": { "type": "string" },
+          "create_at": { "type": "integer" },
+          "end_at": { "type": "integer" },
+          "delete_at": { "type": "integer" },
+          "active_stage": { "type": "integer" },
+          "active_stage_title": { "type": "string" },
+          "post_id": { "type": "string" },
+          "playbook_id": { "type": "string" },
+          "checklists": { "type": "array", "items": { "type": "object" } }
+        }
+      },
+      "PropertyField": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "type": { "type": "string", "enum": ["text", "select", "multiselect"] },
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "create_at": { "type": "integer" },
+          "update_at": { "type": "integer" },
+          "delete_at": { "type": "integer" },
+          "attrs": { "type": "object" }
+        }
+      },
+      "PropertyValue": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "field_id": { "type": "string" },
+          "value": { "type": "string" },
+          "create_at": { "type": "integer" },
+          "update_at": { "type": "integer" },
+          "delete_at": { "type": "integer" }
+        }
+      }
+    }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/runs": {
+      "get": {
+        "summary": "1. List all playbook runs (런 멤버)",
+        "parameters": [
+          { "name": "team_id", "in": "query", "required": true, "schema": { "type": "string" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "per_page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "sort", "in": "query", "schema": { "type": "string" } },
+          { "name": "direction", "in": "query", "schema": { "type": "string" } },
+          { "name": "statuses", "in": "query", "schema": { "type": "array", "items": { "type": "string" } } },
+          { "name": "owner_user_id", "in": "query", "schema": { "type": "string" } },
+          { "name": "participant_id", "in": "query", "schema": { "type": "string" } },
+          { "name": "search_term", "in": "query", "schema": { "type": "string" } },
+          { "name": "channel_id", "in": "query", "schema": { "type": "string" } },
+          { "name": "omit_ended", "in": "query", "schema": { "type": "boolean" } },
+          { "name": "since", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "Paged run list" } }
+      },
+      "post": {
+        "summary": "2. Create a new playbook run (런 멤버)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "summary": { "type": "string" },
+                  "owner_user_id": { "type": "string" },
+                  "team_id": { "type": "string" },
+                  "post_id": { "type": "string" },
+                  "playbook_id": { "type": "string" }
+                },
+                "required": ["name", "owner_user_id", "team_id", "playbook_id"]
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Created run", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PlaybookRun" } } } } }
+      }
+    },
+    "/runs/owners": {
+      "get": {
+        "summary": "3. Get all owners (런 멤버)",
+        "parameters": [{ "name": "team_id", "in": "query", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Owner list", "content": { "application/json": { "schema": { "type": "array", "items": { "type": "object", "properties": { "user_id": { "type": "string" }, "username": { "type": "string" } } } } } } } }
+      }
+    },
+    "/runs/channels": {
+      "get": {
+        "summary": "4. Get playbook run channels (런 멤버)",
+        "parameters": [
+          { "name": "team_id", "in": "query", "required": true, "schema": { "type": "string" } },
+          { "name": "sort", "in": "query", "schema": { "type": "string" } },
+          { "name": "direction", "in": "query", "schema": { "type": "string" } },
+          { "name": "status", "in": "query", "schema": { "type": "string" } },
+          { "name": "owner_user_id", "in": "query", "schema": { "type": "string" } },
+          { "name": "search_term", "in": "query", "schema": { "type": "string" } },
+          { "name": "participant_id", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Channel id list", "content": { "application/json": { "schema": { "type": "array", "items": { "type": "string" } } } } } }
+      }
+    },
+    "/runs/channel/{channel_id}": {
+      "get": {
+        "summary": "5. Find playbook run by channel ID (런 멤버)",
+        "parameters": [{ "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Playbook run", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PlaybookRun" } } } }, "404": { "description": "연결된 런 없음" } }
+      }
+    },
+    "/runs/{id}": {
+      "get": {
+        "summary": "6. Get a playbook run (런 멤버)",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Playbook run", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PlaybookRun" } } } } }
+      },
+      "patch": {
+        "summary": "7. Update a playbook run (name/summary, 런 멤버)",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "name": { "type": "string" }, "summary": { "type": "string" } } } } } },
+        "responses": { "200": { "description": "Updated" } }
+      }
+    },
+    "/runs/{id}/metadata": {
+      "get": {
+        "summary": "8. Get playbook run metadata (런 멤버)",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Run metadata", "content": { "application/json": { "schema": { "type": "object", "properties": { "channel_name": { "type": "string" }, "channel_display_name": { "type": "string" }, "team_name": { "type": "string" }, "num_members": { "type": "integer" }, "total_posts": { "type": "integer" } } } } } } }
+      }
+    },
+    "/runs/{id}/end": {
+      "put": {
+        "summary": "9. End a playbook run (런 멤버)",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Ended" } }
+      }
+    },
+    "/runs/{id}/restart": {
+      "put": {
+        "summary": "10. Restart a playbook run (런 멤버)",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Restarted" } }
+      }
+    },
+    "/runs/{id}/status": {
+      "post": {
+        "summary": "11. Update a playbook run's status (런 멤버)",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "message": { "type": "string" }, "reminder": { "type": "number" } }, "required": ["message"] } } } },
+        "responses": { "200": { "description": "Updated" } }
+      }
+    },
+    "/runs/{id}/finish": {
+      "put": {
+        "summary": "12. Finish a playbook run (런 멤버)",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Finished" } }
+      }
+    },
+    "/runs/{id}/owner": {
+      "post": {
+        "summary": "13. Update playbook run owner (런 멤버)",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "owner_id": { "type": "string" } }, "required": ["owner_id"] } } } },
+        "responses": { "200": { "description": "Owner changed" } }
+      }
+    },
+    "/runs/{id}/checklists/{checklist}/add": {
+      "post": {
+        "summary": "14. Add an item to a playbook run's checklist (런 멤버)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "checklist", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": { "type": "string" },
+                  "state": { "type": "string", "enum": ["", "in_progress", "closed"] },
+                  "assignee_id": { "type": "string" },
+                  "command": { "type": "string" },
+                  "description": { "type": "string" }
+                },
+                "required": ["title"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Item added" } }
+      }
+    },
+    "/runs/{id}/checklists/{checklist}/reorder": {
+      "put": {
+        "summary": "15. Reorder an item in a playbook run's checklist (런 멤버)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "checklist", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "item_num": { "type": "integer" }, "new_location": { "type": "integer" } }, "required": ["item_num", "new_location"] } } } },
+        "responses": { "200": { "description": "Reordered" } }
+      }
+    },
+    "/runs/{id}/checklists/{checklist}/item/{item}": {
+      "put": {
+        "summary": "16. Update an item of a playbook run's checklist (런 멤버)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "checklist", "in": "path", "required": true, "schema": { "type": "integer" } },
+          { "name": "item", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "title": { "type": "string" }, "command": { "type": "string" }, "description": { "type": "string" } }, "required": ["title", "command"] } } } },
+        "responses": { "200": { "description": "Item updated" } }
+      },
+      "delete": {
+        "summary": "17. Delete an item of a playbook run's checklist (런 멤버)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "checklist", "in": "path", "required": true, "schema": { "type": "integer" } },
+          { "name": "item", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": { "204": { "description": "Deleted" } }
+      }
+    },
+    "/runs/{id}/checklists/{checklist}/item/{item}/state": {
+      "put": {
+        "summary": "18. Update the state of an item (런 멤버)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "checklist", "in": "path", "required": true, "schema": { "type": "integer" } },
+          { "name": "item", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "new_state": { "type": "string", "enum": ["", "in_progress", "closed"] } }, "required": ["new_state"] } } } },
+        "responses": { "200": { "description": "State updated" } }
+      }
+    },
+    "/runs/{id}/checklists/{checklist}/item/{item}/assignee": {
+      "put": {
+        "summary": "19. Update the assignee of an item (런 멤버)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "checklist", "in": "path", "required": true, "schema": { "type": "integer" } },
+          { "name": "item", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "assignee_id": { "type": "string" } }, "required": ["assignee_id"] } } } },
+        "responses": { "200": { "description": "Assignee updated" } }
+      }
+    },
+    "/runs/{id}/checklists/{checklist}/item/{item}/run": {
+      "put": {
+        "summary": "20. Run an item's slash command (런 멤버)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "checklist", "in": "path", "required": true, "schema": { "type": "integer" } },
+          { "name": "item", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "trigger_id", "content": { "application/json": { "schema": { "type": "object", "properties": { "trigger_id": { "type": "string" } } } } } } }
+      }
+    },
+    "/runs/{id}/property_fields": {
+      "get": {
+        "summary": "21. Get property fields for a playbook run (런 멤버)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "updated_since", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "Property field list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/PropertyField" } } } } } }
+      }
+    },
+    "/runs/{id}/property_values": {
+      "get": {
+        "summary": "22. Get property values for a playbook run (런 멤버)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "updated_since", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "Property value list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/PropertyValue" } } } } } }
+      }
+    },
+    "/runs/{id}/property_fields/{field_id}/value": {
+      "put": {
+        "summary": "23. Set a property value for a playbook run (런 멤버)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "field_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "value": { "type": "string" } }, "required": ["value"] } } } },
+        "responses": { "200": { "description": "Property value set", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PropertyValue" } } } } }
+      }
+    }
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Mattermost Shared Channels API (권한 필터됨)",
+    "description": "AGENTS.md 실효 권한 지도 기준 포함: view_team, read_channel 기반 조회. 원격 클러스터 초대/제거 등 manage_shared_channels/manage_secure_connections 필요 항목(#2, #4, #5)은 제외.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+  ],
+  "components": {
+    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/sharedchannels/{team_id}": {
+      "get": {
+        "summary": "1. Get all shared channels for team (view_team, 본인 멤버 채널로 제한, 서버 5.50+)",
+        "parameters": [
+          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "per_page", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "Shared channel list" } }
+      }
+    },
+    "/sharedchannels/remote_info/{remote_id}": {
+      "get": {
+        "summary": "3. Get remote cluster info by ID for user (공유 채널 멤버여야 함, 서버 5.50+)",
+        "parameters": [
+          { "name": "remote_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "include_deleted", "in": "query", "schema": { "type": "boolean" } }
+        ],
+        "responses": { "200": { "description": "Remote cluster info" } }
+      }
+    },
+    "/sharedchannels/{channel_id}/remotes": {
+      "get": {
+        "summary": "6. Get remote clusters for a shared channel (read_channel, 서버 10.11+)",
+        "parameters": [{ "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Remote cluster list" } }
+      }
+    },
+    "/sharedchannels/users/{user_id}/can_dm/{other_user_id}": {
+      "get": {
+        "summary": "7. Check if user can DM another user in shared channels context (서버 10.11+)",
+        "parameters": [
+          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
+          { "name": "other_user_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "can_dm boolean", "content": { "application/json": { "schema": { "type": "object", "properties": { "can_dm": { "type": "boolean" } } } } } } }
+      }
+    }
+  }
+}

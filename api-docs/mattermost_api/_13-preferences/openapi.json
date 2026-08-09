@@ -1,0 +1,72 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Mattermost Preferences API (권한 필터됨)",
+    "description": "본인(user_id=me) 대상 preference CRUD. 타인 대상은 edit_other_users 필요해 제외.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+  ],
+  "components": {
+    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } },
+    "schemas": {
+      "Preference": {
+        "type": "object",
+        "properties": {
+          "user_id": { "type": "string" },
+          "category": { "type": "string" },
+          "name": { "type": "string" },
+          "value": { "type": "string" }
+        },
+        "required": ["user_id", "category", "name", "value"]
+      },
+      "StatusOk": { "type": "object", "properties": { "status": { "type": "string", "example": "ok" } } }
+    }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/users/{user_id}/preferences": {
+      "get": {
+        "summary": "1. Get the user's preferences (본인)",
+        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
+        "responses": { "200": { "description": "Preference list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Preference" } } } } } }
+      },
+      "put": {
+        "summary": "2. Save the user's preferences (본인)",
+        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
+        "requestBody": { "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Preference" } } } } },
+        "responses": { "200": { "description": "ok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOk" } } } } }
+      }
+    },
+    "/users/{user_id}/preferences/delete": {
+      "post": {
+        "summary": "3. Delete user's preferences (본인)",
+        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
+        "requestBody": { "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Preference" } } } } },
+        "responses": { "200": { "description": "ok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOk" } } } } }
+      }
+    },
+    "/users/{user_id}/preferences/{category}": {
+      "get": {
+        "summary": "4. List a user's preferences by category (본인)",
+        "parameters": [
+          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
+          { "name": "category", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Preference list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Preference" } } } } } }
+      }
+    },
+    "/users/{user_id}/preferences/{category}/name/{preference_name}": {
+      "get": {
+        "summary": "5. Get a specific user preference (본인)",
+        "parameters": [
+          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
+          { "name": "category", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "preference_name", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Preference", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Preference" } } } } }
+      }
+    }
+  }
+}

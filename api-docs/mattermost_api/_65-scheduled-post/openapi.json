@@ -1,0 +1,81 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Mattermost Scheduled Post API (권한 필터됨)",
+    "description": "AGENTS.md 실효 권한 지도 기준 포함: create_post(해당 채널), view_team, 본인 소유 예약 게시물. 최소 서버 버전 10.3.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+  ],
+  "components": {
+    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/posts/schedule": {
+      "post": {
+        "summary": "1. Creates a scheduled post (create_post, 서버 10.3+)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "scheduled_at": { "type": "integer" },
+                  "channel_id": { "type": "string" },
+                  "message": { "type": "string" },
+                  "root_id": { "type": "string" },
+                  "file_ids": { "type": "array", "items": { "type": "string" } },
+                  "props": { "type": "object" }
+                },
+                "required": ["scheduled_at", "channel_id", "message"]
+              },
+              "example": { "scheduled_at": 1700000000000, "channel_id": "{{channel_id}}", "message": "정기 공지입니다." }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Created scheduled post" } }
+      }
+    },
+    "/posts/scheduled/team/{team_id}": {
+      "get": {
+        "summary": "2. Gets all scheduled posts for a user for the specified team (view_team, 본인)",
+        "parameters": [
+          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "includeDirectChannels", "in": "query", "schema": { "type": "boolean", "default": false } }
+        ],
+        "responses": { "200": { "description": "Scheduled posts" } }
+      }
+    },
+    "/posts/schedule/{scheduled_post_id}": {
+      "put": {
+        "summary": "3. Update a scheduled post (create_post, 본인)",
+        "parameters": [{ "name": "scheduled_post_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "string" },
+                  "channel_id": { "type": "string" },
+                  "user_id": { "type": "string" },
+                  "scheduled_at": { "type": "integer" },
+                  "message": { "type": "string" }
+                },
+                "required": ["id", "channel_id", "user_id", "scheduled_at", "message"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Updated scheduled post" } }
+      },
+      "delete": {
+        "summary": "4. Delete a scheduled post (본인)",
+        "parameters": [{ "name": "scheduled_post_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Deleted scheduled post" } }
+      }
+    }
+  }
+}

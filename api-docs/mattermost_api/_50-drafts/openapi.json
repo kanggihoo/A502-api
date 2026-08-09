@@ -1,0 +1,89 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Mattermost Synced Drafts API (권한 필터됨)",
+    "description": "AGENTS.md 실효 권한 지도 기준 포함: create_post(해당 채널), view_team, 본인 소유 초안 삭제. 서버에서 synced drafts 기능 활성화 필요.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+  ],
+  "components": {
+    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } },
+    "schemas": {
+      "Draft": {
+        "type": "object",
+        "properties": {
+          "create_at": { "type": "integer" },
+          "update_at": { "type": "integer" },
+          "user_id": { "type": "string" },
+          "channel_id": { "type": "string" },
+          "root_id": { "type": "string" },
+          "message": { "type": "string" },
+          "type": { "type": "string" },
+          "props": { "type": "object" },
+          "file_ids": { "type": "array", "items": { "type": "string" } },
+          "priority": { "type": "object" }
+        }
+      },
+      "StatusOk": { "type": "object", "properties": { "status": { "type": "string", "example": "ok" } } }
+    }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/drafts": {
+      "post": {
+        "summary": "1. Upsert synced draft (create_post, message 빈문자열이면 삭제)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "channel_id": { "type": "string" },
+                  "root_id": { "type": "string" },
+                  "message": { "type": "string" },
+                  "file_ids": { "type": "array", "items": { "type": "string" } },
+                  "priority": { "type": "object" }
+                },
+                "required": ["channel_id", "message"]
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Draft or null", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Draft" } } } } }
+      }
+    },
+    "/users/{user_id}/teams/{team_id}/drafts": {
+      "get": {
+        "summary": "2. Get synced drafts for a team (view_team)",
+        "parameters": [
+          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
+          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Draft list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Draft" } } } } } }
+      }
+    },
+    "/users/{user_id}/channels/{channel_id}/drafts": {
+      "delete": {
+        "summary": "3. Delete synced draft (본인 소유)",
+        "parameters": [
+          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
+          { "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "ok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOk" } } } } }
+      }
+    },
+    "/users/{user_id}/channels/{channel_id}/drafts/{thread_id}": {
+      "delete": {
+        "summary": "4. Delete synced thread draft (본인 소유)",
+        "parameters": [
+          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
+          { "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "thread_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "ok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOk" } } } } }
+      }
+    }
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Mattermost Terms of Service API (권한 필터됨)",
+    "description": "본인 대상 이용약관 동의/조회 + 인증만 필요한 최신 약관 조회. 약관 등록(#4)은 manage_system 필요해 제외.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+  ],
+  "components": {
+    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } },
+    "schemas": {
+      "StatusOk": { "type": "object", "properties": { "status": { "type": "string", "example": "ok" } } }
+    }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/users/{user_id}/terms_of_service": {
+      "post": {
+        "summary": "1. Records user action when they accept or decline custom terms of service (본인)",
+        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "serviceTermsId": { "type": "string" }, "accepted": { "type": "string" } }, "required": ["serviceTermsId", "accepted"] } } } },
+        "responses": { "200": { "description": "ok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOk" } } } } }
+      },
+      "get": {
+        "summary": "2. Fetches user's latest terms of service acceptance action (본인, v6.0 deprecated 예정)",
+        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
+        "responses": {
+          "200": { "description": "ToS acceptance record" },
+          "404": { "description": "행위 기록 없음 또는 최신 행위가 거부" }
+        }
+      }
+    },
+    "/terms_of_service": {
+      "get": {
+        "summary": "3. Get latest terms of service (인증만 필요)",
+        "responses": { "200": { "description": "Latest terms of service", "content": { "application/json": { "schema": { "type": "object", "properties": { "id": { "type": "string" }, "create_at": { "type": "integer" }, "user_id": { "type": "string" }, "text": { "type": "string" } } } } } } }
+      }
+    }
+  }
+}

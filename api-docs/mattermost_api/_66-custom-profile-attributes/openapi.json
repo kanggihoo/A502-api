@@ -1,0 +1,65 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Mattermost Custom Profile Attributes API (권한 필터됨)",
+    "description": "AGENTS.md 실효 권한 지도 기준 포함: view_members, 본인 값 조회/수정. 필드 정의(생성/수정/삭제)는 manage_system 필요해 제외.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+  ],
+  "components": {
+    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } },
+    "schemas": {
+      "CPAField": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "type": { "type": "string", "enum": ["text", "select", "multiselect"] },
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "create_at": { "type": "integer" },
+          "update_at": { "type": "integer" },
+          "delete_at": { "type": "integer" },
+          "attrs": { "type": "object" }
+        }
+      },
+      "CPAValue": { "type": "object", "properties": { "id": { "type": "string" }, "value": {} } }
+    }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/custom_profile_attributes/fields": {
+      "get": {
+        "summary": "1. List all the Custom Profile Attributes fields (인증만 필요, 서버 10.5+)",
+        "responses": { "200": { "description": "Field list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/CPAField" } } } } } }
+      }
+    },
+    "/custom_profile_attributes/values": {
+      "patch": {
+        "summary": "5. Patch Custom Profile Attribute values (본인, protected 필드 제외, 서버 10.5+)",
+        "requestBody": { "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/CPAValue" } } } } },
+        "responses": { "200": { "description": "Updated values", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/CPAValue" } } } } } }
+      }
+    },
+    "/custom_profile_attributes/group": {
+      "get": {
+        "summary": "6. Get Custom Profile Attribute property group data (인증만 필요, 서버 10.8+)",
+        "responses": { "200": { "description": "Group id", "content": { "application/json": { "schema": { "type": "object", "properties": { "id": { "type": "string" } } } } } } }
+      }
+    },
+    "/users/{user_id}/custom_profile_attributes": {
+      "get": {
+        "summary": "7. List Custom Profile Attribute values (view_members, 서버 10.5+)",
+        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
+        "responses": { "200": { "description": "Value list" } }
+      },
+      "patch": {
+        "summary": "8. Update custom profile attribute values for a user (본인, protected 필드 제외, 서버 11+)",
+        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
+        "requestBody": { "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/CPAValue" } } } } },
+        "responses": { "200": { "description": "Updated values", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/CPAValue" } } } } } }
+      }
+    }
+  }
+}

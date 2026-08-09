@@ -1,0 +1,126 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Mattermost Channel Views API (권한 필터됨, Experimental)",
+    "description": "AGENTS.md 실효 권한 지도 기준 포함: read_channel_content(조회), create_post(생성/수정/삭제/정렬). Experimental 기능, 최소 서버 버전 11.6, 향후 변경/제거 가능성 있음.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+  ],
+  "components": {
+    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } },
+    "schemas": {
+      "View": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "channel_id": { "type": "string" },
+          "type": { "type": "string", "enum": ["kanban"] },
+          "creator_id": { "type": "string" },
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "sort_order": { "type": "integer" },
+          "props": { "type": "object" },
+          "create_at": { "type": "integer" },
+          "update_at": { "type": "integer" },
+          "delete_at": { "type": "integer" }
+        }
+      },
+      "StatusOk": { "type": "object", "properties": { "status": { "type": "string", "example": "ok" } } }
+    }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/channels/{channel_id}/views": {
+      "get": {
+        "summary": "1. List channel views (read_channel_content)",
+        "parameters": [
+          { "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 0 } },
+          { "name": "per_page", "in": "query", "schema": { "type": "integer", "default": 60 } },
+          { "name": "include_total_count", "in": "query", "schema": { "type": "boolean", "default": false } }
+        ],
+        "responses": { "200": { "description": "View list" } }
+      },
+      "post": {
+        "summary": "2. Create channel view (create_post)",
+        "parameters": [{ "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": { "type": "string" },
+                  "type": { "type": "string", "enum": ["kanban"] },
+                  "description": { "type": "string" },
+                  "sort_order": { "type": "integer" },
+                  "props": { "type": "object" }
+                },
+                "required": ["title", "type"]
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "View created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/View" } } } } }
+      }
+    },
+    "/channels/{channel_id}/views/{view_id}": {
+      "get": {
+        "summary": "3. Get a channel view (read_channel_content)",
+        "parameters": [
+          { "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "view_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "View", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/View" } } } } }
+      },
+      "patch": {
+        "summary": "4. Update a channel view (create_post)",
+        "parameters": [
+          { "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "view_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "properties": { "title": { "type": "string" }, "description": { "type": "string" }, "sort_order": { "type": "integer" }, "props": { "type": "object" } } }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Updated view", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/View" } } } } }
+      },
+      "delete": {
+        "summary": "5. Delete a channel view (create_post)",
+        "parameters": [
+          { "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "view_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "ok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOk" } } } } }
+      }
+    },
+    "/channels/{channel_id}/views/{view_id}/posts": {
+      "get": {
+        "summary": "6. Get posts for a view (read_channel_content)",
+        "parameters": [
+          { "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "view_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 0 } },
+          { "name": "per_page", "in": "query", "schema": { "type": "integer", "default": 60 } }
+        ],
+        "responses": { "200": { "description": "Post list for view" } }
+      }
+    },
+    "/channels/{channel_id}/views/{view_id}/sort_order": {
+      "post": {
+        "summary": "7. Update a channel view's sort order (create_post)",
+        "parameters": [
+          { "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "view_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": { "content": { "application/json": { "schema": { "type": "integer" } } } },
+        "responses": { "200": { "description": "Reordered view list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/View" } } } } } }
+      }
+    }
+  }
+}

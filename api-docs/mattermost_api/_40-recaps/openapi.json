@@ -1,0 +1,113 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Mattermost AI Recaps API (권한 필터됨)",
+    "description": "인증만 필요, 지정 채널 멤버여야 함, 본인 생성 recap만 조작 가능. AI Recaps feature flag 활성화 필요. 최소 서버 버전 11.2.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+  ],
+  "components": {
+    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } },
+    "schemas": {
+      "Recap": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "user_id": { "type": "string" },
+          "title": { "type": "string" },
+          "create_at": { "type": "integer" },
+          "update_at": { "type": "integer" },
+          "delete_at": { "type": "integer" },
+          "read_at": { "type": "integer" },
+          "viewed_at": { "type": "integer" },
+          "total_message_count": { "type": "integer" },
+          "status": { "type": "string", "enum": ["pending", "processing", "completed", "failed"] },
+          "bot_id": { "type": "string" },
+          "channels": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "recap_id": { "type": "string" },
+                "channel_id": { "type": "string" },
+                "channel_name": { "type": "string" },
+                "highlights": { "type": "array", "items": { "type": "string" } },
+                "action_items": { "type": "array", "items": { "type": "string" } },
+                "source_post_ids": { "type": "array", "items": { "type": "string" } },
+                "create_at": { "type": "integer" }
+              }
+            }
+          }
+        }
+      },
+      "StatusOk": { "type": "object", "properties": { "status": { "type": "string", "example": "ok" } } }
+    }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/recaps": {
+      "post": {
+        "summary": "1. Create a channel recap (지정 채널 멤버, 비동기 처리)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": { "type": "string" },
+                  "channel_ids": { "type": "array", "items": { "type": "string" } },
+                  "agent_id": { "type": "string" }
+                },
+                "required": ["title", "channel_ids", "agent_id"]
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Recap created (processing async)", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Recap" } } } } }
+      },
+      "get": {
+        "summary": "2. Get current user's recaps (본인)",
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "per_page", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "Recap list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Recap" } } } } } }
+      }
+    },
+    "/recaps/mark_viewed": {
+      "post": {
+        "summary": "3. Mark all finished recaps as viewed (본인)",
+        "responses": { "200": { "description": "recap_ids", "content": { "application/json": { "schema": { "type": "object", "properties": { "recap_ids": { "type": "array", "items": { "type": "string" } } } } } } } }
+      }
+    },
+    "/recaps/{recap_id}": {
+      "get": {
+        "summary": "4. Get a specific recap (본인)",
+        "parameters": [{ "name": "recap_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Recap", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Recap" } } } } }
+      },
+      "delete": {
+        "summary": "5. Delete a recap (본인)",
+        "parameters": [{ "name": "recap_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "ok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOk" } } } } }
+      }
+    },
+    "/recaps/{recap_id}/read": {
+      "post": {
+        "summary": "6. Mark a recap as read (본인)",
+        "parameters": [{ "name": "recap_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Updated recap", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Recap" } } } } }
+      }
+    },
+    "/recaps/{recap_id}/regenerate": {
+      "post": {
+        "summary": "7. Regenerate a recap (본인)",
+        "parameters": [{ "name": "recap_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Regenerated recap", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Recap" } } } } }
+      }
+    }
+  }
+}

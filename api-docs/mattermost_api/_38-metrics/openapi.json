@@ -1,0 +1,41 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Mattermost Client Metrics API (권한 필터됨)",
+    "description": "로그인만 필요, 별도 named permission 없음. 클라이언트 성능 지표 업로드용. 최소 서버 버전 9.9.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+  ],
+  "components": {
+    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/client_perf": {
+      "post": {
+        "summary": "1. Report client performance metrics",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "version": { "type": "string", "enum": ["0.1.0"] },
+                  "labels": { "type": "array", "items": { "type": "string" } },
+                  "start": { "type": "integer" },
+                  "end": { "type": "integer" },
+                  "counters": { "type": "array", "items": { "type": "object", "properties": { "metric": { "type": "string" }, "value": { "type": "number" }, "timestamp": { "type": "integer" } } } },
+                  "histograms": { "type": "array", "items": { "type": "object", "properties": { "metric": { "type": "string" }, "value": { "type": "number" }, "timestamp": { "type": "integer" } } } }
+                },
+                "required": ["version", "start", "end"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "ok" } }
+      }
+    }
+  }
+}

@@ -1,0 +1,158 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Mattermost OAuth Apps API (권한 필터됨)",
+    "description": "AGENTS.md 실효 권한 지도 기준 포함: manage_oauth(본인 생성 OAuth 앱 CRUD) — SSAGY를 MM OAuth 클라이언트로 등록하는 데 사용. #8/#9(메타데이터, DCR 등록)는 인증 불필요 공개 엔드포인트. Provider 연결(connections, #11~16)은 summary.md에 없어 제외.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+  ],
+  "components": {
+    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } },
+    "schemas": {
+      "OAuthApp": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "client_secret": { "type": "string" },
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "icon_url": { "type": "string" },
+          "callback_urls": { "type": "array", "items": { "type": "string" } },
+          "homepage": { "type": "string" },
+          "is_trusted": { "type": "boolean" },
+          "create_at": { "type": "integer" },
+          "update_at": { "type": "integer" }
+        }
+      },
+      "StatusOk": { "type": "object", "properties": { "status": { "type": "string", "example": "ok" } } }
+    }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/oauth/apps": {
+      "post": {
+        "summary": "1. Register OAuth app (manage_oauth)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "description": { "type": "string" },
+                  "icon_url": { "type": "string" },
+                  "callback_urls": { "type": "array", "items": { "type": "string" } },
+                  "homepage": { "type": "string" },
+                  "is_trusted": { "type": "boolean" },
+                  "is_public": { "type": "boolean" }
+                },
+                "required": ["name", "description", "callback_urls", "homepage"]
+              },
+              "example": { "name": "SSAGY", "description": "A502 통합 워크스페이스", "callback_urls": ["https://ssagy.example.com/oauth/callback"], "homepage": "https://ssagy.example.com" }
+            }
+          }
+        },
+        "responses": { "201": { "description": "App registered", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OAuthApp" } } } } }
+      },
+      "get": {
+        "summary": "2. Get OAuth apps (manage_oauth, 본인 등록분만)",
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "per_page", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "App list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/OAuthApp" } } } } } }
+      }
+    },
+    "/oauth/apps/{app_id}": {
+      "get": {
+        "summary": "3. Get an OAuth app (본인 생성 앱, manage_oauth)",
+        "parameters": [{ "name": "app_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "App", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OAuthApp" } } } } }
+      },
+      "put": {
+        "summary": "4. Update an OAuth app (본인 생성 앱)",
+        "parameters": [{ "name": "app_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "string" },
+                  "name": { "type": "string" },
+                  "description": { "type": "string" },
+                  "callback_urls": { "type": "array", "items": { "type": "string" } },
+                  "homepage": { "type": "string" },
+                  "is_trusted": { "type": "boolean" }
+                },
+                "required": ["id", "name", "description", "callback_urls", "homepage"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Updated app", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OAuthApp" } } } } }
+      },
+      "delete": {
+        "summary": "5. Delete an OAuth app (본인 생성 앱)",
+        "parameters": [{ "name": "app_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "ok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOk" } } } } }
+      }
+    },
+    "/oauth/apps/{app_id}/regen_secret": {
+      "post": {
+        "summary": "6. Regenerate OAuth app secret (본인 생성 앱)",
+        "parameters": [{ "name": "app_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "App with new secret", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OAuthApp" } } } } }
+      }
+    },
+    "/oauth/apps/{app_id}/info": {
+      "get": {
+        "summary": "7. Get info on an OAuth app (인증된 사용자면 충분, secret은 blank 처리)",
+        "parameters": [{ "name": "app_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "App public info", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OAuthApp" } } } } }
+      }
+    },
+    "/.well-known/oauth-authorization-server": {
+      "get": {
+        "summary": "8. Get OAuth 2.0 Authorization Server Metadata (인증 불필요, RFC 8414)",
+        "security": [],
+        "responses": { "200": { "description": "Authorization server metadata" } }
+      }
+    },
+    "/oauth/apps/register": {
+      "post": {
+        "summary": "9. Register OAuth client using Dynamic Client Registration (인증 불필요, RFC 7591)",
+        "security": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "redirect_uris": { "type": "array", "items": { "type": "string" } },
+                  "client_name": { "type": "string" },
+                  "client_uri": { "type": "string" }
+                },
+                "required": ["redirect_uris"]
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Client registered" } }
+      }
+    },
+    "/users/{user_id}/oauth/apps/authorized": {
+      "get": {
+        "summary": "10. Get authorized OAuth apps (본인)",
+        "parameters": [
+          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "per_page", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "Authorized app list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/OAuthApp" } } } } } }
+      }
+    }
+  }
+}

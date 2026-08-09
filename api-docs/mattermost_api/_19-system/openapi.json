@@ -1,0 +1,103 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Mattermost System API (권한 필터됨)",
+    "description": "summary.md에 문서화된 항목 기준. 대부분 인증만 필요하거나 인증 자체가 불필요한 공개/개인 API. manage_system 필요한 서버 관리 기능(config, license, logs 조회 등)은 summary.md에 없어 별도 문서화 없이 제외됨.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+  ],
+  "components": {
+    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } },
+    "schemas": {
+      "StatusOk": { "type": "object", "properties": { "status": { "type": "string", "example": "ok" } } }
+    }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/system/timezones": {
+      "get": {
+        "summary": "1. Retrieve a list of supported timezones (로그인만 필요)",
+        "responses": { "200": { "description": "Timezone list", "content": { "application/json": { "schema": { "type": "array", "items": { "type": "string" } } } } } }
+      }
+    },
+    "/system/ping": {
+      "get": {
+        "summary": "2. Check system health (인증 불필요)",
+        "security": [],
+        "parameters": [
+          { "name": "get_server_status", "in": "query", "schema": { "type": "boolean" } },
+          { "name": "device_id", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Server status" } }
+      }
+    },
+    "/system/notices/{team_id}": {
+      "get": {
+        "summary": "5. Get notices for logged in user in specified team (로그인만 필요)",
+        "parameters": [
+          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "clientVersion", "in": "query", "required": true, "schema": { "type": "string" } },
+          { "name": "client", "in": "query", "required": true, "schema": { "type": "string", "enum": ["web", "mobile-ios", "mobile-android", "desktop"] } }
+        ],
+        "responses": { "200": { "description": "Notice list" } }
+      }
+    },
+    "/system/notices/view": {
+      "put": {
+        "summary": "6. Update notices as 'viewed' (로그인만 필요)",
+        "requestBody": { "content": { "application/json": { "schema": { "type": "array", "items": { "type": "string" } } } } },
+        "responses": { "200": { "description": "ok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOk" } } } } }
+      }
+    },
+    "/notifications/test": {
+      "post": {
+        "summary": "14. Send a test notification (로그인만 필요, 본인에게 발송)",
+        "responses": { "200": { "description": "ok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOk" } } } } }
+      }
+    },
+    "/config/client": {
+      "get": {
+        "summary": "22. Get client configuration (인증 불필요)",
+        "security": [],
+        "responses": { "200": { "description": "Client config subset" } }
+      }
+    },
+    "/license/client": {
+      "get": {
+        "summary": "28. Get client license (인증 불필요)",
+        "security": [],
+        "parameters": [{ "name": "format", "in": "query", "required": true, "schema": { "type": "string", "enum": ["old"] } }],
+        "responses": { "200": { "description": "License subset" } }
+      }
+    },
+    "/license/load_metric": {
+      "get": {
+        "summary": "29. Get license load metric (로그인만 필요, 서버 10.8+)",
+        "responses": { "200": { "description": "load metric", "content": { "application/json": { "schema": { "type": "object", "properties": { "load": { "type": "integer" } } } } } } }
+      }
+    },
+    "/logs": {
+      "post": {
+        "summary": "35. Add log message (로그인만 필요, EnableDeveloper 설정에 따라 레벨 제한)",
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "level": { "type": "string", "enum": ["ERROR", "DEBUG"] }, "message": { "type": "string" } }, "required": ["level", "message"] } } } },
+        "responses": { "200": { "description": "logged" } }
+      }
+    },
+    "/redirect_location": {
+      "get": {
+        "summary": "43. Get redirect location (로그인만 필요)",
+        "parameters": [{ "name": "url", "in": "query", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "location", "content": { "application/json": { "schema": { "type": "object", "properties": { "location": { "type": "string" } } } } } } }
+      }
+    },
+    "/image": {
+      "get": {
+        "summary": "44. Get an image by url (로그인만 필요, 이미지 프록시)",
+        "parameters": [{ "name": "url", "in": "query", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Image binary" } }
+      }
+    }
+  }
+}

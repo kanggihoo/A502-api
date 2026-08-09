@@ -1,0 +1,182 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Mattermost Playbooks API (권한 필터됨)",
+    "description": "AGENTS.md 실효 권한 지도 기준 포함: playbook_public_create/playbook_private_create(생성), 플레이북 멤버 기반 접근(조회/수정/삭제/프로퍼티 필드). Playbooks 플러그인 설치·활성화 필요.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "https://{host}/plugins/playbooks/api/v0", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+  ],
+  "components": {
+    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } },
+    "schemas": {
+      "ChecklistItem": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string" },
+          "command": { "type": "string" },
+          "description": { "type": "string" }
+        },
+        "required": ["title"]
+      },
+      "Checklist": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string" },
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/ChecklistItem" } }
+        },
+        "required": ["title", "items"]
+      },
+      "PropertyField": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "type": { "type": "string", "enum": ["text", "select", "multiselect"] },
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "create_at": { "type": "integer" },
+          "update_at": { "type": "integer" },
+          "delete_at": { "type": "integer" },
+          "attrs": { "type": "object" }
+        }
+      }
+    }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/playbooks": {
+      "get": {
+        "summary": "1. List all playbooks (플레이북 멤버 기반)",
+        "parameters": [
+          { "name": "team_id", "in": "query", "required": true, "schema": { "type": "string" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "per_page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "sort", "in": "query", "schema": { "type": "string" } },
+          { "name": "direction", "in": "query", "schema": { "type": "string" } },
+          { "name": "with_archived", "in": "query", "schema": { "type": "boolean" } }
+        ],
+        "responses": { "200": { "description": "Paged playbook list" } }
+      },
+      "post": {
+        "summary": "2. Create a playbook (playbook_public_create / playbook_private_create)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": { "type": "string" },
+                  "description": { "type": "string" },
+                  "team_id": { "type": "string" },
+                  "create_public_playbook_run": { "type": "boolean" },
+                  "public": { "type": "boolean", "description": "무료 티어에서는 true 필수" },
+                  "checklists": { "type": "array", "items": { "$ref": "#/components/schemas/Checklist" } },
+                  "member_ids": { "type": "array", "items": { "type": "string" } }
+                },
+                "required": ["title", "team_id", "create_public_playbook_run", "checklists", "member_ids"]
+              },
+              "example": { "title": "A502 인시던트 대응", "team_id": "{{team_id}}", "create_public_playbook_run": true, "public": true, "checklists": [{ "title": "초기 대응", "items": [{ "title": "채널 생성" }] }], "member_ids": ["{{my_user_id}}"] }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Created playbook id", "content": { "application/json": { "schema": { "type": "object", "properties": { "id": { "type": "string" } } } } } } }
+      }
+    },
+    "/playbooks/{id}": {
+      "get": {
+        "summary": "3. Get a playbook (플레이북 멤버)",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Playbook" } }
+      },
+      "put": {
+        "summary": "4. Update a playbook (플레이북 멤버)",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": { "type": "string" },
+                  "description": { "type": "string" },
+                  "checklists": { "type": "array", "items": { "$ref": "#/components/schemas/Checklist" } },
+                  "member_ids": { "type": "array", "items": { "type": "string" } }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Updated" } }
+      },
+      "delete": {
+        "summary": "5. Delete a playbook (플레이북 멤버)",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "204": { "description": "Deleted" } }
+      }
+    },
+    "/playbooks/{id}/property_fields": {
+      "get": {
+        "summary": "6. Get property fields for a playbook (플레이북 멤버)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "updated_since", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "Property field list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/PropertyField" } } } } } }
+      },
+      "post": {
+        "summary": "7. Create a property field for a playbook (플레이북 멤버)",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "type": { "type": "string", "enum": ["text", "select", "multiselect"] },
+                  "attrs": { "type": "object" }
+                },
+                "required": ["name", "type"]
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Created property field", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PropertyField" } } } } }
+      }
+    },
+    "/playbooks/{id}/property_fields/{field_id}": {
+      "put": {
+        "summary": "8. Update a property field for a playbook (플레이북 멤버)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "field_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "properties": { "name": { "type": "string" }, "type": { "type": "string", "enum": ["text", "select", "multiselect"] }, "attrs": { "type": "object" } }, "required": ["name", "type"] }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Updated property field", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PropertyField" } } } } }
+      },
+      "delete": {
+        "summary": "9. Delete a property field for a playbook (플레이북 멤버)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "field_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "204": { "description": "Deleted" } }
+      }
+    },
+    "/playbooks/{id}/property_fields/reorder": {
+      "post": {
+        "summary": "10. Reorder property fields for a playbook (플레이북 멤버)",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "field_id": { "type": "string" }, "target_position": { "type": "integer" } }, "required": ["field_id", "target_position"] } } } },
+        "responses": { "200": { "description": "Reordered property field list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/PropertyField" } } } } } }
+      }
+    }
+  }
+}

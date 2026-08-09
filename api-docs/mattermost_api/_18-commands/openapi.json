@@ -1,0 +1,129 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Mattermost Slash Commands API (권한 필터됨)",
+    "description": "AGENTS.md 실효 권한 지도 기준 포함: manage_own_slash_commands(본인 생성분 CRUD), view_team(자동완성 조회), use_slash_commands(실행). Move a command(#8)는 양쪽 팀 manage_slash_commands 필요해 제외.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+  ],
+  "components": {
+    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } },
+    "schemas": {
+      "Command": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "token": { "type": "string" },
+          "create_at": { "type": "integer" },
+          "update_at": { "type": "integer" },
+          "delete_at": { "type": "integer" },
+          "creator_id": { "type": "string" },
+          "team_id": { "type": "string" },
+          "trigger": { "type": "string" },
+          "method": { "type": "string", "enum": ["G", "P"] },
+          "username": { "type": "string" },
+          "icon_url": { "type": "string" },
+          "auto_complete": { "type": "boolean" },
+          "auto_complete_desc": { "type": "string" },
+          "auto_complete_hint": { "type": "string" },
+          "display_name": { "type": "string" },
+          "description": { "type": "string" },
+          "url": { "type": "string" }
+        }
+      },
+      "StatusOk": { "type": "object", "properties": { "status": { "type": "string", "example": "ok" } } }
+    }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/commands": {
+      "post": {
+        "summary": "1. Create a command (manage_own_slash_commands)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "team_id": { "type": "string" },
+                  "method": { "type": "string", "enum": ["G", "P"] },
+                  "trigger": { "type": "string" },
+                  "url": { "type": "string" }
+                },
+                "required": ["team_id", "method", "trigger", "url"]
+              },
+              "example": { "team_id": "{{team_id}}", "method": "P", "trigger": "ssagy", "url": "https://example.com/slash/ssagy" }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Command created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Command" } } } } }
+      },
+      "get": {
+        "summary": "2. List commands for a team (custom_only=true는 manage_slash_commands 필요해 제외 권장)",
+        "parameters": [
+          { "name": "team_id", "in": "query", "schema": { "type": "string" } },
+          { "name": "custom_only", "in": "query", "schema": { "type": "boolean", "default": false } }
+        ],
+        "responses": { "200": { "description": "Command list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Command" } } } } } }
+      }
+    },
+    "/teams/{team_id}/commands/autocomplete": {
+      "get": {
+        "summary": "3. List autocomplete commands (view_team)",
+        "parameters": [{ "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Command list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Command" } } } } } }
+      }
+    },
+    "/teams/{team_id}/commands/autocomplete_suggestions": {
+      "get": {
+        "summary": "4. List commands' autocomplete data (view_team, 서버 5.24+)",
+        "parameters": [
+          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "user_input", "in": "query", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Autocomplete suggestions" } }
+      }
+    },
+    "/commands/{command_id}": {
+      "get": {
+        "summary": "5. Get a command (본인, manage_own_slash_commands)",
+        "parameters": [{ "name": "command_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Command", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Command" } } } } }
+      },
+      "put": {
+        "summary": "6. Update a command (본인)",
+        "parameters": [{ "name": "command_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Command" } } } },
+        "responses": { "200": { "description": "Updated command", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Command" } } } } }
+      },
+      "delete": {
+        "summary": "7. Delete a command (본인)",
+        "parameters": [{ "name": "command_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "ok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOk" } } } } }
+      }
+    },
+    "/commands/{command_id}/regen_token": {
+      "put": {
+        "summary": "9. Generate a new token (본인)",
+        "parameters": [{ "name": "command_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "new token", "content": { "application/json": { "schema": { "type": "object", "properties": { "token": { "type": "string" } } } } } } }
+      }
+    },
+    "/commands/execute": {
+      "post": {
+        "summary": "10. Execute a command (use_slash_commands)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "properties": { "channel_id": { "type": "string" }, "command": { "type": "string" } }, "required": ["channel_id", "command"] },
+              "example": { "channel_id": "{{channel_id}}", "command": "/ssagy status" }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Command execution result" } }
+      }
+    }
+  }
+}

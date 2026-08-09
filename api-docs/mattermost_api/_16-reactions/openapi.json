@@ -1,0 +1,67 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Mattermost Reactions API (권한 필터됨)",
+    "description": "AGENTS.md 실효 권한 지도 기준 포함: add_reaction, remove_reaction(본인), read_channel.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+  ],
+  "components": {
+    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } },
+    "schemas": {
+      "Reaction": {
+        "type": "object",
+        "properties": {
+          "user_id": { "type": "string" },
+          "post_id": { "type": "string" },
+          "emoji_name": { "type": "string" },
+          "create_at": { "type": "integer" }
+        }
+      }
+    }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/reactions": {
+      "post": {
+        "summary": "1. Create a reaction (add_reaction, read_channel)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/Reaction" },
+              "example": { "user_id": "{{my_user_id}}", "post_id": "{{post_id}}", "emoji_name": "+1" }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Reaction created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Reaction" } } } } }
+      }
+    },
+    "/posts/{post_id}/reactions": {
+      "get": {
+        "summary": "2. Get a list of reactions to a post (read_channel)",
+        "parameters": [{ "name": "post_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Reaction list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Reaction" } } } } } }
+      }
+    },
+    "/users/{user_id}/posts/{post_id}/reactions/{emoji_name}": {
+      "delete": {
+        "summary": "3. Remove a reaction from a post (본인, remove_reaction)",
+        "parameters": [
+          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
+          { "name": "post_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "emoji_name", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "ok" } }
+      }
+    },
+    "/posts/ids/reactions": {
+      "post": {
+        "summary": "4. Bulk get the reaction for posts (read_channel, 서버 5.8+)",
+        "requestBody": { "content": { "application/json": { "schema": { "type": "array", "items": { "type": "string" } } } } },
+        "responses": { "200": { "description": "post_id -> Reaction[] map" } }
+      }
+    }
+  }
+}

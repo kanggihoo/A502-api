@@ -1,0 +1,35 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Mattermost AI Agents API (권한 필터됨)",
+    "description": "인증만 필요, 별도 named permission 없음. AI 플러그인 bridge 조회용. 최소 서버 버전 11.2.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+  ],
+  "components": {
+    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/agents": {
+      "get": {
+        "summary": "1. Get available agents (인증만 필요)",
+        "responses": { "200": { "description": "Agent list", "content": { "application/json": { "schema": { "type": "object", "properties": { "agents": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "displayName": { "type": "string" }, "username": { "type": "string" }, "service_id": { "type": "string" }, "service_type": { "type": "string" } } } } } } } } } }
+      }
+    },
+    "/agents/status": {
+      "get": {
+        "summary": "2. Get agents bridge status (인증만 필요)",
+        "responses": { "200": { "description": "Bridge status", "content": { "application/json": { "schema": { "type": "object", "properties": { "available": { "type": "boolean" }, "reason": { "type": "string" } } } } } } }
+      }
+    },
+    "/llmservices": {
+      "get": {
+        "summary": "3. Get available LLM services (인증만 필요)",
+        "responses": { "200": { "description": "LLM service list", "content": { "application/json": { "schema": { "type": "object", "properties": { "services": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "name": { "type": "string" }, "type": { "type": "string" } } } } } } } } } }
+      }
+    }
+  }
+}

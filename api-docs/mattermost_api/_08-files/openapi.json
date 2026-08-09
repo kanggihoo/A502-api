@@ -1,0 +1,117 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Mattermost Files API (권한 필터됨)",
+    "description": "AGENTS.md 실효 권한 지도 기준 포함: upload_file/edit_file_attachment(업로드), read_channel(조회), view_team(검색), 공개 링크(인증 불필요).",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+  ],
+  "components": {
+    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } },
+    "schemas": {
+      "FileInfo": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "user_id": { "type": "string" },
+          "post_id": { "type": "string" },
+          "create_at": { "type": "integer" },
+          "name": { "type": "string" },
+          "extension": { "type": "string" },
+          "size": { "type": "integer" },
+          "mime_type": { "type": "string" },
+          "width": { "type": "integer" },
+          "height": { "type": "integer" },
+          "has_preview_image": { "type": "boolean" }
+        }
+      }
+    }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/files": {
+      "post": {
+        "summary": "1. Upload a file (upload_file)",
+        "parameters": [
+          { "name": "channel_id", "in": "query", "schema": { "type": "string" } },
+          { "name": "filename", "in": "query", "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "files": { "type": "string", "format": "binary" },
+                  "channel_id": { "type": "string" },
+                  "client_ids": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Uploaded file metadata",
+            "content": { "application/json": { "schema": { "type": "object", "properties": { "file_infos": { "type": "array", "items": { "$ref": "#/components/schemas/FileInfo" } }, "client_ids": { "type": "array", "items": { "type": "string" } } } } } }
+          }
+        }
+      }
+    },
+    "/files/{file_id}": {
+      "get": {
+        "summary": "2. Get a file (read_channel 또는 업로더 본인)",
+        "parameters": [{ "name": "file_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "File binary" } }
+      }
+    },
+    "/files/{file_id}/link": {
+      "get": {
+        "summary": "8. Get a public file link (read_channel 또는 업로더 본인)",
+        "parameters": [{ "name": "file_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Public link", "content": { "application/json": { "schema": { "type": "object", "properties": { "link": { "type": "string" } } } } } } }
+      }
+    },
+    "/files/{file_id}/info": {
+      "get": {
+        "summary": "9. Get metadata for a file (read_channel 또는 업로더 본인)",
+        "parameters": [{ "name": "file_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "File metadata", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/FileInfo" } } } } }
+      }
+    },
+    "/files/search": {
+      "post": {
+        "summary": "12/13. Search files in/across teams (view_team, 서버 10.2+)",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "terms": { "type": "string" },
+                  "is_or_search": { "type": "boolean" },
+                  "include_deleted_channels": { "type": "boolean" }
+                },
+                "required": ["terms", "is_or_search"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "File search results", "content": { "application/json": { "schema": { "type": "object", "properties": { "order": { "type": "array", "items": { "type": "string" } }, "file_infos": { "type": "object" } } } } } } }
+      }
+    },
+    "/files/{file_id}/public": {
+      "get": {
+        "summary": "10. Get a public file (인증 불필요, 파일 해시 필요, /files 프리픽스로 호출 시 baseUrl 조정)",
+        "security": [],
+        "parameters": [
+          { "name": "file_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "h", "in": "query", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "File binary" } }
+      }
+    }
+  }
+}

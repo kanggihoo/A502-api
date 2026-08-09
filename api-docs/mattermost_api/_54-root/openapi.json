@@ -1,0 +1,23 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Mattermost Notifications Ack API (권한 필터됨)",
+    "description": "인증만 필요, 별도 named permission 없음. 모바일 푸시 알림 수신 확인용.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+  ],
+  "components": {
+    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/notifications/ack": {
+      "post": {
+        "summary": "1. Acknowledge receiving of a notification (인증만 필요, 서버 3.10+)",
+        "responses": { "200": { "description": "Notification ack details" } }
+      }
+    }
+  }
+}

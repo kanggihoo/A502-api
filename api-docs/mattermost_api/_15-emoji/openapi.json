@@ -1,0 +1,106 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Mattermost Custom Emoji API (권한 필터됨)",
+    "description": "AGENTS.md 실효 권한 지도 기준 포함: create_emojis, delete_emojis(본인 생성분). 조회/검색은 인증만 필요.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+  ],
+  "components": {
+    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } },
+    "schemas": {
+      "Emoji": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "creator_id": { "type": "string" },
+          "name": { "type": "string" },
+          "create_at": { "type": "integer" },
+          "update_at": { "type": "integer" },
+          "delete_at": { "type": "integer" }
+        }
+      }
+    }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/emoji": {
+      "post": {
+        "summary": "1. Create a custom emoji (create_emojis)",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "image": { "type": "string", "format": "binary" },
+                  "emoji": { "type": "string", "description": "JSON string: {\"name\":\"...\",\"creator_id\":\"...\"}" }
+                },
+                "required": ["image", "emoji"]
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Emoji created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Emoji" } } } } }
+      },
+      "get": {
+        "summary": "2. Get a list of custom emoji",
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "per_page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "sort", "in": "query", "schema": { "type": "string", "enum": ["", "name"] } }
+        ],
+        "responses": { "200": { "description": "Emoji list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Emoji" } } } } } }
+      }
+    },
+    "/emoji/{emoji_id}": {
+      "get": {
+        "summary": "3. Get a custom emoji",
+        "parameters": [{ "name": "emoji_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Emoji", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Emoji" } } } } }
+      },
+      "delete": {
+        "summary": "4. Delete a custom emoji (delete_emojis, 본인 생성분만)",
+        "parameters": [{ "name": "emoji_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Deleted emoji", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Emoji" } } } } }
+      }
+    },
+    "/emoji/name/{emoji_name}": {
+      "get": {
+        "summary": "5. Get a custom emoji by name",
+        "parameters": [{ "name": "emoji_name", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Emoji", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Emoji" } } } } }
+      }
+    },
+    "/emoji/{emoji_id}/image": {
+      "get": {
+        "summary": "6. Get custom emoji image",
+        "parameters": [{ "name": "emoji_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Image binary" } }
+      }
+    },
+    "/emoji/search": {
+      "post": {
+        "summary": "7. Search custom emoji",
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "term": { "type": "string" }, "prefix_only": { "type": "string" } }, "required": ["term"] } } } },
+        "responses": { "200": { "description": "Emoji list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Emoji" } } } } } }
+      }
+    },
+    "/emoji/autocomplete": {
+      "get": {
+        "summary": "8. Autocomplete custom emoji",
+        "parameters": [{ "name": "name", "in": "query", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Emoji list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Emoji" } } } } } }
+      }
+    },
+    "/emoji/names": {
+      "post": {
+        "summary": "9. Get custom emojis by name (서버 9.2+)",
+        "requestBody": { "content": { "application/json": { "schema": { "type": "array", "items": { "type": "string" } } } } },
+        "responses": { "200": { "description": "Emoji list" } }
+      }
+    }
+  }
+}

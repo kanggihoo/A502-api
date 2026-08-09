@@ -1,0 +1,54 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Mattermost Content Flagging API (권한 필터됨)",
+    "description": "일반 사용자/채널 접근 권한으로 가능한 신고 조회·제출 API. Enterprise Advanced 라이선스 + feature flag 필요 (없으면 404/501). content reviewer 전용, 시스템 관리자 전용 항목은 제외.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+  ],
+  "components": {
+    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } },
+    "schemas": {
+      "StatusOk": { "type": "object", "properties": { "status": { "type": "string", "example": "ok" } } }
+    }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/content_flagging/flag/config": {
+      "get": {
+        "summary": "1. Get content flagging configuration (일반 사용자, Enterprise Advanced 필요)",
+        "responses": { "200": { "description": "Flagging config", "content": { "application/json": { "schema": { "type": "object", "properties": { "reasons": { "type": "array", "items": { "type": "string" } }, "reporter_comment_required": { "type": "boolean" } } } } } } }
+      }
+    },
+    "/content_flagging/team/{team_id}/status": {
+      "get": {
+        "summary": "2. Get content flagging status for a team (팀 멤버)",
+        "parameters": [{ "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "enabled", "content": { "application/json": { "schema": { "type": "object", "properties": { "enabled": { "type": "boolean" } } } } } } }
+      }
+    },
+    "/content_flagging/post/{post_id}/flag": {
+      "post": {
+        "summary": "3. Flag a post (해당 채널 접근 권한)",
+        "parameters": [{ "name": "post_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "reason": { "type": "string" }, "comment": { "type": "string" } } } } } },
+        "responses": { "200": { "description": "ok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOk" } } } } }
+      }
+    },
+    "/content_flagging/fields": {
+      "get": {
+        "summary": "4. Get content flagging property fields (일반 사용자)",
+        "responses": { "200": { "description": "Field list" } }
+      }
+    },
+    "/content_flagging/post/{post_id}/field_values": {
+      "get": {
+        "summary": "5. Get content flagging property field values for a post (게시물 접근 권한)",
+        "parameters": [{ "name": "post_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Property value list" } }
+      }
+    }
+  }
+}

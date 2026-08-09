@@ -1,0 +1,27 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Mattermost Playbooks Timeline API (권한 필터됨)",
+    "description": "Playbooks 플러그인 API. 플레이북 런 멤버 기반 접근, 별도 named permission 없음.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "https://{host}/plugins/playbooks/api/v0", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+  ],
+  "components": {
+    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/runs/{id}/timeline/{event_id}": {
+      "delete": {
+        "summary": "1. Remove a timeline event from the playbook run (런 멤버)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "event_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "204": { "description": "Deleted" } }
+      }
+    }
+  }
+}

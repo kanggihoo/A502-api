@@ -1,0 +1,112 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Mattermost Channel Bookmarks API (권한 필터됨)",
+    "description": "AGENTS.md 실효 권한 지도 기준 포함: add/edit/delete/order_bookmark_public_channel, add/edit/delete/order_bookmark_private_channel. 채널 멤버로서 전부 사용 가능. 최소 서버 버전 9.5.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+  ],
+  "components": {
+    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } },
+    "schemas": {
+      "Bookmark": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "channel_id": { "type": "string" },
+          "display_name": { "type": "string" },
+          "sort_order": { "type": "integer" },
+          "type": { "type": "string", "enum": ["link", "file"] },
+          "file_id": { "type": "string" },
+          "link_url": { "type": "string" },
+          "image_url": { "type": "string" },
+          "emoji": { "type": "string" }
+        }
+      }
+    }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/channels/{channel_id}/bookmarks": {
+      "get": {
+        "summary": "1. Get channel bookmarks for Channel",
+        "parameters": [
+          { "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "bookmarks_since", "in": "query", "schema": { "type": "number" } }
+        ],
+        "responses": { "200": { "description": "Bookmark list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Bookmark" } } } } } }
+      },
+      "post": {
+        "summary": "2. Create channel bookmark (add_bookmark_public/private_channel)",
+        "parameters": [{ "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "display_name": { "type": "string" },
+                  "type": { "type": "string", "enum": ["link", "file"] },
+                  "file_id": { "type": "string" },
+                  "link_url": { "type": "string" },
+                  "image_url": { "type": "string" },
+                  "emoji": { "type": "string" }
+                },
+                "required": ["display_name", "type"]
+              },
+              "example": { "display_name": "팀 노션", "type": "link", "link_url": "https://notion.so/team-a502" }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Bookmark created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Bookmark" } } } } }
+      }
+    },
+    "/channels/{channel_id}/bookmarks/{bookmark_id}": {
+      "patch": {
+        "summary": "3. Update channel bookmark (edit_bookmark_public/private_channel)",
+        "parameters": [
+          { "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "bookmark_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "display_name": { "type": "string" },
+                  "sort_order": { "type": "integer" },
+                  "type": { "type": "string", "enum": ["link", "file"] },
+                  "file_id": { "type": "string" },
+                  "link_url": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "updated/deleted bookmark" } }
+      },
+      "delete": {
+        "summary": "4. Delete channel bookmark (delete_bookmark_public/private_channel)",
+        "parameters": [
+          { "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "bookmark_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Deleted bookmark", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Bookmark" } } } } }
+      }
+    },
+    "/channels/{channel_id}/bookmarks/{bookmark_id}/sort_order": {
+      "post": {
+        "summary": "5. Update channel bookmark's order (order_bookmark_public/private_channel)",
+        "parameters": [
+          { "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "bookmark_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": { "content": { "application/json": { "schema": { "type": "integer" } } } },
+        "responses": { "200": { "description": "Reordered bookmark list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Bookmark" } } } } } }
+      }
+    }
+  }
+}

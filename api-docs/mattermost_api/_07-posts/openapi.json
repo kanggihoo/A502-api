@@ -1,0 +1,235 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Mattermost Posts API (권한 필터됨)",
+    "description": "AGENTS.md 실효 권한 지도 기준 포함: create_post(작성), edit_post/delete_post(본인 게시물 수정·삭제), read_channel(조회), view_team(팀 검색), use_channel_mentions. delete_others_posts 등 타인 게시물 조작 권한은 지도에 없어 제외.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+  ],
+  "components": {
+    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } },
+    "schemas": {
+      "Post": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "create_at": { "type": "integer" },
+          "update_at": { "type": "integer" },
+          "delete_at": { "type": "integer" },
+          "edit_at": { "type": "integer" },
+          "user_id": { "type": "string" },
+          "channel_id": { "type": "string" },
+          "root_id": { "type": "string" },
+          "message": { "type": "string" },
+          "type": { "type": "string" },
+          "props": { "type": "object" },
+          "file_ids": { "type": "array", "items": { "type": "string" } },
+          "metadata": { "type": "object" }
+        }
+      },
+      "PostList": {
+        "type": "object",
+        "properties": {
+          "order": { "type": "array", "items": { "type": "string" } },
+          "posts": { "type": "object" },
+          "next_post_id": { "type": "string" },
+          "prev_post_id": { "type": "string" },
+          "has_next": { "type": "boolean" }
+        }
+      },
+      "StatusOk": { "type": "object", "properties": { "status": { "type": "string", "example": "ok" } } }
+    }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/posts": {
+      "post": {
+        "summary": "1. Create a post (create_post)",
+        "parameters": [{ "name": "set_online", "in": "query", "schema": { "type": "boolean" } }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "channel_id": { "type": "string" },
+                  "message": { "type": "string" },
+                  "root_id": { "type": "string" },
+                  "file_ids": { "type": "array", "items": { "type": "string" } },
+                  "props": { "type": "object" }
+                },
+                "required": ["channel_id", "message"]
+              },
+              "example": { "channel_id": "{{channel_id}}", "message": "안녕하세요, A502 공지입니다." }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Post created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Post" } } } } }
+      }
+    },
+    "/posts/search": {
+      "post": {
+        "summary": "3. Search posts across all teams",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "terms": { "type": "string" },
+                  "is_or_search": { "type": "boolean" },
+                  "include_deleted_channels": { "type": "boolean" },
+                  "page": { "type": "integer" },
+                  "per_page": { "type": "integer" }
+                },
+                "required": ["terms"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Search results", "content": { "application/json": { "schema": { "type": "object", "properties": { "order": { "type": "array", "items": { "type": "string" } }, "posts": { "type": "object" }, "matches": { "type": "object" } } } } } } }
+      }
+    },
+    "/posts/{post_id}": {
+      "get": {
+        "summary": "4. Get a post (read_channel)",
+        "parameters": [{ "name": "post_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Post", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Post" } } } } }
+      },
+      "delete": {
+        "summary": "5. Delete a post (본인 게시물)",
+        "parameters": [{ "name": "post_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "ok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOk" } } } } }
+      },
+      "put": {
+        "summary": "6. Update a post (edit_post, 본인)",
+        "parameters": [{ "name": "post_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "properties": { "id": { "type": "string" }, "message": { "type": "string" }, "is_pinned": { "type": "boolean" } }, "required": ["id"] }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Updated post", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Post" } } } } }
+      }
+    },
+    "/posts/{post_id}/patch": {
+      "put": {
+        "summary": "8. Patch a post (edit_post, 본인)",
+        "parameters": [{ "name": "post_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "properties": { "message": { "type": "string" }, "is_pinned": { "type": "boolean" }, "file_ids": { "type": "array", "items": { "type": "string" } } } }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Patched post", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Post" } } } } }
+      }
+    },
+    "/posts/{post_id}/thread": {
+      "get": {
+        "summary": "9. Get a thread (read_channel)",
+        "parameters": [
+          { "name": "post_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "perPage", "in": "query", "schema": { "type": "integer" } },
+          { "name": "direction", "in": "query", "schema": { "type": "string", "enum": ["up", "down"] } }
+        ],
+        "responses": { "200": { "description": "Thread", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PostList" } } } } }
+      }
+    },
+    "/posts/{post_id}/files/info": {
+      "get": {
+        "summary": "11. Get file info for post (read_channel)",
+        "parameters": [{ "name": "post_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "File info list" } }
+      }
+    },
+    "/channels/{channel_id}/posts": {
+      "get": {
+        "summary": "14. Get posts for a channel (read_channel)",
+        "parameters": [
+          { "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "per_page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "since", "in": "query", "schema": { "type": "integer" } },
+          { "name": "before", "in": "query", "schema": { "type": "string" } },
+          { "name": "after", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Post list", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PostList" } } } } }
+      }
+    },
+    "/users/{user_id}/channels/{channel_id}/posts/unread": {
+      "get": {
+        "summary": "15. Get posts around oldest unread (본인 + read_channel)",
+        "parameters": [
+          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
+          { "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "limit_before", "in": "query", "schema": { "type": "integer" } },
+          { "name": "limit_after", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "Post list", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PostList" } } } } }
+      }
+    },
+    "/teams/{team_id}/posts/search": {
+      "post": {
+        "summary": "16. Search for team posts (view_team)",
+        "parameters": [{ "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "properties": { "terms": { "type": "string" }, "is_or_search": { "type": "boolean" } }, "required": ["terms", "is_or_search"] }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Post list", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PostList" } } } } }
+      }
+    },
+    "/posts/{post_id}/pin": {
+      "post": {
+        "summary": "17. Pin a post to the channel (read_channel)",
+        "parameters": [{ "name": "post_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "ok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOk" } } } } }
+      }
+    },
+    "/posts/{post_id}/unpin": {
+      "post": {
+        "summary": "18. Unpin a post to the channel (read_channel)",
+        "parameters": [{ "name": "post_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "ok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOk" } } } } }
+      }
+    },
+    "/posts/ids": {
+      "post": {
+        "summary": "20. Get posts by a list of ids (read_channel)",
+        "requestBody": { "content": { "application/json": { "schema": { "type": "array", "items": { "type": "string" } } } } },
+        "responses": { "200": { "description": "Post list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Post" } } } } } }
+      }
+    },
+    "/posts/rewrite": {
+      "post": {
+        "summary": "28. Rewrite a message using AI (인증만, 서버 11.2+)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "agent_id": { "type": "string" },
+                  "message": { "type": "string" },
+                  "action": { "type": "string", "enum": ["custom", "shorten", "elaborate", "improve_writing", "fix_spelling", "simplify", "summarize"] },
+                  "custom_prompt": { "type": "string" }
+                },
+                "required": ["agent_id", "message", "action"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "rewritten_text", "content": { "application/json": { "schema": { "type": "object", "properties": { "rewritten_text": { "type": "string" } } } } } } }
+      }
+    }
+  }
+}

@@ -1,0 +1,81 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Mattermost Uploads API (권한 필터됨)",
+    "description": "AGENTS.md 실효 권한 지도 기준 포함: upload_file 권한 + 본인 생성 업로드 세션. 대용량/재개형 업로드에 사용 (5.28+).",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+  ],
+  "components": {
+    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } },
+    "schemas": {
+      "UploadSession": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "type": { "type": "string", "enum": ["attachment", "import"] },
+          "create_at": { "type": "integer" },
+          "user_id": { "type": "string" },
+          "channel_id": { "type": "string" },
+          "filename": { "type": "string" },
+          "file_size": { "type": "integer" },
+          "file_offset": { "type": "integer" }
+        }
+      },
+      "FileInfo": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "user_id": { "type": "string" },
+          "post_id": { "type": "string" },
+          "name": { "type": "string" },
+          "extension": { "type": "string" },
+          "size": { "type": "integer" },
+          "mime_type": { "type": "string" }
+        }
+      }
+    }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/uploads": {
+      "post": {
+        "summary": "1. Create an upload (upload_file, 서버 5.28+)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "channel_id": { "type": "string" },
+                  "filename": { "type": "string" },
+                  "file_size": { "type": "integer" }
+                },
+                "required": ["channel_id", "filename", "file_size"]
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Upload session created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UploadSession" } } } } }
+      }
+    },
+    "/uploads/{upload_id}": {
+      "get": {
+        "summary": "2. Get an upload session (본인)",
+        "parameters": [{ "name": "upload_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Upload session", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UploadSession" } } } } }
+      },
+      "post": {
+        "summary": "3. Perform a file upload (본인, 시작/재개)",
+        "parameters": [{ "name": "upload_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": { "content": { "application/octet-stream": { "schema": { "type": "string", "format": "binary" } } } },
+        "responses": {
+          "201": { "description": "Upload complete", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/FileInfo" } } } },
+          "204": { "description": "Upload incomplete" }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Mattermost Brand API (권한 필터됨)",
+    "description": "조회 API만 문서화됨, 인증 불필요. 브랜드 이미지 업로드/삭제는 manage_system 필요해 summary.md에 없음.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+  ],
+  "paths": {
+    "/brand/image": {
+      "get": {
+        "summary": "1. Get brand image (인증 불필요)",
+        "responses": {
+          "200": { "description": "Brand image binary" },
+          "404": { "description": "브랜드 이미지 업로드된 적 없음" }
+        }
+      }
+    }
+  }
+}

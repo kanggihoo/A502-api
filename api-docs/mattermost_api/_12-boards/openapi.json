@@ -1,0 +1,45 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Mattermost Boards API (권한 필터됨)",
+    "description": "AGENTS.md 실효 권한 지도 기준 포함: create_public_channel(BO)/create_private_channel(BP). 주의: IntegratedBoards feature flag가 꺼져 있으면 404.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+  ],
+  "components": {
+    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/boards": {
+      "post": {
+        "summary": "1. Create a board channel (create_public_channel / create_private_channel, IntegratedBoards flag 필요)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "team_id": { "type": "string" },
+                  "type": { "type": "string", "enum": ["BO", "BP"] },
+                  "display_name": { "type": "string" },
+                  "name": { "type": "string" },
+                  "header": { "type": "string" },
+                  "purpose": { "type": "string" }
+                },
+                "required": ["team_id", "type", "display_name"]
+              },
+              "example": { "team_id": "{{team_id}}", "type": "BO", "display_name": "A502 작업보드" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Board channel created" },
+          "404": { "description": "IntegratedBoards feature flag 비활성화" }
+        }
+      }
+    }
+  }
+}

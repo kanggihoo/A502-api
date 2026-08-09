@@ -1,0 +1,41 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Mattermost File Search API (권한 필터됨)",
+    "description": "AGENTS.md 실효 권한 지도 기준 포함: view_team. 최소 서버 버전 10.2.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+  ],
+  "components": {
+    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/files/search": {
+      "post": {
+        "summary": "1/2. Search files in/across teams (view_team, 서버 10.2+)",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "terms": { "type": "string" },
+                  "is_or_search": { "type": "boolean" },
+                  "time_zone_offset": { "type": "integer" },
+                  "include_deleted_channels": { "type": "boolean" },
+                  "page": { "type": "integer" },
+                  "per_page": { "type": "integer" }
+                },
+                "required": ["terms", "is_or_search"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "File search results", "content": { "application/json": { "schema": { "type": "object", "properties": { "order": { "type": "array", "items": { "type": "string" } }, "file_infos": { "type": "object" }, "next_file_id": { "type": "string" }, "prev_file_id": { "type": "string" } } } } } } }
+      }
+    }
+  }
+}

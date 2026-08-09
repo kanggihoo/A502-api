@@ -1,0 +1,368 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Mattermost Channels API (권한 필터됨)",
+    "description": "AGENTS.md 실효 권한 지도 기준 포함: create_public_channel/create_private_channel(채널 생성), read_channel/list_team_channels(조회), manage_public_channel_members/manage_private_channel_members(멤버 추가·제거), manage_public_channel_properties/manage_private_channel_properties(속성 수정), create_direct_channel, create_group_channel. 삭제/이동/모더레이션/스킴 등 manage_system·manage_channel_roles 필요 항목은 제외.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+  ],
+  "components": {
+    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } },
+    "schemas": {
+      "Channel": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "create_at": { "type": "integer" },
+          "update_at": { "type": "integer" },
+          "delete_at": { "type": "integer" },
+          "team_id": { "type": "string" },
+          "type": { "type": "string", "description": "'O' public, 'P' private, 'D' direct, 'G' group" },
+          "display_name": { "type": "string" },
+          "name": { "type": "string" },
+          "header": { "type": "string" },
+          "purpose": { "type": "string" },
+          "last_post_at": { "type": "integer" },
+          "total_msg_count": { "type": "integer" },
+          "creator_id": { "type": "string" }
+        }
+      },
+      "ChannelMember": {
+        "type": "object",
+        "properties": {
+          "channel_id": { "type": "string" },
+          "user_id": { "type": "string" },
+          "roles": { "type": "string" },
+          "last_viewed_at": { "type": "integer" },
+          "msg_count": { "type": "integer" },
+          "mention_count": { "type": "integer" },
+          "notify_props": { "type": "object" },
+          "last_update_at": { "type": "integer" }
+        }
+      },
+      "StatusOk": { "type": "object", "properties": { "status": { "type": "string", "example": "ok" } } }
+    }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/channels": {
+      "post": {
+        "summary": "3. Create a channel (create_public_channel / create_private_channel)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "team_id": { "type": "string" },
+                  "name": { "type": "string" },
+                  "display_name": { "type": "string" },
+                  "purpose": { "type": "string" },
+                  "header": { "type": "string" },
+                  "type": { "type": "string", "enum": ["O", "P"], "description": "'O' 공개, 'P' 비공개" }
+                },
+                "required": ["team_id", "name", "display_name", "type"]
+              },
+              "example": { "team_id": "{{team_id}}", "name": "a502-notice", "display_name": "A502 공지", "type": "O" }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Channel created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Channel" } } } } }
+      }
+    },
+    "/channels/direct": {
+      "post": {
+        "summary": "4. Create a direct message channel (create_direct_channel)",
+        "requestBody": { "content": { "application/json": { "schema": { "type": "array", "items": { "type": "string" } }, "example": ["user_id_1", "user_id_2"] } } },
+        "responses": { "201": { "description": "DM channel", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Channel" } } } } }
+      }
+    },
+    "/channels/group": {
+      "post": {
+        "summary": "5. Create a group message channel (create_group_channel)",
+        "requestBody": { "content": { "application/json": { "schema": { "type": "array", "items": { "type": "string" } }, "example": ["user_id_1", "user_id_2", "user_id_3"] } } },
+        "responses": { "201": { "description": "GM channel", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Channel" } } } } }
+      }
+    },
+    "/channels/{channel_id}": {
+      "get": {
+        "summary": "10. Get a channel (read_channel)",
+        "parameters": [{ "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Channel", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Channel" } } } } }
+      }
+    },
+    "/channels/{channel_id}/patch": {
+      "put": {
+        "summary": "13. Patch a channel (manage_public_channel_properties / manage_private_channel_properties)",
+        "parameters": [{ "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "display_name": { "type": "string" },
+                  "purpose": { "type": "string" },
+                  "header": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Patched channel", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Channel" } } } } }
+      }
+    },
+    "/channels/{channel_id}/stats": {
+      "get": {
+        "summary": "17. Get channel statistics (read_channel)",
+        "parameters": [{ "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Channel stats", "content": { "application/json": { "schema": { "type": "object", "properties": { "channel_id": { "type": "string" }, "member_count": { "type": "integer" } } } } } } }
+      }
+    },
+    "/channels/{channel_id}/pinned": {
+      "get": {
+        "summary": "18. Get a channel's pinned posts",
+        "parameters": [{ "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Pinned posts" } }
+      }
+    },
+    "/teams/{team_id}/channels": {
+      "get": {
+        "summary": "19. Get public channels (list_team_channels)",
+        "parameters": [
+          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "per_page", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "Channel list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Channel" } } } } } }
+      }
+    },
+    "/teams/{team_id}/channels/autocomplete": {
+      "get": {
+        "summary": "23. Autocomplete channels (list_team_channels)",
+        "parameters": [
+          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "name", "in": "query", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Channel list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Channel" } } } } } }
+      }
+    },
+    "/teams/{team_id}/channels/search": {
+      "post": {
+        "summary": "26. Search channels (멤버인 채널로 제한될 수 있음, 서버 5.16+)",
+        "parameters": [{ "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "term": { "type": "string" } }, "required": ["term"] } } } },
+        "responses": { "201": { "description": "Channel list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Channel" } } } } } }
+      }
+    },
+    "/teams/{team_id}/channels/name/{channel_name}": {
+      "get": {
+        "summary": "27. Get a channel by name (read_channel)",
+        "parameters": [
+          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "channel_name", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "include_deleted", "in": "query", "schema": { "type": "boolean" } }
+        ],
+        "responses": { "200": { "description": "Channel", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Channel" } } } } }
+      }
+    },
+    "/teams/name/{team_name}/channels/name/{channel_name}": {
+      "get": {
+        "summary": "28. Get a channel by name and team name (read_channel)",
+        "parameters": [
+          { "name": "team_name", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "channel_name", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "include_deleted", "in": "query", "schema": { "type": "boolean" } }
+        ],
+        "responses": { "200": { "description": "Channel", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Channel" } } } } }
+      }
+    },
+    "/channels/{channel_id}/members": {
+      "get": {
+        "summary": "29. Get channel members (read_channel)",
+        "parameters": [
+          { "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "per_page", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "Member list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/ChannelMember" } } } } } }
+      },
+      "post": {
+        "summary": "30. Add user(s) to channel (manage_public_channel_members / manage_private_channel_members)",
+        "parameters": [{ "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "properties": { "user_id": { "type": "string" }, "user_ids": { "type": "array", "items": { "type": "string" } } } },
+              "example": { "user_id": "{{teammate_user_id}}" }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Member added", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ChannelMember" } } } } }
+      }
+    },
+    "/channels/{channel_id}/members/{user_id}": {
+      "delete": {
+        "summary": "34. Remove user from channel (manage_public_channel_members / manage_private_channel_members)",
+        "parameters": [
+          { "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "ok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOk" } } } } }
+      }
+    },
+    "/channels/{channel_id}/members/{user_id}/notify_props": {
+      "put": {
+        "summary": "37. Update channel notifications (본인)",
+        "parameters": [
+          { "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string", "enum": ["true", "false", "default"] },
+                  "push": { "type": "string", "enum": ["all", "mention", "none", "default"] },
+                  "desktop": { "type": "string", "enum": ["all", "mention", "none", "default"] },
+                  "mark_unread": { "type": "string", "enum": ["all", "mention"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "ok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOk" } } } } }
+      }
+    },
+    "/channels/{channel_id}/members/{user_id}/autotranslation": {
+      "put": {
+        "summary": "38. Update channel member autotranslation setting (본인)",
+        "parameters": [
+          { "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }
+        ],
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "autotranslation_disabled": { "type": "boolean" } }, "required": ["autotranslation_disabled"] } } } },
+        "responses": { "200": { "description": "ok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOk" } } } } }
+      }
+    },
+    "/channels/members/{user_id}/mark_read": {
+      "post": {
+        "summary": "39. Mark multiple channels as read (본인)",
+        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
+        "requestBody": { "content": { "application/json": { "schema": { "type": "array", "items": { "type": "string" } } } } },
+        "responses": { "200": { "description": "status + last_viewed_at_times" } }
+      }
+    },
+    "/users/{user_id}/channels/{channel_id}/unread": {
+      "get": {
+        "summary": "46. Get unread messages (본인 + read_channel)",
+        "parameters": [
+          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
+          { "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "unread counts", "content": { "application/json": { "schema": { "type": "object", "properties": { "team_id": { "type": "string" }, "channel_id": { "type": "string" }, "msg_count": { "type": "integer" }, "mention_count": { "type": "integer" } } } } } } }
+      }
+    },
+    "/users/{user_id}/teams/{team_id}/channels/members": {
+      "get": {
+        "summary": "43. Get channel memberships and roles for a user (본인 + view_team)",
+        "parameters": [
+          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
+          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Member list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/ChannelMember" } } } } } }
+      }
+    },
+    "/users/{user_id}/teams/{team_id}/channels": {
+      "get": {
+        "summary": "44. Get channels for user (본인 + view_team)",
+        "parameters": [
+          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
+          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "include_deleted", "in": "query", "schema": { "type": "boolean" } }
+        ],
+        "responses": { "200": { "description": "Channel list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Channel" } } } } } }
+      }
+    },
+    "/channels/members/{user_id}/view": {
+      "post": {
+        "summary": "41. View channel (본인)",
+        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "channel_id": { "type": "string" }, "prev_channel_id": { "type": "string" } }, "required": ["channel_id"] } } } },
+        "responses": { "200": { "description": "status + last_viewed_at_times" } }
+      }
+    },
+    "/channels/members/{user_id}/direct/read": {
+      "put": {
+        "summary": "42. Mark all direct and group messages as read (본인, 서버 11.3+)",
+        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
+        "responses": { "200": { "description": "status + last_viewed_at_times" } }
+      }
+    },
+    "/users/{user_id}/teams/{team_id}/channels/categories": {
+      "get": {
+        "summary": "52. Get user's sidebar categories (본인, list_team_channels)",
+        "parameters": [
+          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
+          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Sidebar categories" } }
+      },
+      "post": {
+        "summary": "53. Create user's sidebar category (본인)",
+        "parameters": [
+          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
+          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "properties": { "display_name": { "type": "string" }, "type": { "type": "string", "enum": ["channels", "custom", "direct_messages", "favorites"] } }, "required": ["display_name", "type"] }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Category created" } }
+      }
+    },
+    "/users/{user_id}/teams/{team_id}/channels/categories/{category_id}": {
+      "get": {
+        "summary": "57. Get sidebar category (본인)",
+        "parameters": [
+          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
+          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "category_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Category" } }
+      },
+      "put": {
+        "summary": "58. Update sidebar category (본인)",
+        "parameters": [
+          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
+          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "category_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "properties": { "display_name": { "type": "string" }, "type": { "type": "string" } } }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Category updated" } }
+      },
+      "delete": {
+        "summary": "59. Delete sidebar category (본인, custom 카테고리만)",
+        "parameters": [
+          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
+          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "category_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Category deleted" } }
+      }
+    }
+  }
+}

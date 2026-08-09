@@ -1,0 +1,51 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Mattermost Roles API (권한 필터됨)",
+    "description": "조회 전용, 활성 세션만 필요. 전체 role 목록(#1)과 role patch(#4)는 manage_system 계열 필요해 제외.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+  ],
+  "components": {
+    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } },
+    "schemas": {
+      "Role": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "display_name": { "type": "string" },
+          "description": { "type": "string" },
+          "permissions": { "type": "array", "items": { "type": "string" } },
+          "scheme_managed": { "type": "boolean" }
+        }
+      }
+    }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/roles/{role_id}": {
+      "get": {
+        "summary": "2. Get a role (by ID) (활성 세션만 필요)",
+        "parameters": [{ "name": "role_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Role", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Role" } } } } }
+      }
+    },
+    "/roles/name/{role_name}": {
+      "get": {
+        "summary": "3. Get a role (by name) (활성 세션만 필요, 예: system_user/team_user/channel_user)",
+        "parameters": [{ "name": "role_name", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Role", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Role" } } } } }
+      }
+    },
+    "/roles/names": {
+      "post": {
+        "summary": "5. Get a list of roles by name (활성 세션만 필요)",
+        "requestBody": { "content": { "application/json": { "schema": { "type": "array", "items": { "type": "string" } }, "example": ["system_user", "team_user"] } } },
+        "responses": { "200": { "description": "Role list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Role" } } } } } }
+      }
+    }
+  }
+}

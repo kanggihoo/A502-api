@@ -1,0 +1,107 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Mattermost Playbook Conditions API (권한 필터됨)",
+    "description": "Playbooks 플러그인 API. 해당 playbook/run 접근 권한 기준 (playbook_public_create/playbook_private_create로 본인 소유 playbook 조건 관리 가능). 조건식 포맷 버전 1만 지원.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "https://{host}/plugins/playbooks/api/v0", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+  ],
+  "components": {
+    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } },
+    "schemas": {
+      "ConditionExpr": {
+        "type": "object",
+        "properties": {
+          "and": { "type": "array", "items": { "type": "object" } },
+          "or": { "type": "array", "items": { "type": "object" } },
+          "is": { "type": "object", "properties": { "field_id": { "type": "string" }, "value": {} } },
+          "isNot": { "type": "object", "properties": { "field_id": { "type": "string" }, "value": {} } }
+        }
+      },
+      "Condition": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "condition_expr": { "$ref": "#/components/schemas/ConditionExpr" },
+          "version": { "type": "integer", "enum": [1] },
+          "playbook_id": { "type": "string" },
+          "run_id": { "type": "string" },
+          "create_at": { "type": "integer" },
+          "update_at": { "type": "integer" }
+        }
+      }
+    }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/playbooks/{id}/conditions": {
+      "get": {
+        "summary": "1. List playbook conditions (playbook 접근 권한)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "per_page", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "Paged condition list" } }
+      },
+      "post": {
+        "summary": "2. Create a playbook condition (playbook 편집 권한)",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "condition_expr": { "$ref": "#/components/schemas/ConditionExpr" },
+                  "version": { "type": "integer", "enum": [1] },
+                  "playbook_id": { "type": "string" }
+                },
+                "required": ["condition_expr", "version"]
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Created condition", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Condition" } } } } }
+      }
+    },
+    "/playbooks/{id}/conditions/{conditionID}": {
+      "put": {
+        "summary": "3. Update a playbook condition (playbook 편집 권한)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "conditionID", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "properties": { "condition_expr": { "$ref": "#/components/schemas/ConditionExpr" }, "version": { "type": "integer", "enum": [1] } }, "required": ["condition_expr", "version"] }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Updated condition", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Condition" } } } } }
+      },
+      "delete": {
+        "summary": "4. Delete a playbook condition (playbook 편집 권한, run condition은 삭제 불가)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "conditionID", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "204": { "description": "Deleted" } }
+      }
+    },
+    "/runs/{id}/conditions": {
+      "get": {
+        "summary": "5. List run conditions (run 접근 권한)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "per_page", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "Paged run condition list" } }
+      }
+    }
+  }
+}

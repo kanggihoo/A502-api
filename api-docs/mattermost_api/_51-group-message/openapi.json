@@ -1,0 +1,36 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Mattermost Group Message API (권한 필터됨)",
+    "description": "AGENTS.md 실효 권한 지도 기준 포함: read_channel(공통 팀 조회), create_private_channel(대상 팀, GM->비공개채널 변환).",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+  ],
+  "components": {
+    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } },
+    "schemas": {
+      "Team": { "type": "object", "properties": { "id": { "type": "string" }, "display_name": { "type": "string" }, "name": { "type": "string" }, "type": { "type": "string" } } },
+      "Channel": { "type": "object", "properties": { "id": { "type": "string" }, "team_id": { "type": "string" }, "type": { "type": "string" }, "display_name": { "type": "string" }, "name": { "type": "string" } } }
+    }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/channels/{channel_id}/common_teams": {
+      "get": {
+        "summary": "1. Get common teams for members of a Group Message (read_channel, 서버 9.1+)",
+        "parameters": [{ "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Common team list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Team" } } } } } }
+      }
+    },
+    "/channels/{channel_id}/convert_to_channel": {
+      "post": {
+        "summary": "2. Convert group message to private channel (create_private_channel, 대상 팀)",
+        "parameters": [{ "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "channel_id": { "type": "string" }, "team_id": { "type": "string" } }, "required": ["channel_id", "team_id"] } } } },
+        "responses": { "200": { "description": "Converted channel", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Channel" } } } } }
+      }
+    }
+  }
+}

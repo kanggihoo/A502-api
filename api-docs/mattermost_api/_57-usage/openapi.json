@@ -1,0 +1,35 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Mattermost Usage API (권한 필터됨)",
+    "description": "인증만 필요, 별도 named permission 없음. 반올림/근사값 반환.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+  ],
+  "components": {
+    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/usage/posts": {
+      "get": {
+        "summary": "1. Get current usage of posts (근사값, 서버 7.0+)",
+        "responses": { "200": { "description": "count", "content": { "application/json": { "schema": { "type": "object", "properties": { "count": { "type": "number" } } } } } } }
+      }
+    },
+    "/usage/storage": {
+      "get": {
+        "summary": "2. Get the total file storage usage in bytes (근사값, 서버 7.1+)",
+        "responses": { "200": { "description": "bytes", "content": { "application/json": { "schema": { "type": "object", "properties": { "bytes": { "type": "number" } } } } } } }
+      }
+    },
+    "/usage/teams": {
+      "get": {
+        "summary": "3. Get current usage of teams",
+        "responses": { "200": { "description": "team counts", "content": { "application/json": { "schema": { "type": "object", "properties": { "active": { "type": "integer" }, "cloud_archived": { "type": "integer" }, "teams": { "type": "integer" } } } } } } }
+      }
+    }
+  }
+}

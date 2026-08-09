@@ -1,0 +1,25 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Mattermost Plugins API (권한 필터됨)",
+    "description": "인증 불필요 공개 조회 API만 포함. 플러그인 설치/제거/설정 관리는 manage_system 필요해 summary.md에 없음.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+  ],
+  "paths": {
+    "/plugins/webapp": {
+      "get": {
+        "summary": "7. Get webapp plugins (인증 불필요)",
+        "responses": { "200": { "description": "Webapp plugin list" } }
+      }
+    },
+    "/plugins/statuses": {
+      "get": {
+        "summary": "8. Get plugins status (인증 불필요)",
+        "responses": { "200": { "description": "Plugin status list" } }
+      }
+    }
+  }
+}

@@ -1,0 +1,409 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Mattermost Users API (권한 필터됨)",
+    "description": "AGENTS.md 실효 권한 지도 기준, system_user 계정으로 본인(me) 대상 호출이 가능한 Users API만 포함. 타인 대상 조작(edit_other_users, manage_system 필요)은 제외.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer" }
+    },
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "username": { "type": "string" },
+          "first_name": { "type": "string" },
+          "last_name": { "type": "string" },
+          "nickname": { "type": "string" },
+          "email": { "type": "string" },
+          "email_verified": { "type": "boolean" },
+          "auth_service": { "type": "string" },
+          "roles": { "type": "string" },
+          "locale": { "type": "string" },
+          "notify_props": { "type": "object" },
+          "timezone": { "type": "object" },
+          "mfa_active": { "type": "boolean" },
+          "create_at": { "type": "integer" },
+          "update_at": { "type": "integer" },
+          "delete_at": { "type": "integer" }
+        }
+      },
+      "StatusOk": {
+        "type": "object",
+        "properties": { "status": { "type": "string", "example": "ok" } }
+      }
+    }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/users/login": {
+      "post": {
+        "summary": "1. Login to Mattermost server",
+        "security": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "login_id": { "type": "string" },
+                  "password": { "type": "string" },
+                  "token": { "type": "string" },
+                  "device_id": { "type": "string" }
+                },
+                "required": ["login_id", "password"]
+              },
+              "example": { "login_id": "myuser@example.com", "password": "changeme" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "User login successful", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } }
+        }
+      }
+    },
+    "/users/logout": {
+      "post": {
+        "summary": "6. Logout from the Mattermost server",
+        "responses": { "201": { "description": "ok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOk" } } } } }
+      }
+    },
+    "/users": {
+      "get": {
+        "summary": "10. Get users",
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "per_page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "in_team", "in": "query", "schema": { "type": "string" } },
+          { "name": "in_channel", "in": "query", "schema": { "type": "string" } },
+          { "name": "active", "in": "query", "schema": { "type": "boolean" } }
+        ],
+        "responses": { "200": { "description": "User list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/User" } } } } } }
+      }
+    },
+    "/users/ids": {
+      "post": {
+        "summary": "12. Get users by ids",
+        "requestBody": { "content": { "application/json": { "schema": { "type": "array", "items": { "type": "string" } } } } },
+        "responses": { "200": { "description": "User list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/User" } } } } } }
+      }
+    },
+    "/users/group_channels": {
+      "post": {
+        "summary": "13. Get users by group channels ids",
+        "requestBody": { "content": { "application/json": { "schema": { "type": "array", "items": { "type": "string" } } } } },
+        "responses": { "200": { "description": "channel_id -> User[] map" } }
+      }
+    },
+    "/users/usernames": {
+      "post": {
+        "summary": "14. Get users by usernames",
+        "requestBody": { "content": { "application/json": { "schema": { "type": "array", "items": { "type": "string" } } } } },
+        "responses": { "200": { "description": "User list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/User" } } } } } }
+      }
+    },
+    "/users/search": {
+      "post": {
+        "summary": "15. Search users",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "term": { "type": "string" },
+                  "team_id": { "type": "string" },
+                  "in_channel_id": { "type": "string" },
+                  "allow_inactive": { "type": "boolean" },
+                  "limit": { "type": "integer" }
+                },
+                "required": ["term"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "User list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/User" } } } } } }
+      }
+    },
+    "/users/autocomplete": {
+      "get": {
+        "summary": "16. Autocomplete users",
+        "parameters": [
+          { "name": "name", "in": "query", "required": true, "schema": { "type": "string" } },
+          { "name": "team_id", "in": "query", "schema": { "type": "string" } },
+          { "name": "channel_id", "in": "query", "schema": { "type": "string" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "Autocomplete result" } }
+      }
+    },
+    "/users/known": {
+      "get": {
+        "summary": "17. Get user IDs of known users",
+        "responses": { "200": { "description": "User id list" } }
+      }
+    },
+    "/users/stats": {
+      "get": {
+        "summary": "18. Get total count of users in the system",
+        "responses": { "200": { "description": "total_users_count", "content": { "application/json": { "schema": { "type": "object", "properties": { "total_users_count": { "type": "integer" } } } } } } }
+      }
+    },
+    "/users/{user_id}": {
+      "get": {
+        "summary": "20. Get a user (본인은 user_id=me)",
+        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
+        "responses": { "200": { "description": "User", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } } }
+      },
+      "put": {
+        "summary": "21. Update a user (본인 전체 갱신, 필드 누락 시 초기화 주의)",
+        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "string" },
+                  "email": { "type": "string" },
+                  "username": { "type": "string" },
+                  "first_name": { "type": "string" },
+                  "last_name": { "type": "string" },
+                  "nickname": { "type": "string" }
+                },
+                "required": ["id", "email", "username"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Updated user", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } } }
+      }
+    },
+    "/users/{user_id}/patch": {
+      "put": {
+        "summary": "23. Patch a user (본인 부분 갱신, 권장)",
+        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string" },
+                  "username": { "type": "string" },
+                  "first_name": { "type": "string" },
+                  "last_name": { "type": "string" },
+                  "nickname": { "type": "string" },
+                  "position": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Updated user", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } } }
+      }
+    },
+    "/users/{user_id}/image": {
+      "get": {
+        "summary": "26. Get user's profile image",
+        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
+        "responses": { "200": { "description": "Image binary" } }
+      },
+      "post": {
+        "summary": "27. Set user's profile image (본인)",
+        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
+        "requestBody": { "content": { "multipart/form-data": { "schema": { "type": "object", "properties": { "image": { "type": "string", "format": "binary" } } } } } },
+        "responses": { "200": { "description": "ok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOk" } } } } }
+      },
+      "delete": {
+        "summary": "28. Delete user's profile image (본인)",
+        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
+        "responses": { "200": { "description": "ok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOk" } } } } }
+      }
+    },
+    "/users/{user_id}/image/default": {
+      "get": {
+        "summary": "29. Return user's default (generated) profile image",
+        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
+        "responses": { "200": { "description": "Image binary" } }
+      }
+    },
+    "/users/username/{username}": {
+      "get": {
+        "summary": "30. Get a user by username",
+        "parameters": [{ "name": "username", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "User", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } } }
+      }
+    },
+    "/users/{user_id}/password": {
+      "put": {
+        "summary": "38. Update a user's password (본인)",
+        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "current_password": { "type": "string" },
+                  "new_password": { "type": "string" }
+                },
+                "required": ["new_password"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "ok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOk" } } } } }
+      }
+    },
+    "/users/email/{email}": {
+      "get": {
+        "summary": "40. Get a user by email",
+        "parameters": [{ "name": "email", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "User", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } } }
+      }
+    },
+    "/users/{user_id}/sessions": {
+      "get": {
+        "summary": "41. Get user's sessions (본인)",
+        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
+        "responses": { "200": { "description": "Session list" } }
+      }
+    },
+    "/users/{user_id}/sessions/revoke": {
+      "post": {
+        "summary": "42. Revoke a user session (본인)",
+        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "session_id": { "type": "string" } }, "required": ["session_id"] } } } },
+        "responses": { "200": { "description": "ok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOk" } } } } }
+      }
+    },
+    "/users/{user_id}/audits": {
+      "get": {
+        "summary": "46. Get user's audits (본인)",
+        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
+        "responses": { "200": { "description": "Audit list" } }
+      }
+    },
+    "/users/login/switch": {
+      "post": {
+        "summary": "50. Switch login method",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "current_service": { "type": "string" },
+                  "new_service": { "type": "string" },
+                  "email": { "type": "string" },
+                  "password": { "type": "string" }
+                },
+                "required": ["current_service", "new_service"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "follow_link" } }
+      }
+    },
+    "/users/{user_id}/terms_of_service": {
+      "post": {
+        "summary": "64. Records user action when they accept or decline custom terms of service (본인)",
+        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "serviceTermsId": { "type": "string" }, "accepted": { "type": "string" } }, "required": ["serviceTermsId", "accepted"] } } } },
+        "responses": { "200": { "description": "ok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOk" } } } } }
+      },
+      "get": {
+        "summary": "65. Fetches user's latest terms of service acceptance action (본인)",
+        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
+        "responses": { "200": { "description": "ToS acceptance record" } }
+      }
+    },
+    "/users/{user_id}/typing": {
+      "post": {
+        "summary": "67. Publish a user typing websocket event (본인)",
+        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "channel_id": { "type": "string" }, "parent_id": { "type": "string" } }, "required": ["channel_id"] } } } },
+        "responses": { "200": { "description": "accepted" } }
+      }
+    },
+    "/users/{user_id}/uploads": {
+      "get": {
+        "summary": "68. Get uploads for a user (본인)",
+        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
+        "responses": { "200": { "description": "Upload session list" } }
+      }
+    },
+    "/users/{user_id}/channel_members": {
+      "get": {
+        "summary": "69. Get all channel members from all teams for a user (본인)",
+        "parameters": [
+          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "per_page", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "Channel member list" } }
+      }
+    },
+    "/drafts": {
+      "post": {
+        "summary": "72. Upsert synced draft (본인, message 빈문자열이면 삭제)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "channel_id": { "type": "string" },
+                  "root_id": { "type": "string" },
+                  "message": { "type": "string" },
+                  "file_ids": { "type": "array", "items": { "type": "string" } }
+                },
+                "required": ["channel_id", "message"]
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Draft object or null" } }
+      }
+    },
+    "/users/{user_id}/teams/{team_id}/drafts": {
+      "get": {
+        "summary": "73. Get synced drafts for a team (본인)",
+        "parameters": [
+          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
+          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Draft list" } }
+      }
+    },
+    "/users/{user_id}/channels/{channel_id}/drafts": {
+      "delete": {
+        "summary": "74. Delete synced draft (본인)",
+        "parameters": [
+          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
+          { "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "ok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOk" } } } } }
+      }
+    },
+    "/users/{user_id}/channels/{channel_id}/drafts/{thread_id}": {
+      "delete": {
+        "summary": "75. Delete synced thread draft (본인)",
+        "parameters": [
+          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
+          { "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "thread_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "ok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOk" } } } } }
+      }
+    }
+  }
+}
