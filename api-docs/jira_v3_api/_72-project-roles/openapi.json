@@ -1,0 +1,320 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Jira API - _72-project-roles",
+    "version": "1.0.0",
+    "description": "프로젝트에서 사용자가 맡을 수 있는 \"역할(Project Role)\"을 조회·생성·수정·삭제하는 Jira REST API 엔드포인트 모음. 프로젝트 단위로 역할에 소속된 사용자/그룹(액터)을 확인할 수 있어 통합 대시보드에서 담당자·구성원 정보를 보여주는 데 활용할 수 있다."
+  },
+  "servers": [
+    {
+      "url": "https://{siteName}.atlassian.net",
+      "variables": {
+        "siteName": {
+          "default": "ssafy",
+          "description": "Jira Cloud 사이트 이름 (예: ssafy.atlassian.net)"
+        }
+      }
+    }
+  ],
+  "security": [
+    { "basicAuth": [] },
+    { "oauth2": ["read:jira-work", "write:jira-work"] }
+  ],
+  "tags": [
+    { "name": "Project roles" }
+  ],
+  "paths": {
+    "/rest/api/3/project/{projectIdOrKey}/role": {
+      "get": {
+        "summary": "프로젝트의 역할 목록 조회",
+        "description": "프로젝트에 정의된 역할(Administrators, Developers, Users 등)의 이름과 상세 조회용 self URL을 반환한다. Jira Cloud에서는 역할 자체가 전체 프로젝트에 공유되므로, 이 API는 특정 프로젝트에서 어떤 역할이 활성화되어 있는지 확인하는 용도로 쓰인다. 역할별 실제 구성원(액터) 목록은 반환하지 않으며, 이는 역할 상세 조회 API에서 개별 조회해야 한다.",
+        "operationId": "getProjectRoles",
+        "tags": ["Project roles"],
+        "x-priority": "high",
+        "parameters": [
+          {
+            "name": "projectIdOrKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "프로젝트 ID 또는 프로젝트 키 (대소문자 구분)",
+            "example": "MKY"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK - 역할명을 키로, self URL을 값으로 하는 객체 반환",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": { "type": "string" },
+                  "description": "역할 이름을 키로 하고 값은 해당 역할의 self URL"
+                },
+                "example": {
+                  "Administrators": "https://your-domain.atlassian.net/rest/api/3/project/MKY/role/10002",
+                  "Developers": "https://your-domain.atlassian.net/rest/api/3/project/MKY/role/10000",
+                  "Users": "https://your-domain.atlassian.net/rest/api/3/project/MKY/role/10001"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 정보가 잘못되었거나 없음, 또는 프로젝트에 대한 관리자 권한이 없음"
+          },
+          "404": {
+            "description": "프로젝트를 찾을 수 없거나 사용자가 해당 프로젝트에 대한 관리자 권한이 없음"
+          }
+        }
+      }
+    },
+    "/rest/api/3/project/{projectIdOrKey}/role/{id}": {
+      "get": {
+        "summary": "프로젝트의 특정 역할 상세(구성원 포함) 조회",
+        "description": "프로젝트 역할 하나에 대해 설명, 범위(scope), 그리고 실제로 배정된 액터(사용자 또는 그룹) 목록을 표시 이름 순으로 정렬하여 반환한다. 사용자가 그룹 멤버십을 통해 특정 역할에 속하는지 확인하려면 Get user API의 groups expand와 결과를 비교해야 한다. 팀 채널의 담당자/구성원 정보를 대시보드에 표시하거나 알림 수신 대상을 판단하는 데 유용하다.",
+        "operationId": "getProjectRole",
+        "tags": ["Project roles"],
+        "x-priority": "high",
+        "parameters": [
+          {
+            "name": "projectIdOrKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "프로젝트 ID 또는 프로젝트 키 (대소문자 구분)",
+            "example": "MKY"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" },
+            "description": "프로젝트 역할의 ID",
+            "example": 10360
+          },
+          {
+            "name": "excludeInactiveUsers",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "boolean" },
+            "description": "비활성 사용자를 결과에서 제외할지 여부",
+            "example": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK - 역할 상세 정보와 소속 액터 목록",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "integer", "description": "역할 ID" },
+                    "name": { "type": "string", "description": "역할 이름" },
+                    "description": { "type": "string", "description": "역할 설명" },
+                    "actors": {
+                      "type": "array",
+                      "description": "역할에 소속된 사용자/그룹 액터 목록",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "integer", "description": "액터 ID" },
+                          "displayName": { "type": "string", "description": "액터 표시 이름" },
+                          "type": { "type": "string", "description": "액터 타입 (atlassian-group-role-actor 또는 atlassian-user-role-actor)" },
+                          "name": { "type": "string", "description": "액터 이름 (그룹인 경우)" },
+                          "actorGroup": {
+                            "type": "object",
+                            "description": "그룹 액터 정보",
+                            "properties": {
+                              "displayName": { "type": "string" },
+                              "groupId": { "type": "string" },
+                              "name": { "type": "string" }
+                            }
+                          },
+                          "actorUser": {
+                            "type": "object",
+                            "description": "사용자 액터 정보",
+                            "properties": {
+                              "accountId": { "type": "string" }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "scope": {
+                      "type": "object",
+                      "description": "역할이 적용되는 프로젝트 범위 정보",
+                      "properties": {
+                        "project": {
+                          "type": "object",
+                          "properties": {
+                            "id": { "type": "string" },
+                            "key": { "type": "string" },
+                            "name": { "type": "string" }
+                          }
+                        },
+                        "type": { "type": "string" }
+                      }
+                    },
+                    "self": { "type": "string", "description": "역할 상세 조회 URL" }
+                  }
+                },
+                "example": {
+                  "actors": [
+                    {
+                      "actorGroup": {
+                        "displayName": "jira-developers",
+                        "groupId": "952d12c3-5b5b-4d04-bb32-44d383afc4b2",
+                        "name": "jira-developers"
+                      },
+                      "displayName": "jira-developers",
+                      "id": 10240,
+                      "name": "jira-developers",
+                      "type": "atlassian-group-role-actor",
+                      "user": "jira-developers"
+                    },
+                    {
+                      "actorUser": { "accountId": "5b10a2844c20165700ede21g" },
+                      "displayName": "Mia Krystof",
+                      "id": 10241,
+                      "type": "atlassian-user-role-actor"
+                    }
+                  ],
+                  "description": "A project role that represents developers in a project",
+                  "id": 10360,
+                  "name": "Developers",
+                  "scope": {
+                    "project": { "id": "10000", "key": "KEY", "name": "Next Gen Project" },
+                    "type": "PROJECT"
+                  },
+                  "self": "https://your-domain.atlassian.net/rest/api/3/project/MKY/role/10360"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "요청이 유효하지 않음"
+          },
+          "401": {
+            "description": "인증 정보가 잘못되었거나 없음"
+          },
+          "404": {
+            "description": "프로젝트 또는 역할을 찾을 수 없거나, 관리자 권한 없음"
+          }
+        }
+      }
+    },
+    "/rest/api/3/project/{projectIdOrKey}/roledetails": {
+      "get": {
+        "summary": "프로젝트의 전체 역할 상세 목록 조회",
+        "description": "프로젝트 역할 목록 API와 달리 역할별 액터 목록은 포함하지 않지만, 각 역할의 설명(description), 관리자 역할 여부(admin), 기본 역할 여부(default), 역할 설정 가능 여부(roleConfigurable), 타입(type) 등 메타데이터를 한 번의 호출로 모두 가져올 수 있다. currentMember 쿼리 파라미터로 현재 사용자가 속한 역할만 필터링할 수도 있어, 로그인한 사용자 기준 개인화된 뷰 구성에 유용하다.",
+        "operationId": "getProjectRoleDetails",
+        "tags": ["Project roles"],
+        "x-priority": "medium",
+        "parameters": [
+          {
+            "name": "projectIdOrKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "프로젝트 ID 또는 프로젝트 키 (대소문자 구분)",
+            "example": "MKY"
+          },
+          {
+            "name": "currentMember",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "boolean" },
+            "description": "현재 사용자가 속한 역할만 필터링할지 여부",
+            "example": true
+          },
+          {
+            "name": "excludeConnectAddons",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "boolean" },
+            "description": "Connect 애드온 관련 역할을 결과에서 제외할지 여부",
+            "example": true
+          },
+          {
+            "name": "excludeOtherServiceRoles",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "boolean" },
+            "description": "CSM/JSM 관련 기본 역할을 결과에서 제외할지 여부",
+            "example": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK - 프로젝트 역할 상세 목록",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "self": { "type": "string", "description": "역할 상세 조회 URL" },
+                      "name": { "type": "string", "description": "역할 이름" },
+                      "id": { "type": "integer", "description": "역할 ID" },
+                      "description": { "type": "string", "description": "역할 설명" },
+                      "admin": { "type": "boolean", "description": "관리자 역할 여부" },
+                      "default": { "type": "boolean", "description": "기본 역할 여부" },
+                      "roleConfigurable": { "type": "boolean", "description": "역할 설정 가능 여부" },
+                      "translatedName": { "type": "string", "description": "번역된 역할 이름" },
+                      "type": { "type": "string", "description": "역할 타입" }
+                    }
+                  }
+                },
+                "example": [
+                  {
+                    "self": "https://your-domain.atlassian.net/rest/api/3/project/MKY/role/10360",
+                    "name": "Developers",
+                    "id": 10360,
+                    "description": "A project role that represents developers in a project",
+                    "admin": false,
+                    "default": true,
+                    "roleConfigurable": true,
+                    "translatedName": "Developers",
+                    "type": "DEFAULT"
+                  }
+                ]
+              }
+            }
+          },
+          "401": {
+            "description": "인증 정보가 잘못되었거나 없음"
+          },
+          "404": {
+            "description": "프로젝트를 찾을 수 없거나 필요한 권한이 없음"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "basicAuth": {
+        "type": "http",
+        "scheme": "basic",
+        "description": "Jira Cloud API 토큰 인증. username=계정 이메일, password=API token (https://id.atlassian.com/manage-profile/security/api-tokens 에서 발급)"
+      },
+      "oauth2": {
+        "type": "oauth2",
+        "description": "Jira Cloud OAuth 2.0 (3LO) Bearer 토큰 인증",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "https://auth.atlassian.com/authorize",
+            "tokenUrl": "https://auth.atlassian.com/oauth/token",
+            "scopes": {
+              "read:jira-work": "Jira 작업 항목 읽기",
+              "write:jira-work": "Jira 작업 항목 쓰기",
+              "manage:jira-webhook": "Jira 웹훅 관리"
+            }
+          }
+        }
+      }
+    }
+  }
+}

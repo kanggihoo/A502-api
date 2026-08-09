@@ -1,0 +1,338 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Jira API - _71-project-role-actors",
+    "version": "1.0.0",
+    "description": "특정 프로젝트에 부여된 프로젝트 역할(project role)의 담당자(actor, 사용자/그룹)를 조회·추가·삭제하는 API 모음. 팀 생성 자동화 시 신규 프로젝트에 팀원을 역할별(예: Developers, Administrators)로 배정하는 데 사용할 수 있다. 사이트 전체 관리자 권한이 필요한 기본 담당자(default actors) 관련 API는 제외되었다."
+  },
+  "servers": [
+    {
+      "url": "https://{siteName}.atlassian.net",
+      "variables": {
+        "siteName": {
+          "default": "ssafy",
+          "description": "Jira Cloud 사이트 이름 (예: ssafy.atlassian.net)"
+        }
+      }
+    }
+  ],
+  "security": [
+    { "basicAuth": [] },
+    { "oauth2": ["read:jira-work", "write:jira-work"] }
+  ],
+  "tags": [
+    { "name": "Project role actors", "description": "프로젝트 역할 담당자(사용자/그룹) 조회·추가·삭제" }
+  ],
+  "paths": {
+    "/rest/api/3/project/{projectIdOrKey}/role/{id}": {
+      "put": {
+        "summary": "Set actors for project role",
+        "description": "해당 프로젝트의 지정된 역할(role id)에 배정된 기존 담당자 전체를 새로운 목록으로 교체한다. 기존 목록을 유지한 채 추가만 하려면 Add actors to project role(POST, 동일 경로) API를 사용해야 한다. 팀 생성 자동화 시 프로젝트를 만든 직후 역할별 담당자를 일괄 세팅하는 용도로 적합하다.",
+        "operationId": "setActorsForProjectRole",
+        "tags": ["Project role actors"],
+        "x-priority": "high",
+        "parameters": [
+          {
+            "name": "projectIdOrKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "프로젝트 ID 또는 키 (대소문자 구분)",
+            "example": "MKY"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" },
+            "description": "프로젝트 역할의 ID. Get all project roles API로 조회 가능",
+            "example": 10360
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "categorisedActors": {
+                    "type": "object",
+                    "description": "프로젝트 역할에 추가할 담당자 목록. 그룹은 `atlassian-group-role-actor`(그룹명) 또는 `atlassian-group-role-actor-id`(그룹 ID, 권장) 키로, 사용자는 `atlassian-user-role-actor` 키(계정 ID 목록)로 지정",
+                    "additionalProperties": {
+                      "type": "array",
+                      "items": { "type": "string" }
+                    }
+                  },
+                  "id": {
+                    "type": "integer",
+                    "description": "프로젝트 역할의 ID"
+                  }
+                },
+                "required": ["categorisedActors"]
+              },
+              "example": {
+                "categorisedActors": {
+                  "atlassian-group-role-actor-id": ["eef79f81-0b89-4fca-a736-4be531a10869"],
+                  "atlassian-user-role-actor": ["12345678-9abc-def1-2345-6789abcdef12"]
+                },
+                "id": 10360
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "요청이 성공하면 프로젝트의 전체 담당자 목록이 반환된다.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "actors": {
+                      "type": "array",
+                      "description": "역할에 배정된 담당자(그룹/사용자) 목록",
+                      "items": { "type": "object" }
+                    },
+                    "id": { "type": "integer", "description": "프로젝트 역할 ID" },
+                    "name": { "type": "string", "description": "프로젝트 역할 이름" },
+                    "description": { "type": "string", "description": "역할 설명" },
+                    "scope": { "type": "object", "description": "역할이 적용되는 범위(프로젝트) 정보" },
+                    "self": { "type": "string", "description": "리소스 self 링크" }
+                  }
+                },
+                "example": {
+                  "actors": [
+                    {
+                      "actorGroup": {
+                        "displayName": "jira-developers",
+                        "groupId": "952d12c3-5b5b-4d04-bb32-44d383afc4b2",
+                        "name": "jira-developers"
+                      },
+                      "displayName": "jira-developers",
+                      "id": 10240,
+                      "name": "jira-developers",
+                      "type": "atlassian-group-role-actor",
+                      "user": "jira-developers"
+                    },
+                    {
+                      "actorUser": { "accountId": "5b10a2844c20165700ede21g" },
+                      "displayName": "Mia Krystof",
+                      "id": 10241,
+                      "type": "atlassian-user-role-actor"
+                    }
+                  ],
+                  "description": "A project role that represents developers in a project",
+                  "id": 10360,
+                  "name": "Developers",
+                  "scope": {
+                    "project": { "id": "10000", "key": "KEY", "name": "Next Gen Project" },
+                    "type": "PROJECT"
+                  },
+                  "self": "https://your-domain.atlassian.net/rest/api/3/project/MKY/role/10360"
+                }
+              }
+            }
+          },
+          "400": { "description": "요청이 유효하지 않음. 요청 본문의 `categorisedActors`, `id` 형식을 확인" },
+          "401": { "description": "인증 정보가 없거나 잘못됨, 또는 호출자가 프로젝트 관리 권한이 없음" },
+          "404": { "description": "프로젝트를 찾을 수 없음 / 사용자나 그룹을 찾을 수 없음 / 그룹·사용자가 비활성 상태임" }
+        }
+      },
+      "post": {
+        "summary": "Add actors to project role",
+        "description": "프로젝트의 지정된 역할에 사용자 또는 그룹을 추가한다. 기존 담당자 목록은 유지되고 새로운 담당자만 추가된다. 전체 목록을 교체하려면 Set actors for project role(PUT) API를 사용해야 한다. 팀원 초대/합류 시 특정 역할에 개별 사용자를 추가하는 흐름에 적합하다.",
+        "operationId": "addActorsToProjectRole",
+        "tags": ["Project role actors"],
+        "x-priority": "high",
+        "parameters": [
+          {
+            "name": "projectIdOrKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "프로젝트 ID 또는 키 (대소문자 구분)",
+            "example": "MKY"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" },
+            "description": "프로젝트 역할의 ID",
+            "example": 10360
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "group": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "추가할 그룹 이름 목록. `groupId`와 동시 사용 불가. 그룹명은 변경될 수 있어 `groupId` 사용 권장"
+                  },
+                  "groupId": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "추가할 그룹 ID 목록 (권장). `group`과 동시 사용 불가"
+                  },
+                  "user": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "추가할 사용자 계정 ID 목록"
+                  }
+                },
+                "required": []
+              },
+              "example": {
+                "group": ["jira-developers"],
+                "user": ["5b10a2844c20165700ede21g"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "요청이 성공하면 프로젝트의 전체 담당자 목록이 반환된다.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "actors": {
+                      "type": "array",
+                      "description": "역할에 배정된 담당자 목록",
+                      "items": { "type": "object" }
+                    },
+                    "id": { "type": "integer", "description": "프로젝트 역할 ID" },
+                    "name": { "type": "string", "description": "프로젝트 역할 이름" },
+                    "description": { "type": "string", "description": "역할 설명" },
+                    "scope": { "type": "object", "description": "역할이 적용되는 범위(프로젝트) 정보" },
+                    "self": { "type": "string", "description": "리소스 self 링크" }
+                  }
+                },
+                "example": {
+                  "actors": [
+                    {
+                      "actorGroup": {
+                        "displayName": "jira-developers",
+                        "groupId": "952d12c3-5b5b-4d04-bb32-44d383afc4b2",
+                        "name": "jira-developers"
+                      },
+                      "displayName": "jira-developers",
+                      "id": 10240,
+                      "name": "jira-developers",
+                      "type": "atlassian-group-role-actor",
+                      "user": "jira-developers"
+                    },
+                    {
+                      "actorUser": { "accountId": "5b10a2844c20165700ede21g" },
+                      "displayName": "Mia Krystof",
+                      "id": 10241,
+                      "type": "atlassian-user-role-actor"
+                    }
+                  ],
+                  "description": "A project role that represents developers in a project",
+                  "id": 10360,
+                  "name": "Developers",
+                  "scope": {
+                    "project": { "id": "10000", "key": "KEY", "name": "Next Gen Project" },
+                    "type": "PROJECT"
+                  },
+                  "self": "https://your-domain.atlassian.net/rest/api/3/project/MKY/role/10360"
+                }
+              }
+            }
+          },
+          "400": { "description": "요청이 유효하지 않음. 요청 본문의 `group`/`groupId`/`user` 형식 확인" },
+          "401": { "description": "인증 정보가 없거나 잘못됨, 또는 호출자가 프로젝트 관리 권한이 없음" },
+          "404": { "description": "프로젝트를 찾을 수 없음 / 사용자나 그룹을 찾을 수 없음 / 그룹·사용자가 비활성 상태임" }
+        }
+      },
+      "delete": {
+        "summary": "Delete actors from project role",
+        "description": "프로젝트의 지정된 역할에서 사용자 또는 그룹 하나를 제거한다. 쿼리 파라미터로 제거 대상을 지정하며, 프로젝트 역할의 \"기본 담당자\"를 제거하려면 별도의 Delete default actors from project role API를 사용해야 한다(단, 해당 API는 사이트 전체 관리자 권한이 필요하여 이 요약에서는 제외됨). 팀원 퇴출/역할 변경 시 사용한다.",
+        "operationId": "deleteActorsFromProjectRole",
+        "tags": ["Project role actors"],
+        "x-priority": "high",
+        "parameters": [
+          {
+            "name": "projectIdOrKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "프로젝트 ID 또는 키 (대소문자 구분)",
+            "example": "MKY"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" },
+            "description": "프로젝트 역할의 ID",
+            "example": 10360
+          },
+          {
+            "name": "user",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "제거할 사용자의 계정 ID",
+            "example": "5b10a2844c20165700ede21g"
+          },
+          {
+            "name": "group",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "제거할 그룹 이름 (`groupId`와 동시 사용 불가)",
+            "example": "jira-developers"
+          },
+          {
+            "name": "groupId",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "제거할 그룹 ID (`group`과 동시 사용 불가, 권장)",
+            "example": "952d12c3-5b5b-4d04-bb32-44d383afc4b2"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "요청이 성공하면 별도의 응답 본문 없이 204가 반환된다."
+          },
+          "400": { "description": "요청이 유효하지 않음. 쿼리 파라미터 조합(예: `group`과 `groupId` 동시 사용) 확인" },
+          "404": { "description": "프로젝트 또는 프로젝트 역할을 찾을 수 없음 / 호출자가 관리자 권한이 없음" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "basicAuth": {
+        "type": "http",
+        "scheme": "basic",
+        "description": "Jira Cloud API 토큰 인증. username=계정 이메일, password=API token (https://id.atlassian.com/manage-profile/security/api-tokens 에서 발급)"
+      },
+      "oauth2": {
+        "type": "oauth2",
+        "description": "Jira Cloud OAuth 2.0 (3LO) Bearer 토큰 인증",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "https://auth.atlassian.com/authorize",
+            "tokenUrl": "https://auth.atlassian.com/oauth/token",
+            "scopes": {
+              "read:jira-work": "Jira 작업 항목 읽기",
+              "write:jira-work": "Jira 작업 항목 쓰기",
+              "manage:jira-webhook": "Jira 웹훅 관리"
+            }
+          }
+        }
+      }
+    }
+  }
+}

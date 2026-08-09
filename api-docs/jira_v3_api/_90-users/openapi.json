@@ -1,0 +1,716 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Jira API - _90-users",
+    "version": "1.0.0",
+    "description": "Jira 사용자(User)를 조회/생성/삭제하고, 사용자의 기본 이슈 테이블 컬럼과 소속 그룹, 이메일 정보를 다루는 API 모음. Create user/Delete user는 조직/사이트 관리자 전용 권한이 필요하여 이 문서에서는 제외되었다."
+  },
+  "servers": [
+    {
+      "url": "https://{siteName}.atlassian.net",
+      "variables": {
+        "siteName": {
+          "default": "ssafy",
+          "description": "Jira Cloud 사이트 이름 (예: ssafy.atlassian.net)"
+        }
+      }
+    }
+  ],
+  "security": [
+    { "basicAuth": [] },
+    { "oauth2": ["read:jira-work", "write:jira-work"] }
+  ],
+  "tags": [
+    { "name": "Users" }
+  ],
+  "paths": {
+    "/rest/api/3/user": {
+      "get": {
+        "summary": "Get user",
+        "description": "accountId로 특정 Jira 사용자의 상세 프로필 정보를 조회한다. 팀 생성 자동화나 통합 알림에서 이슈 담당자/보고자/코멘트 작성자 등의 표시 이름, 아바타, 활성 상태를 보여줄 때 사용한다. 사용자의 프로필 공개 설정(Profile visibility)에 따라 이메일 등 일부 필드는 응답에서 숨겨질 수 있다. `expand` 파라미터로 소속 그룹이나 애플리케이션 롤 정보를 함께 받을 수 있다.",
+        "operationId": "getUser",
+        "tags": ["Users"],
+        "x-priority": "high",
+        "parameters": [
+          {
+            "name": "accountId",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "사용자의 계정 ID (Atlassian 전역에서 사용자를 식별)",
+            "example": "5b10ac8d82e05b22cc7d4ef5"
+          },
+          {
+            "name": "username",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "더 이상 사용되지 않음 (deprecated)"
+          },
+          {
+            "name": "key",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "더 이상 사용되지 않음 (deprecated)"
+          },
+          {
+            "name": "expand",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "쉼표로 구분된 확장 옵션: groups(소속 그룹 포함), applicationRoles(접근 가능한 애플리케이션 정보 포함)",
+            "example": "groups,applicationRoles"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "요청 성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "accountId": { "type": "string", "description": "사용자 계정 ID" },
+                    "accountType": { "type": "string", "description": "계정 유형" },
+                    "active": { "type": "boolean", "description": "활성 사용자 여부" },
+                    "applicationRoles": { "type": "object", "description": "애플리케이션 롤 정보" },
+                    "avatarUrls": { "type": "object", "description": "크기별 아바타 URL" },
+                    "displayName": { "type": "string", "description": "표시 이름" },
+                    "emailAddress": { "type": "string", "description": "이메일 주소 (공개 설정에 따라 숨김 가능)" },
+                    "groups": { "type": "object", "description": "소속 그룹 정보" },
+                    "self": { "type": "string", "description": "리소스 URL" },
+                    "timeZone": { "type": "string", "description": "사용자 타임존" }
+                  }
+                },
+                "example": {
+                  "accountId": "5b10a2844c20165700ede21g",
+                  "accountType": "atlassian",
+                  "active": true,
+                  "applicationRoles": { "items": [], "size": 1 },
+                  "avatarUrls": {
+                    "16x16": "https://avatar-management--avatars.server-location.prod.public.atl-paas.net/initials/MK-5.png?size=16&s=16",
+                    "48x48": "https://avatar-management--avatars.server-location.prod.public.atl-paas.net/initials/MK-5.png?size=48&s=48"
+                  },
+                  "displayName": "Mia Krystof",
+                  "emailAddress": "mia@example.com",
+                  "groups": { "items": [], "size": 3 },
+                  "self": "https://your-domain.atlassian.net/rest/api/3/user?accountId=5b10a2844c20165700ede21g",
+                  "timeZone": "Australia/Sydney"
+                }
+              }
+            }
+          },
+          "401": { "description": "인증 정보 누락/오류" },
+          "403": { "description": "Browse users and groups 권한 없음" },
+          "404": { "description": "해당 accountId의 사용자를 찾을 수 없음" }
+        }
+      }
+    },
+    "/rest/api/3/user/bulk": {
+      "get": {
+        "summary": "Bulk get users",
+        "description": "여러 accountId를 한 번에 지정하여 사용자 목록을 페이지네이션으로 조회한다. 여러 이슈에 관련된 담당자/워치어 등 다수 사용자의 정보를 한 번에 조회할 때 사용한다. 프로젝트 관리자 권한 수준에서도 호출 가능해 알림/대시보드 기능에서 사용자 목록을 배치로 가져오는 데 적합하다.",
+        "operationId": "getUsersBulk",
+        "tags": ["Users"],
+        "x-priority": "high",
+        "parameters": [
+          {
+            "name": "startAt",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer" },
+            "description": "페이지 오프셋(첫 결과 인덱스)",
+            "example": 0
+          },
+          {
+            "name": "maxResults",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer" },
+            "description": "페이지당 최대 항목 수",
+            "example": 100
+          },
+          {
+            "name": "username",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "array", "items": { "type": "string" } },
+            "description": "deprecated"
+          },
+          {
+            "name": "key",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "array", "items": { "type": "string" } },
+            "description": "deprecated"
+          },
+          {
+            "name": "accountId",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "array", "items": { "type": "string" } },
+            "description": "사용자 accountId (여러 개 지정 가능, 각각 별도 파라미터로 전달)",
+            "example": ["5b10a2844c20165700ede21g", "5b10ac8d82e05b22cc7d4ef5"]
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "요청 성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "isLast": { "type": "boolean", "description": "마지막 페이지 여부" },
+                    "maxResults": { "type": "integer", "description": "페이지당 최대 항목 수" },
+                    "startAt": { "type": "integer", "description": "시작 인덱스" },
+                    "total": { "type": "integer", "description": "전체 결과 수" },
+                    "values": {
+                      "type": "array",
+                      "description": "사용자 객체 배열",
+                      "items": { "type": "object" }
+                    }
+                  }
+                },
+                "example": {
+                  "isLast": true,
+                  "maxResults": 100,
+                  "startAt": 0,
+                  "total": 1,
+                  "values": [
+                    {
+                      "accountId": "5b10a2844c20165700ede21g",
+                      "accountType": "atlassian",
+                      "active": true,
+                      "avatarUrls": { "48x48": "https://avatar-management--avatars.server-location.prod.public.atl-paas.net/initials/MK-5.png?size=48&s=48" },
+                      "displayName": "Mia Krystof",
+                      "emailAddress": "mia@example.com",
+                      "self": "https://your-domain.atlassian.net/rest/api/3/user?accountId=5b10a2844c20165700ede21g",
+                      "timeZone": "Australia/Sydney"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": { "description": "accountId가 누락됨" },
+          "401": { "description": "인증 정보 누락/오류" }
+        }
+      }
+    },
+    "/rest/api/3/user/groups": {
+      "get": {
+        "summary": "Get user groups",
+        "description": "특정 사용자가 속한 그룹 목록을 조회한다. 팀 생성 자동화 과정에서 특정 사용자가 어떤 그룹(예: 프로젝트 역할과 연관된 그룹)에 속해 있는지 확인할 때 사용한다. 결과는 사용자가 속한 그룹들의 배열로 반환된다.",
+        "operationId": "getUserGroups",
+        "tags": ["Users"],
+        "x-priority": "high",
+        "parameters": [
+          {
+            "name": "accountId",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "사용자 계정 ID",
+            "example": "5b10ac8d82e05b22cc7d4ef5"
+          },
+          {
+            "name": "username",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "deprecated"
+          },
+          {
+            "name": "key",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "deprecated"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "요청 성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "groupId": { "type": "string", "description": "그룹 ID" },
+                      "name": { "type": "string", "description": "그룹 이름" },
+                      "self": { "type": "string", "description": "그룹 리소스 URL" }
+                    }
+                  }
+                },
+                "example": [
+                  {
+                    "groupId": "276f955c-63d7-42c8-9520-92d01dca0625",
+                    "name": "jira-administrators",
+                    "self": "https://your-domain.atlassian.net/rest/api/3/group?groupId=276f955c-63d7-42c8-9520-92d01dca0625"
+                  }
+                ]
+              }
+            }
+          },
+          "401": { "description": "인증 정보 누락/오류" },
+          "403": { "description": "Browse users and groups 권한 없음" },
+          "404": { "description": "사용자를 찾을 수 없음" }
+        }
+      }
+    },
+    "/rest/api/3/users": {
+      "get": {
+        "summary": "Get all users default",
+        "description": "활성/비활성/삭제된 사용자를 포함한 전체 사용자 목록을 조회한다. 팀 생성 자동화 시 조직 내 전체 사용자 목록을 가져와 팀원 후보를 선택하거나 매핑하는 데 사용할 수 있다. 페이지네이션 파라미터로 결과를 나눠 받을 수 있으며, 응답에는 비활성/삭제된 계정도 포함될 수 있다.",
+        "operationId": "getAllUsersDefault",
+        "tags": ["Users"],
+        "x-priority": "high",
+        "parameters": [
+          {
+            "name": "startAt",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer" },
+            "description": "반환할 첫 항목의 인덱스",
+            "example": 0
+          },
+          {
+            "name": "maxResults",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer" },
+            "description": "반환할 최대 항목 수 (최대 1000)",
+            "example": 50
+          },
+          {
+            "name": "expand",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "확장 옵션 (문서에 상세 값 명시 없음)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "요청 성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "accountId": { "type": "string", "description": "사용자 계정 ID" },
+                      "accountType": { "type": "string", "description": "계정 유형" },
+                      "active": { "type": "boolean", "description": "활성 여부" },
+                      "displayName": { "type": "string", "description": "표시 이름" },
+                      "avatarUrls": { "type": "object", "description": "아바타 URL" },
+                      "self": { "type": "string", "description": "리소스 URL" }
+                    }
+                  }
+                },
+                "example": [
+                  {
+                    "accountId": "5b10a2844c20165700ede21g",
+                    "accountType": "atlassian",
+                    "active": false,
+                    "avatarUrls": { "48x48": "https://avatar-management--avatars.server-location.prod.public.atl-paas.net/initials/MK-5.png?size=48&s=48" },
+                    "displayName": "Mia Krystof",
+                    "self": "https://your-domain.atlassian.net/rest/api/3/user?accountId=5b10a2844c20165700ede21g"
+                  },
+                  {
+                    "accountId": "5b10ac8d82e05b22cc7d4ef5",
+                    "accountType": "atlassian",
+                    "active": false,
+                    "avatarUrls": { "48x48": "https://avatar-management--avatars.server-location.prod.public.atl-paas.net/initials/AA-3.png?size=48&s=48" },
+                    "displayName": "Emma Richards",
+                    "self": "https://your-domain.atlassian.net/rest/api/3/user?accountId=5b10ac8d82e05b22cc7d4ef5"
+                  }
+                ]
+              }
+            }
+          },
+          "400": { "description": "요청이 잘못됨" },
+          "403": { "description": "필요한 권한 없음" },
+          "409": { "description": "요청이 10초 이상 걸리거나 중단됨" }
+        }
+      }
+    },
+    "/rest/api/3/users/search": {
+      "get": {
+        "summary": "Get all users",
+        "description": "활성/비활성/삭제된 사용자를 포함한 전체 사용자 목록을 검색/조회한다. `GET /rest/api/3/users`와 동일한 목적이지만 검색용 엔드포인트로 제공되며, 페이지네이션을 지원한다. 팀 생성 자동화에서 사용자 검색/선택 UI를 만들 때 이 엔드포인트를 우선 사용하는 것이 권장된다.",
+        "operationId": "getAllUsers",
+        "tags": ["Users"],
+        "x-priority": "high",
+        "parameters": [
+          {
+            "name": "startAt",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer" },
+            "description": "반환할 첫 항목의 인덱스",
+            "example": 0
+          },
+          {
+            "name": "maxResults",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer" },
+            "description": "반환할 최대 항목 수 (최대 1000)",
+            "example": 50
+          },
+          {
+            "name": "expand",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "확장 옵션 (문서에 상세 값 명시 없음)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "요청 성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "accountId": { "type": "string", "description": "사용자 계정 ID" },
+                      "accountType": { "type": "string", "description": "계정 유형" },
+                      "active": { "type": "boolean", "description": "활성 여부" },
+                      "displayName": { "type": "string", "description": "표시 이름" },
+                      "avatarUrls": { "type": "object", "description": "아바타 URL" },
+                      "self": { "type": "string", "description": "리소스 URL" }
+                    }
+                  }
+                },
+                "example": [
+                  {
+                    "accountId": "5b10a2844c20165700ede21g",
+                    "accountType": "atlassian",
+                    "active": false,
+                    "avatarUrls": { "48x48": "https://avatar-management--avatars.server-location.prod.public.atl-paas.net/initials/MK-5.png?size=48&s=48" },
+                    "displayName": "Mia Krystof",
+                    "self": "https://your-domain.atlassian.net/rest/api/3/user?accountId=5b10a2844c20165700ede21g"
+                  }
+                ]
+              }
+            }
+          },
+          "400": { "description": "요청이 잘못됨" },
+          "403": { "description": "필요한 권한 없음" },
+          "409": { "description": "요청이 10초 이상 걸리거나 중단됨" }
+        }
+      }
+    },
+    "/rest/api/3/user/bulk/migration": {
+      "get": {
+        "summary": "Get account IDs for users",
+        "description": "username 또는 key로 지정한 사용자들의 accountId를 조회한다. 과거 username/key 기반 데이터를 accountId 기반으로 마이그레이션할 때 사용하는 보조 API다. username과 key 중 하나만 지정할 수 있으며 여러 개를 반복 파라미터로 전달할 수 있다.",
+        "operationId": "getAccountIdsForUsers",
+        "tags": ["Users"],
+        "x-priority": "medium",
+        "parameters": [
+          {
+            "name": "startAt",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer" },
+            "description": "페이지 오프셋",
+            "example": 0
+          },
+          {
+            "name": "maxResults",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer" },
+            "description": "페이지당 최대 항목 수",
+            "example": 100
+          },
+          {
+            "name": "username",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "array", "items": { "type": "string" } },
+            "description": "사용자명. key가 없으면 필수. key와 동시 사용 불가",
+            "example": ["fred", "barney"]
+          },
+          {
+            "name": "key",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "array", "items": { "type": "string" } },
+            "description": "사용자 키. username이 없으면 필수. username과 동시 사용 불가",
+            "example": ["fred", "barney"]
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "요청 성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "username": { "type": "string", "description": "사용자명" },
+                      "accountId": { "type": "string", "description": "계정 ID" }
+                    }
+                  }
+                },
+                "example": [
+                  { "username": "mia", "accountId": "5b10a2844c20165700ede21g" },
+                  { "username": "emma", "accountId": "5b10ac8d82e05b22cc7d4ef5" }
+                ]
+              }
+            }
+          },
+          "400": { "description": "key 또는 username 관련 오류" },
+          "401": { "description": "인증 정보 누락/오류" }
+        }
+      }
+    },
+    "/rest/api/3/user/columns": {
+      "get": {
+        "summary": "Get user default columns",
+        "description": "사용자의 기본 이슈 테이블 컬럼 설정을 조회한다. accountId를 지정하지 않으면 호출한 사용자 본인의 기본 컬럼 설정을 반환한다. 대시보드에서 이슈 목록을 표시할 기본 컬럼 구성을 파악하는 등 보조적인 용도로 사용할 수 있다.",
+        "operationId": "getUserDefaultColumns",
+        "tags": ["Users"],
+        "x-priority": "medium",
+        "parameters": [
+          {
+            "name": "accountId",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "사용자 계정 ID (미지정 시 호출자 본인)",
+            "example": "5b10ac8d82e05b22cc7d4ef5"
+          },
+          {
+            "name": "username",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "deprecated"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "요청 성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "label": { "type": "string", "description": "이슈 네비게이터 컬럼 라벨" },
+                      "value": { "type": "string", "description": "이슈 네비게이터 컬럼 값" }
+                    }
+                  }
+                },
+                "example": [
+                  { "label": "Summary", "value": "summary" }
+                ]
+              }
+            }
+          },
+          "401": { "description": "인증 정보 누락/오류" },
+          "403": { "description": "권한 없음 또는 본인 레코드가 아님" },
+          "404": { "description": "요청한 사용자를 찾을 수 없음" }
+        }
+      },
+      "put": {
+        "summary": "Set user default columns",
+        "description": "사용자의 기본 이슈 테이블 컬럼을 설정한다. accountId를 지정하지 않으면 호출자 본인의 기본 컬럼을 설정하며, 컬럼 값을 보내지 않으면 모든 기본 컬럼이 제거된다. 파라미터는 HTML form data 형식으로 전달된다.",
+        "operationId": "setUserDefaultColumns",
+        "tags": ["Users"],
+        "x-priority": "medium",
+        "parameters": [
+          {
+            "name": "accountId",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "사용자 계정 ID (미지정 시 호출자 본인)",
+            "example": "5b10ac8d82e05b22cc7d4ef5"
+          }
+        ],
+        "requestBody": {
+          "description": "요청은 실제로는 HTML form data(application/x-www-form-urlencoded) 형식으로 전달되어야 한다 (예: curl -X PUT -d columns=summary -d columns=description). 아래 JSON 스키마는 편의상 표현한 것이다.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "columns": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "설정할 이슈 테이블 컬럼 값 목록 (form data, columns 파라미터 반복)"
+                  }
+                },
+                "required": []
+              },
+              "example": {
+                "columns": ["summary", "description"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "요청 성공 (응답 스키마가 any로 정의되어 있으며 구체적인 필드는 문서에 명시되어 있지 않음)",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object" },
+                "example": {}
+              }
+            }
+          },
+          "401": { "description": "인증 정보 누락/오류" },
+          "403": { "description": "권한 없음 또는 본인 레코드가 아님" },
+          "404": { "description": "요청한 사용자를 찾을 수 없음" },
+          "429": { "description": "Rate limit 초과 (사용자 검색 엔드포인트는 테넌트 단위로 rate limit 공유, Retry-After 헤더 준수 필요)" },
+          "500": { "description": "잘못된 이슈 테이블 컬럼 ID 전송" }
+        }
+      },
+      "delete": {
+        "summary": "Reset user default columns",
+        "description": "사용자의 기본 이슈 테이블 컬럼을 시스템 기본값으로 초기화한다. accountId를 지정하지 않으면 호출자 본인의 기본 컬럼을 시스템 기본값으로 리셋한다.",
+        "operationId": "resetUserDefaultColumns",
+        "tags": ["Users"],
+        "x-priority": "medium",
+        "parameters": [
+          {
+            "name": "accountId",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "사용자 계정 ID (미지정 시 호출자 본인)",
+            "example": "5b10ac8d82e05b22cc7d4ef5"
+          },
+          {
+            "name": "username",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "deprecated"
+          }
+        ],
+        "responses": {
+          "204": { "description": "성공 (응답 본문 없음)" },
+          "401": { "description": "인증 정보 누락/오류" },
+          "403": { "description": "권한 없음 또는 본인 레코드가 아님" }
+        }
+      }
+    },
+    "/rest/api/3/user/email": {
+      "get": {
+        "summary": "Get user email",
+        "description": "사용자의 프로필 공개 설정과 무관하게 이메일 주소를 조회한다. 일반 사용자 컨텍스트로는 호출이 제한되며(401), 승인된 Connect 앱 또는 asApp() 방식의 Forge 앱에서만 사용 가능하다. 통합 알림에서 이메일로 사용자에게 알림을 보내야 할 때 유용하지만 접근 제약이 있어 핵심 흐름으로 보기는 어렵다.",
+        "operationId": "getUserEmail",
+        "tags": ["Users"],
+        "x-priority": "medium",
+        "parameters": [
+          {
+            "name": "accountId",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "사용자 계정 ID",
+            "example": "5b10ac8d82e05b22cc7d4ef5"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "요청 성공",
+            "content": {
+              "application/json": {
+                "schema": { "type": "string", "description": "사용자 이메일 주소" },
+                "example": "name@example.com"
+              }
+            }
+          },
+          "400": { "description": "호출 앱이 이 API 사용을 승인받지 않음" },
+          "401": { "description": "인증 정보 누락/오류 (일반 사용자가 접근 시도하는 경우 포함)" },
+          "404": { "description": "해당 accountId의 사용자가 존재하지 않음" },
+          "503": { "description": "API가 현재 비활성화됨" }
+        }
+      }
+    },
+    "/rest/api/3/user/email/bulk": {
+      "get": {
+        "summary": "Get user email bulk",
+        "description": "여러 사용자의 이메일 주소를 프로필 공개 설정과 무관하게 한 번에 조회한다. Get user email의 벌크 버전으로, 여러 accountId에 대한 이메일을 한 번에 조회한다. 동일하게 앱 승인/인증 방식 제약이 있다.",
+        "operationId": "getUserEmailBulk",
+        "tags": ["Users"],
+        "x-priority": "medium",
+        "parameters": [
+          {
+            "name": "accountId",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "array", "items": { "type": "string" } },
+            "description": "이메일을 조회할 사용자들의 accountId 목록",
+            "example": ["5b10ac8d82e05b22cc7d4ef5"]
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "요청 성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "accountId": { "type": "string", "description": "사용자 accountId" },
+                    "email": { "type": "string", "description": "사용자 이메일" }
+                  }
+                },
+                "example": {
+                  "accountId": "5b10ac8d82e05b22cc7d4ef5",
+                  "email": "name@example.com"
+                }
+              }
+            }
+          },
+          "400": { "description": "호출 앱이 이 API 사용을 승인받지 않음" },
+          "401": { "description": "인증 정보 누락/오류 (일반 사용자가 접근 시도하는 경우 포함)" },
+          "503": { "description": "API가 현재 비활성화됨" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "basicAuth": {
+        "type": "http",
+        "scheme": "basic",
+        "description": "Jira Cloud API 토큰 인증. username=계정 이메일, password=API token (https://id.atlassian.com/manage-profile/security/api-tokens 에서 발급)"
+      },
+      "oauth2": {
+        "type": "oauth2",
+        "description": "Jira Cloud OAuth 2.0 (3LO) Bearer 토큰 인증",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "https://auth.atlassian.com/authorize",
+            "tokenUrl": "https://auth.atlassian.com/oauth/token",
+            "scopes": {
+              "read:jira-work": "Jira 작업 항목 읽기",
+              "write:jira-work": "Jira 작업 항목 쓰기",
+              "manage:jira-webhook": "Jira 웹훅 관리"
+            }
+          }
+        }
+      }
+    }
+  }
+}

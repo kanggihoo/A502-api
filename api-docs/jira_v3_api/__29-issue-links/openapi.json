@@ -1,0 +1,341 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Jira API - __29-issue-links",
+    "version": "1.0.0",
+    "description": "이슈 간의 링크(관계)를 조회, 생성, 삭제하는 Jira REST API 모음. 사이트에 Issue Linking 기능이 활성화되어 있어야 사용할 수 있다."
+  },
+  "servers": [
+    {
+      "url": "https://{siteName}.atlassian.net",
+      "variables": {
+        "siteName": {
+          "default": "ssafy",
+          "description": "Jira Cloud 사이트 이름 (예: ssafy.atlassian.net)"
+        }
+      }
+    }
+  ],
+  "security": [
+    { "basicAuth": [] },
+    { "oauth2": ["read:jira-work", "write:jira-work"] }
+  ],
+  "tags": [
+    { "name": "Issue links", "description": "이슈 간 링크(관계) 조회/생성/삭제 API" }
+  ],
+  "paths": {
+    "/rest/api/3/issueLink": {
+      "post": {
+        "summary": "이슈 링크 생성",
+        "description": "이슈 링크 생성은 두 이슈 간 관계(예: Duplicate, Blocks 등)를 등록하는 핵심 API로, 팀 프로젝트 운영 지원에서 이슈 간 의존성/관계를 자동으로 관리할 때 사용할 수 있다. 링크 생성 시 중복된 링크 요청이 들어와도 성공 응답을 반환하며, 코멘트가 포함된 요청이면 코멘트도 함께 등록된다. 이 엔드포인트는 생성된 링크에 대한 어떤 데이터도 응답으로 반환하지 않으므로, 링크 ID가 필요하면 GET /rest/api/3/issue/{linked issue key}?fields=issuelinks 를 별도로 호출해야 한다.\n\n두 이슈를 연결하려면 연결하려는 모든 프로젝트에 대한 Browse project 권한과, outward(from) 이슈가 속한 프로젝트에 대한 Link issues 권한이 필요하다. 이슈 수준 보안이 설정된 경우 해당 이슈를 볼 수 있는 권한도 필요하며, 코멘트에 공개 범위 제한이 있으면 해당 그룹/역할에 속해야 한다. 이 작업은 익명으로도 접근 가능하다 (단, 결과는 권한에 따라 제한됨).",
+        "operationId": "createIssueLink",
+        "tags": ["Issue links"],
+        "x-priority": "high",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["inwardIssue", "outwardIssue", "type"],
+                "properties": {
+                  "comment": {
+                    "type": "object",
+                    "description": "from(outward) 이슈에 추가할 코멘트 객체 (ADF 형식의 body 포함)",
+                    "properties": {
+                      "body": {
+                        "description": "코멘트 본문 (Atlassian Document Format)",
+                        "type": "object"
+                      },
+                      "author": { "description": "코멘트를 작성한 사용자 ID", "type": "object" },
+                      "created": { "type": "string", "description": "코멘트 생성 일시" },
+                      "id": { "type": "string", "description": "코멘트 ID" },
+                      "jsdAuthorCanSeeRequest": { "type": "boolean", "description": "이슈에 속하지 않은 사람이 보낸 이메일로부터 코멘트가 추가되었는지 여부" },
+                      "jsdPublic": { "type": "boolean", "description": "Jira Service Desk에서 코멘트가 공개로 보이는지 여부" },
+                      "properties": {
+                        "type": "array",
+                        "description": "코멘트 속성 목록 (생성/수정 시 선택)",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "key": { "type": "string", "description": "속성의 키" },
+                            "value": { "description": "속성의 값" }
+                          }
+                        }
+                      },
+                      "renderedBody": { "type": "string", "description": "렌더링된 코멘트 본문" },
+                      "self": { "type": "string", "description": "코멘트의 URL" },
+                      "updateAuthor": { "description": "코멘트를 마지막으로 수정한 사용자 ID", "type": "object" },
+                      "updated": { "type": "string", "description": "코멘트 마지막 수정 일시" },
+                      "visibility": { "description": "코멘트가 표시될 그룹/역할 제한", "type": "object" }
+                    }
+                  },
+                  "inwardIssue": {
+                    "type": "object",
+                    "description": "링크의 inward 쪽 이슈 (id 또는 key 중 하나 필수)",
+                    "properties": {
+                      "id": { "type": "string", "description": "이슈 ID (key가 없을 경우 필수)" },
+                      "key": { "type": "string", "description": "이슈 키 (id가 없을 경우 필수)" },
+                      "self": { "type": "string", "description": "이슈의 URL" },
+                      "fields": { "description": "이슈에 연결된 필드", "type": "object" }
+                    }
+                  },
+                  "outwardIssue": {
+                    "type": "object",
+                    "description": "링크의 outward(from) 쪽 이슈 (id 또는 key 중 하나 필수)",
+                    "properties": {
+                      "id": { "type": "string", "description": "이슈 ID (key가 없을 경우 필수)" },
+                      "key": { "type": "string", "description": "이슈 키 (id가 없을 경우 필수)" },
+                      "self": { "type": "string", "description": "이슈의 URL" },
+                      "fields": { "description": "이슈에 연결된 필드", "type": "object" }
+                    }
+                  },
+                  "type": {
+                    "type": "object",
+                    "description": "이슈 링크 타입 (id 또는 name 중 하나로 지정)",
+                    "properties": {
+                      "id": { "type": "string", "description": "이슈 링크 타입 ID (name이 없을 경우 필수, 생성 시)" },
+                      "name": { "type": "string", "description": "이슈 링크 타입 이름 (id가 없을 경우 필수, 생성 시)" },
+                      "inward": { "type": "string", "description": "inward 링크에 대한 설명 (읽기 전용)" },
+                      "outward": { "type": "string", "description": "outward 링크에 대한 설명 (읽기 전용)" },
+                      "self": { "type": "string", "description": "이슈 링크 타입의 URL (읽기 전용)" }
+                    }
+                  }
+                }
+              },
+              "example": {
+                "comment": {
+                  "body": "Linked related issue!"
+                },
+                "inwardIssue": {
+                  "key": "PR-3"
+                },
+                "outwardIssue": {
+                  "key": "PR-2"
+                },
+                "type": {
+                  "name": "Duplicate"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "요청이 성공했음을 의미하며, 생성된 링크의 상세 정보는 반환되지 않는다 (응답 본문 없음)."
+          },
+          "400": {
+            "description": "코멘트가 생성되지 못함 (이 경우 이슈 링크도 생성되지 않음). 응답에 코멘트가 생성되지 않은 이유에 대한 오류 메시지가 포함된다."
+          },
+          "401": {
+            "description": "인증 정보가 없거나 잘못됨."
+          },
+          "404": {
+            "description": "이슈 링크 기능 비활성화 / 이슈를 볼 권한 없음(Browse project 없음) / Link issues 권한 없음 / 연결할 이슈를 찾을 수 없음 / 링크 타입을 찾을 수 없음."
+          },
+          "413": {
+            "description": "이슈당 링크 개수 제한 초과."
+          }
+        }
+      }
+    },
+    "/rest/api/3/issueLink/{linkId}": {
+      "get": {
+        "summary": "이슈 링크 조회",
+        "description": "이 API는 이슈 링크 ID로 링크의 상세 정보(inward/outward 이슈, 링크 타입 등)를 가져온다. 통합 대시보드에서 이슈 간 관계 정보를 표시하거나, 링크 생성 후 실제 반영 여부를 확인할 때 사용할 수 있다. 링크된 두 이슈가 속한 모든 프로젝트에 대한 Browse project 권한이 필요하며, 이슈 수준 보안이 설정된 경우 두 이슈 모두를 볼 수 있는 권한이 필요하다. 이 작업은 익명으로도 접근 가능하다 (단, 결과는 권한에 따라 제한됨).",
+        "operationId": "getIssueLink",
+        "tags": ["Issue links"],
+        "x-priority": "high",
+        "parameters": [
+          {
+            "name": "linkId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "이슈 링크의 ID",
+            "example": "10001"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "요청이 성공한 경우 반환된다.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string", "description": "이슈 링크 ID" },
+                    "inwardIssue": {
+                      "type": "object",
+                      "description": "inward 쪽 이슈 정보 (fields, id, key, self)",
+                      "properties": {
+                        "id": { "type": "string", "description": "이슈 ID" },
+                        "key": { "type": "string", "description": "이슈 키" },
+                        "self": { "type": "string", "description": "이슈의 URL" },
+                        "fields": {
+                          "type": "object",
+                          "description": "이슈 필드 정보",
+                          "properties": {
+                            "issuetype": { "type": "object", "description": "이슈 타입 정보" },
+                            "priority": { "type": "object", "description": "우선순위 정보" },
+                            "status": { "type": "object", "description": "상태 정보" }
+                          }
+                        }
+                      }
+                    },
+                    "outwardIssue": {
+                      "type": "object",
+                      "description": "outward 쪽 이슈 정보 (fields, id, key, self)",
+                      "properties": {
+                        "id": { "type": "string", "description": "이슈 ID" },
+                        "key": { "type": "string", "description": "이슈 키" },
+                        "self": { "type": "string", "description": "이슈의 URL" },
+                        "fields": {
+                          "type": "object",
+                          "description": "이슈 필드 정보",
+                          "properties": {
+                            "issuetype": { "type": "object", "description": "이슈 타입 정보" },
+                            "priority": { "type": "object", "description": "우선순위 정보" },
+                            "status": { "type": "object", "description": "상태 정보" }
+                          }
+                        }
+                      }
+                    },
+                    "type": {
+                      "type": "object",
+                      "description": "링크 타입 정보 (id, name, inward, outward, self)",
+                      "properties": {
+                        "id": { "type": "string", "description": "이슈 링크 타입 ID" },
+                        "name": { "type": "string", "description": "이슈 링크 타입 이름" },
+                        "inward": { "type": "string", "description": "inward 링크 설명" },
+                        "outward": { "type": "string", "description": "outward 링크 설명" },
+                        "self": { "type": "string", "description": "이슈 링크 타입의 URL" }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "id": "10001",
+                  "inwardIssue": {
+                    "fields": {
+                      "issuetype": {
+                        "id": "1",
+                        "name": "Bug",
+                        "subtask": false
+                      },
+                      "priority": {
+                        "id": "2",
+                        "name": "Trivial"
+                      },
+                      "status": {
+                        "id": "5",
+                        "name": "Closed"
+                      }
+                    },
+                    "id": "10004",
+                    "key": "PR-3",
+                    "self": "https://your-domain.atlassian.net/rest/api/3/issue/PR-3"
+                  },
+                  "outwardIssue": {
+                    "fields": {
+                      "issuetype": {
+                        "id": "3",
+                        "name": "Task",
+                        "subtask": false
+                      },
+                      "priority": {
+                        "id": "1",
+                        "name": "Major"
+                      },
+                      "status": {
+                        "id": "10000",
+                        "name": "In Progress"
+                      }
+                    },
+                    "id": "10004L",
+                    "key": "PR-2",
+                    "self": "https://your-domain.atlassian.net/rest/api/3/issue/PR-2"
+                  },
+                  "type": {
+                    "id": "1000",
+                    "inward": "Duplicated by",
+                    "name": "Duplicate",
+                    "outward": "Duplicates",
+                    "self": "https://your-domain.atlassian.net/rest/api/3/issueLinkType/1000"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "이슈 링크 ID가 유효하지 않음."
+          },
+          "401": {
+            "description": "인증 정보가 없거나 잘못됨."
+          },
+          "404": {
+            "description": "이슈 링크 기능 비활성화 / 링크를 찾을 수 없음 / 필요한 권한 없음."
+          }
+        }
+      },
+      "delete": {
+        "summary": "이슈 링크 삭제",
+        "description": "지정된 링크 ID의 이슈 링크를 삭제하는 보조 유지보수용 API이다. 잘못 생성된 링크를 정리하거나 이슈 관계가 더 이상 유효하지 않을 때 사용하며, 핵심 자동화/알림 흐름보다는 데이터 정합성 관리에 가깝다. 링크에 포함된 이슈들이 속한 모든 프로젝트에 대한 Browse project 권한과, 링크에 포함된 이슈가 속한 프로젝트 중 최소 하나에 대한 Link issues 권한이 필요하다. 이슈 수준 보안이 설정된 경우 두 이슈 모두를 볼 수 있는 권한이 필요하다. 이 작업은 익명으로도 접근 가능하다 (단, 결과는 권한에 따라 제한됨).",
+        "operationId": "deleteIssueLink",
+        "tags": ["Issue links"],
+        "x-priority": "medium",
+        "parameters": [
+          {
+            "name": "linkId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "이슈 링크의 ID",
+            "example": "10001"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "200 response (문서상 명시되어 있으나 본문 스키마는 정의되어 있지 않음)."
+          },
+          "204": {
+            "description": "요청이 성공하면 본문 없이 204를 반환한다."
+          },
+          "400": {
+            "description": "이슈 링크 ID가 유효하지 않음."
+          },
+          "401": {
+            "description": "인증 정보가 없거나 잘못됨."
+          },
+          "404": {
+            "description": "이슈 링크 기능 비활성화 / 링크를 찾을 수 없음 / 필요한 권한 없음."
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "basicAuth": {
+        "type": "http",
+        "scheme": "basic",
+        "description": "Jira Cloud API 토큰 인증. username=계정 이메일, password=API token (https://id.atlassian.com/manage-profile/security/api-tokens 에서 발급)"
+      },
+      "oauth2": {
+        "type": "oauth2",
+        "description": "Jira Cloud OAuth 2.0 (3LO) Bearer 토큰 인증",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "https://auth.atlassian.com/authorize",
+            "tokenUrl": "https://auth.atlassian.com/oauth/token",
+            "scopes": {
+              "read:jira-work": "Jira 작업 항목 읽기",
+              "write:jira-work": "Jira 작업 항목 쓰기",
+              "manage:jira-webhook": "Jira 웹훅 관리"
+            }
+          }
+        }
+      }
+    }
+  }
+}

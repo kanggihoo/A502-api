@@ -1,0 +1,776 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Jira API - __17-issue-bulk-operations",
+    "version": "1.0.0",
+    "description": "여러 이슈를 한 번에 삭제/편집/이동/상태전환/watch-unwatch 하는 Jira 이슈 벌크(bulk) 작업 API와, 벌크 작업의 편집 가능 필드·가능한 전환·진행 상태를 조회하는 보조 API 모음. 모든 벌크 작업은 비동기로 처리되며 taskId를 반환하고, 이 taskId로 진행 상태를 조회할 수 있다."
+  },
+  "servers": [
+    {
+      "url": "https://{siteName}.atlassian.net",
+      "variables": {
+        "siteName": {
+          "default": "ssafy",
+          "description": "Jira Cloud 사이트 이름 (예: ssafy.atlassian.net)"
+        }
+      }
+    }
+  ],
+  "security": [
+    {"basicAuth": []},
+    {"oauth2": ["read:jira-work", "write:jira-work"]}
+  ],
+  "tags": [
+    {"name": "Issue bulk operations", "description": "이슈 벌크(bulk) 삭제/편집/이동/상태전환/watch-unwatch 및 진행 상태 조회 API"}
+  ],
+  "paths": {
+    "/rest/api/3/bulk/issues/delete": {
+      "post": {
+        "summary": "Bulk delete issues",
+        "description": "지정한 이슈 ID/키 목록을 한 번의 요청으로 최대 1,000개까지 삭제할 수 있다. 이슈들은 서로 다른 프로젝트/이슈 타입에서 섞여 있어도 된다. 요청은 즉시 처리되지 않고 비동기 작업으로 등록되며, 응답으로 받은 taskId를 Get bulk issue operation progress API로 추적해야 한다.",
+        "operationId": "bulkDeleteIssues",
+        "tags": ["Issue bulk operations"],
+        "x-priority": "high",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["selectedIssueIdsOrKeys"],
+                "properties": {
+                  "selectedIssueIdsOrKeys": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "벌크 삭제할 이슈 ID/키 목록. 서로 다른 프로젝트/이슈 타입 혼용 가능. 최대 1,000개"
+                  },
+                  "sendBulkNotification": {
+                    "type": "boolean",
+                    "description": "true면 삭제 시 대상 사용자에게 벌크 알림 이메일 발송"
+                  }
+                }
+              },
+              "example": {
+                "selectedIssueIdsOrKeys": ["ISSUE-1", "ISSUE-2"],
+                "sendBulkNotification": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "요청이 성공적으로 처리되어 비동기 벌크 삭제 작업이 생성됨",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "taskId": {"type": "string", "description": "생성된 비동기 벌크 작업의 ID. 진행 상태 조회에 사용"}
+                  }
+                },
+                "example": {"taskId": "10641"}
+              }
+            }
+          },
+          "400": {
+            "description": "요청이 유효하지 않음(예: 잘못된 이슈 ID/키 포함)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "errors": {
+                      "type": "array",
+                      "items": {"type": "object", "properties": {"message": {"type": "string"}}}
+                    }
+                  }
+                },
+                "example": {"errors": [{"message": "Some of the issues in the issueIdsOrKeys are not valid"}]}
+              }
+            }
+          },
+          "401": {"description": "인증 자격 증명이 잘못되었거나 없음"},
+          "403": {"description": "필요한 권한이 없음(Global bulk change, Delete issues, Browse project 등)"}
+        }
+      }
+    },
+    "/rest/api/3/bulk/issues/fields": {
+      "post": {
+        "summary": "Bulk edit issues",
+        "description": "최대 1,000개 이슈(서브태스크 포함), 200개 필드까지 한 번에 편집할 수 있는 비동기 API다. 편집할 필드 ID 목록(selectedActions)과 실제 값(editedFieldsInput)을 함께 전달해야 하며, 필드 ID는 Get bulk editable fields API로 먼저 조회하는 것이 권장된다.",
+        "operationId": "bulkEditIssues",
+        "tags": ["Issue bulk operations"],
+        "x-priority": "high",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["editedFieldsInput", "selectedActions", "selectedIssueIdsOrKeys"],
+                "properties": {
+                  "editedFieldsInput": {
+                    "description": "수정할 필드 값들을 정의하는 객체. 필드 타입에 따라 구조가 다르며, selectedActions의 필드 ID와 일치해야 함",
+                    "nullable": true
+                  },
+                  "selectedActions": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "벌크 편집할 필드 ID 목록. Get bulk editable fields API로 조회 가능"
+                  },
+                  "selectedIssueIdsOrKeys": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "벌크 편집할 이슈 ID/키 목록. 서로 다른 프로젝트/이슈 타입 혼용 가능. 최대 1,000개(서브태스크 포함)"
+                  },
+                  "sendBulkNotification": {
+                    "type": "boolean",
+                    "description": "true면 편집 시 벌크 알림 이메일 발송"
+                  }
+                }
+              },
+              "example": {
+                "editedFieldsInput": {},
+                "selectedActions": ["assignee", "priority"],
+                "selectedIssueIdsOrKeys": ["ISSUE-1", "ISSUE-2"],
+                "sendBulkNotification": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "요청이 성공적으로 처리되어 비동기 벌크 편집 작업이 생성됨",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "taskId": {"type": "string", "description": "생성된 비동기 벌크 작업의 ID"}
+                  }
+                },
+                "example": {"taskId": "10641"}
+              }
+            }
+          },
+          "400": {
+            "description": "요청이 유효하지 않음(예: editedFieldsInput에 있는 필드가 selectedActions에 없음)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "errors": {
+                      "type": "array",
+                      "items": {"type": "object", "properties": {"message": {"type": "string"}}}
+                    }
+                  }
+                },
+                "example": {"errors": [{"message": "The following editedFieldInput values are not listed as selectedActions : issuetype"}]}
+              }
+            }
+          },
+          "401": {"description": "인증 자격 증명이 잘못되었거나 없음"}
+        }
+      },
+      "get": {
+        "summary": "Get bulk editable fields",
+        "description": "하나 이상의 이슈에 대해 사용자가 실제로 벌크 편집할 수 있는 필드 목록을 조회하는 API로, Bulk edit issues 호출 전에 유효한 필드 ID를 확인하는 용도로 사용한다. 응답은 페이지네이션되며 한 번에 50개 필드씩 반환된다.",
+        "operationId": "getBulkEditableFields",
+        "tags": ["Issue bulk operations"],
+        "x-priority": "medium",
+        "parameters": [
+          {
+            "name": "issueIdsOrKeys",
+            "in": "query",
+            "required": true,
+            "schema": {"type": "string"},
+            "description": "편집 가능 필드를 조회할 이슈 ID/키",
+            "example": "ISSUE-1"
+          },
+          {
+            "name": "searchText",
+            "in": "query",
+            "required": false,
+            "schema": {"type": "string"},
+            "description": "편집 가능 필드 중 검색할 텍스트",
+            "example": "assignee"
+          },
+          {
+            "name": "endingBefore",
+            "in": "query",
+            "required": false,
+            "schema": {"type": "string"},
+            "description": "페이지네이션 종료 커서"
+          },
+          {
+            "name": "startingAfter",
+            "in": "query",
+            "required": false,
+            "schema": {"type": "string"},
+            "description": "페이지네이션 시작 커서"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "요청이 성공적으로 처리되어 벌크 편집 가능 필드 목록을 반환함",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {"type": "string", "description": "필드 ID"},
+                          "name": {"type": "string", "description": "필드 이름"},
+                          "isRequired": {"type": "boolean", "description": "필수 필드 여부"},
+                          "type": {"type": "string", "description": "필드 타입"},
+                          "searchUrl": {"type": "string", "description": "값 검색용 URL(해당하는 경우)"},
+                          "multiSelectFieldOptions": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "다중 선택 필드의 조작 옵션"
+                          },
+                          "unavailableMessage": {"type": "string", "description": "필드를 사용할 수 없는 경우의 안내 메시지"},
+                          "fieldOptions": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {"type": "string"},
+                                "description": {"type": "string"},
+                                "priority": {"type": "string"}
+                              }
+                            },
+                            "description": "선택형 필드의 옵션 목록(해당하는 경우)"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "fields": [
+                    {"id": "assignee", "isRequired": false, "name": "Assignee", "searchUrl": "https://your-domain.atlassian.net/rest/api/3/user/assignable/multiProjectSearch?projectKeys=KAN&query=", "type": "assignee"},
+                    {"id": "components", "isRequired": false, "multiSelectFieldOptions": ["ADD", "REMOVE", "REPLACE", "REMOVE_ALL"], "name": "Components", "type": "components", "unavailableMessage": "{0}NOTE{1}: The project of the selected issue(s) does not have any components."},
+                    {"fieldOptions": [{"description": "This problem will block progress.", "id": "1", "priority": "Highest"}, {"description": "Has the potential to affect progress.", "id": "2", "priority": "Lowest"}, {"description": "Trivial problem with little or no impact on progress.", "id": "3", "priority": "Medium"}], "id": "priority", "isRequired": false, "name": "Priority", "type": "priority"}
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "요청이 유효하지 않음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {"errors": {"type": "array", "items": {"type": "object", "properties": {"message": {"type": "string"}}}}}
+                },
+                "example": {"errors": [{"message": "string"}]}
+              }
+            }
+          },
+          "401": {"description": "인증 자격 증명이 잘못되었거나 없음"},
+          "403": {"description": "필요한 권한이 없음"},
+          "404": {"description": "제공된 이슈 ID에 대해 편집 가능한 필드가 없음"}
+        }
+      }
+    },
+    "/rest/api/3/bulk/issues/move": {
+      "post": {
+        "summary": "Bulk move issues",
+        "description": "여러 프로젝트의 이슈를 단일 대상 프로젝트·이슈타입·부모로 이동하는 비동기 API로, 한 번에 최대 1,000개 이슈(서브태스크 포함)를 이동할 수 있다. Bulk Move UI와 완전히 동일한 기능 범위는 아니며(초기 버전), 에픽과 그 하위 이슈를 함께 이동하려면 별도의 다중 요청이 필요하다. 전체 이슈에 걸친 필드 총합이 1,500,000개를 넘을 수 없다.",
+        "operationId": "bulkMoveIssues",
+        "tags": ["Issue bulk operations"],
+        "x-priority": "high",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "sendBulkNotification": {
+                    "type": "boolean",
+                    "description": "true면 이동 시 벌크 알림 이메일 발송"
+                  },
+                  "targetToSourcesMapping": {
+                    "type": "object",
+                    "description": "이동 대상 프로젝트/이슈타입/부모 및 관련 필드·상태 매핑 정보를 나타내는 객체. 키는 '<대상 프로젝트 ID 또는 키>,<대상 issueType ID>,<대상 parent ID 또는 키>' 형식으로 콤마로 구분하여 생성하며, 매핑 전체에서 유일해야 한다. 프로젝트/issueType은 필수, parent는 대상 issueType이 서브태스크일 때만 필요. 동일 키가 중복되면 하나만 처리되고 에러 없이 무시될 수 있다.",
+                    "additionalProperties": true
+                  }
+                }
+              },
+              "example": {
+                "sendBulkNotification": false,
+                "targetToSourcesMapping": {
+                  "10001,10002,": {}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "요청이 성공적으로 처리되어 비동기 벌크 이동 작업이 생성됨",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {"taskId": {"type": "string", "description": "생성된 비동기 벌크 작업의 ID"}}
+                },
+                "example": {"taskId": "10641"}
+              }
+            }
+          },
+          "400": {
+            "description": "요청이 유효하지 않음(예: 잘못된 이슈 ID/키 포함)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {"errors": {"type": "array", "items": {"type": "object", "properties": {"message": {"type": "string"}}}}}
+                },
+                "example": {"errors": [{"message": "Some of the issues in the issueIdsOrKeys are not valid"}]}
+              }
+            }
+          },
+          "401": {"description": "인증 자격 증명이 잘못되었거나 없음"}
+        }
+      }
+    },
+    "/rest/api/3/bulk/issues/transition": {
+      "post": {
+        "summary": "Bulk transition issue statuses",
+        "description": "여러 이슈를 각각에 해당하는 전환 ID(transitionId)와 함께 최대 1,000개까지 한 번에 전환시키는 비동기 API다. 전환 ID는 Get available transitions API로 미리 조회해서 사용하는 것이 일반적이다.",
+        "operationId": "bulkTransitionIssueStatuses",
+        "tags": ["Issue bulk operations"],
+        "x-priority": "high",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["bulkTransitionInputs"],
+                "properties": {
+                  "bulkTransitionInputs": {
+                    "type": "array",
+                    "description": "이슈 목록과 전환 ID의 쌍 목록",
+                    "items": {
+                      "type": "object",
+                      "required": ["selectedIssueIdsOrKeys", "transitionId"],
+                      "properties": {
+                        "selectedIssueIdsOrKeys": {
+                          "type": "array",
+                          "items": {"type": "string"},
+                          "description": "벌크 전환할 이슈 ID/키 목록"
+                        },
+                        "transitionId": {
+                          "type": "string",
+                          "description": "이슈에 적용할 전환 ID"
+                        }
+                      }
+                    }
+                  },
+                  "sendBulkNotification": {
+                    "type": "boolean",
+                    "description": "true면 전환 시 벌크 알림 이메일 발송"
+                  }
+                }
+              },
+              "example": {
+                "bulkTransitionInputs": [
+                  {
+                    "selectedIssueIdsOrKeys": ["ISSUE-1", "ISSUE-2"],
+                    "transitionId": "21"
+                  }
+                ],
+                "sendBulkNotification": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "요청이 성공적으로 처리되어 비동기 벌크 전환 작업이 생성됨",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {"taskId": {"type": "string", "description": "생성된 비동기 벌크 작업의 ID"}}
+                },
+                "example": {"taskId": "10641"}
+              }
+            }
+          },
+          "400": {
+            "description": "요청이 유효하지 않음(예: 잘못된 이슈 ID/키 포함)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {"errors": {"type": "array", "items": {"type": "object", "properties": {"message": {"type": "string"}}}}}
+                },
+                "example": {"errors": [{"message": "Some of the issues in the issueIdsOrKeys are not valid"}]}
+              }
+            }
+          },
+          "401": {"description": "인증 자격 증명이 잘못되었거나 없음"},
+          "403": {"description": "필요한 권한이 없음(Transition issues permission 등)"}
+        }
+      },
+      "get": {
+        "summary": "Get available transitions",
+        "description": "지정한 이슈들의 워크플로우별로 공통으로 사용 가능한 전환 목록을 조회한다. 추가 필드 업데이트가 필요 없는 전환만 포함되며, 필드 업데이트가 필요한 벌크 전환은 Jira Cloud UI를 사용해야 한다. Bulk transition issue statuses 호출 전 유효한 transitionId를 확인하는 데 사용한다.",
+        "operationId": "getAvailableTransitions",
+        "tags": ["Issue bulk operations"],
+        "x-priority": "medium",
+        "parameters": [
+          {
+            "name": "issueIdsOrKeys",
+            "in": "query",
+            "required": true,
+            "schema": {"type": "string"},
+            "description": "콤마(,)로 구분된 전환 대상 이슈 ID/키",
+            "example": "EPIC-1,TASK-1"
+          },
+          {
+            "name": "endingBefore",
+            "in": "query",
+            "required": false,
+            "schema": {"type": "string"},
+            "description": "페이지네이션 종료 커서"
+          },
+          {
+            "name": "startingAfter",
+            "in": "query",
+            "required": false,
+            "schema": {"type": "string"},
+            "description": "페이지네이션 시작 커서"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "요청이 성공적으로 처리되어 사용 가능한 전환 목록을 반환함",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "availableTransitions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "isTransitionsFiltered": {"type": "boolean", "description": "일부 전환이 필터링되어 제외되었는지 여부"},
+                          "issues": {"type": "array", "items": {"type": "string"}, "description": "해당 워크플로우를 공유하는 이슈 목록"},
+                          "transitions": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "transitionId": {"type": "number", "description": "전환 ID"},
+                                "transitionName": {"type": "string", "description": "전환 이름"},
+                                "to": {
+                                  "type": "object",
+                                  "properties": {
+                                    "statusId": {"type": "number", "description": "전환 후 상태 ID"},
+                                    "statusName": {"type": "string", "description": "전환 후 상태 이름"}
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "availableTransitions": [
+                    {
+                      "isTransitionsFiltered": false,
+                      "issues": ["EPIC-1", "TASK-1"],
+                      "transitions": [
+                        {"to": {"statusId": 10001, "statusName": "To Do"}, "transitionId": 11, "transitionName": "To Do"},
+                        {"to": {"statusId": 10002, "statusName": "In Progress"}, "transitionId": 21, "transitionName": "In Progress"},
+                        {"to": {"statusId": 10003, "statusName": "Done"}, "transitionId": 31, "transitionName": "Done"}
+                      ]
+                    },
+                    {
+                      "isTransitionsFiltered": true,
+                      "issues": ["BUG-1"],
+                      "transitions": [
+                        {"to": {"statusId": 10004, "statusName": "To Do bug"}, "transitionId": 41, "transitionName": "To Do bug"},
+                        {"to": {"statusId": 10005, "statusName": "Triage"}, "transitionId": 51, "transitionName": "Triage"}
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "요청이 유효하지 않음(예: 잘못된 이슈 ID/키)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {"errors": {"type": "array", "items": {"type": "object", "properties": {"message": {"type": "string"}}}}}
+                },
+                "example": {"errors": [{"message": "Some of the issues in the issueIdsOrKeys are not valid"}]}
+              }
+            }
+          },
+          "401": {"description": "인증 자격 증명이 잘못되었거나 없음"},
+          "403": {"description": "필요한 권한이 없음"}
+        }
+      }
+    },
+    "/rest/api/3/bulk/queue/{taskId}": {
+      "get": {
+        "summary": "Get bulk issue operation progress",
+        "description": "다른 벌크 작업 API 호출 시 반환받은 taskId로 해당 작업의 진행률과 완료 여부, 처리 결과를 조회한다. 작업 생성일로부터 최대 14일간 진행 상태를 조회할 수 있다. 통합 대시보드에서 벌크 작업의 완료 여부를 폴링하거나 알림을 보낼 때 핵심적으로 사용된다.",
+        "operationId": "getBulkIssueOperationProgress",
+        "tags": ["Issue bulk operations"],
+        "x-priority": "high",
+        "parameters": [
+          {
+            "name": "taskId",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string"},
+            "description": "조회할 작업의 ID",
+            "example": "10000"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "요청이 성공적으로 처리되어 작업 진행 상태를 반환함. RUNNING 상태와 COMPLETE 상태에서 응답 필드 구성이 다르다.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "taskId": {"type": "string", "description": "작업 ID"},
+                    "status": {"type": "string", "description": "작업 상태(RUNNING, COMPLETE 등)"},
+                    "progressPercent": {"type": "number", "description": "진행률(%)"},
+                    "submittedBy": {
+                      "type": "object",
+                      "properties": {
+                        "accountId": {"type": "string", "description": "작업을 요청한 사용자 accountId"}
+                      }
+                    },
+                    "created": {"type": "number", "description": "작업 생성 시각(epoch ms)"},
+                    "started": {"type": "number", "description": "작업 시작 시각(epoch ms)"},
+                    "updated": {"type": "number", "description": "최종 갱신 시각(epoch ms)"},
+                    "processedAccessibleIssues": {
+                      "type": "array",
+                      "items": {"type": "number"},
+                      "description": "처리된 접근 가능 이슈 ID 목록(완료 시)"
+                    },
+                    "invalidOrInaccessibleIssueCount": {"type": "number", "description": "유효하지 않거나 접근 불가능한 이슈 수(완료 시)"},
+                    "totalIssueCount": {"type": "number", "description": "전체 대상 이슈 수(완료 시)"}
+                  }
+                },
+                "examples": {
+                  "running": {
+                    "summary": "작업이 진행 중인 경우",
+                    "value": {
+                      "taskId": "10779",
+                      "status": "RUNNING",
+                      "progressPercent": 65,
+                      "submittedBy": {"accountId": "5b10a2844c20165700ede21g"},
+                      "created": 1690180055963,
+                      "started": 1690180056206,
+                      "updated": 1690180058290
+                    }
+                  },
+                  "complete": {
+                    "summary": "작업이 완료된 경우",
+                    "value": {
+                      "created": 1704110400000,
+                      "invalidOrInaccessibleIssueCount": 0,
+                      "processedAccessibleIssues": [10001, 10002],
+                      "progressPercent": 100,
+                      "started": 1704110460000,
+                      "status": "COMPLETE",
+                      "submittedBy": {"accountId": "5b10a2844c20165700ede21g"},
+                      "taskId": "10000",
+                      "totalIssueCount": 2,
+                      "updated": 1704110520000
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "요청이 유효하지 않음(예: 해당 taskId가 벌크 작업 태스크가 아님)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "errorMessages": {"type": "array", "items": {"type": "string"}},
+                    "errors": {"type": "object"},
+                    "httpStatusCode": {
+                      "type": "object",
+                      "properties": {
+                        "empty": {"type": "boolean"},
+                        "present": {"type": "boolean"}
+                      }
+                    }
+                  }
+                },
+                "example": {"errorMessages": ["The task associated with this taskId is not a bulk operation task"], "errors": {}, "httpStatusCode": {"empty": false, "present": true}}
+              }
+            }
+          },
+          "401": {"description": "인증 자격 증명이 잘못되었거나 없음"}
+        }
+      }
+    },
+    "/rest/api/3/bulk/issues/watch": {
+      "post": {
+        "summary": "Bulk watch issues",
+        "description": "지정한 이슈 목록을 최대 1,000개까지 한 번의 요청으로 watch 상태로 만드는 비동기 API다. 통합 알림 기능에서 특정 사용자를 다수 이슈의 watcher로 일괄 등록할 때 사용할 수 있다.",
+        "operationId": "bulkWatchIssues",
+        "tags": ["Issue bulk operations"],
+        "x-priority": "medium",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["selectedIssueIdsOrKeys"],
+                "properties": {
+                  "selectedIssueIdsOrKeys": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "벌크 watch할 이슈 ID/키 목록. 최대 1,000개"
+                  }
+                }
+              },
+              "example": {"selectedIssueIdsOrKeys": ["ISSUE-1", "ISSUE-2"]}
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "요청이 성공적으로 처리되어 비동기 벌크 watch 작업이 생성됨",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {"taskId": {"type": "string", "description": "생성된 비동기 벌크 작업의 ID"}}
+                },
+                "example": {"taskId": "10641"}
+              }
+            }
+          },
+          "400": {
+            "description": "요청이 유효하지 않음(예: 잘못된 이슈 ID/키 포함)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {"errors": {"type": "array", "items": {"type": "object", "properties": {"message": {"type": "string"}}}}}
+                },
+                "example": {"errors": [{"message": "Some of the issues in the issueIdsOrKeys are not valid"}]}
+              }
+            }
+          },
+          "401": {"description": "인증 자격 증명이 잘못되었거나 없음"},
+          "403": {"description": "필요한 권한이 없음"}
+        }
+      }
+    },
+    "/rest/api/3/bulk/issues/unwatch": {
+      "post": {
+        "summary": "Bulk unwatch issues",
+        "description": "지정한 이슈 목록을 최대 1,000개까지 한 번의 요청으로 unwatch 상태로 만드는 비동기 API다.",
+        "operationId": "bulkUnwatchIssues",
+        "tags": ["Issue bulk operations"],
+        "x-priority": "medium",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["selectedIssueIdsOrKeys"],
+                "properties": {
+                  "selectedIssueIdsOrKeys": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "벌크 unwatch할 이슈 ID/키 목록. 최대 1,000개"
+                  }
+                }
+              },
+              "example": {"selectedIssueIdsOrKeys": ["ISSUE-1", "ISSUE-2"]}
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "요청이 성공적으로 처리되어 비동기 벌크 unwatch 작업이 생성됨",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {"taskId": {"type": "string", "description": "생성된 비동기 벌크 작업의 ID"}}
+                },
+                "example": {"taskId": "10641"}
+              }
+            }
+          },
+          "400": {
+            "description": "요청이 유효하지 않음(예: 잘못된 이슈 ID/키 포함)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {"errors": {"type": "array", "items": {"type": "object", "properties": {"message": {"type": "string"}}}}}
+                },
+                "example": {"errors": [{"message": "Some of the issues in the issueIdsOrKeys are not valid"}]}
+              }
+            }
+          },
+          "401": {"description": "인증 자격 증명이 잘못되었거나 없음"},
+          "403": {"description": "필요한 권한이 없음"}
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "basicAuth": {
+        "type": "http",
+        "scheme": "basic",
+        "description": "Jira Cloud API 토큰 인증. username=계정 이메일, password=API token (https://id.atlassian.com/manage-profile/security/api-tokens 에서 발급)"
+      },
+      "oauth2": {
+        "type": "oauth2",
+        "description": "Jira Cloud OAuth 2.0 (3LO) Bearer 토큰 인증",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "https://auth.atlassian.com/authorize",
+            "tokenUrl": "https://auth.atlassian.com/oauth/token",
+            "scopes": {
+              "read:jira-work": "Jira 작업 항목 읽기",
+              "write:jira-work": "Jira 작업 항목 쓰기",
+              "manage:jira-webhook": "Jira 웹훅 관리"
+            }
+          }
+        }
+      }
+    }
+  }
+}

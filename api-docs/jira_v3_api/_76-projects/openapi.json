@@ -1,0 +1,1424 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Jira API - _76-projects",
+    "version": "1.0.0",
+    "description": "Jira 프로젝트(project) 자체를 대상으로 조회/생성/수정/삭제하고, 프로젝트의 상태 목록·이슈 유형 계층·알림 스킴 등 부가 정보를 가져오는 API 모음. SSAFY 팀 프로젝트 통합 워크스페이스 POC용으로 정리됨."
+  },
+  "servers": [
+    {
+      "url": "https://{siteName}.atlassian.net",
+      "variables": {
+        "siteName": {
+          "default": "ssafy",
+          "description": "Jira Cloud 사이트 이름 (예: ssafy.atlassian.net)"
+        }
+      }
+    }
+  ],
+  "security": [
+    {
+      "basicAuth": []
+    },
+    {
+      "oauth2": [
+        "read:jira-work",
+        "write:jira-work"
+      ]
+    }
+  ],
+  "tags": [
+    {
+      "name": "Projects",
+      "description": "Jira 프로젝트 조회/생성/수정/삭제 및 부가 정보 API"
+    }
+  ],
+  "paths": {
+    "/rest/api/3/project": {
+      "post": {
+        "summary": "Create project",
+        "description": "팀 생성 자동화 흐름에서 SSAFY 팀별 Jira 프로젝트를 자동 생성하는 데 핵심적으로 쓰이는 API다. projectTypeKey와 projectTemplateKey 조합으로 소프트웨어/비즈니스/서비스데스크 등 프로젝트 유형을 지정하며, key, name, leadAccountId(또는 lead) 중 하나는 필수다. 스킴(필드, 이슈타입, 워크플로우, 알림, 권한 등)을 직접 지정하려면 projectTemplateKey와 함께 사용할 수 없다.",
+        "operationId": "createProject",
+        "tags": [
+          "Projects"
+        ],
+        "x-priority": "high",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "description": "프로젝트 키(고유). 대문자로 시작, 대문자/숫자 조합, 최대 10자",
+                    "example": "EX"
+                  },
+                  "name": {
+                    "type": "string",
+                    "description": "프로젝트 이름",
+                    "example": "Example"
+                  },
+                  "projectTypeKey": {
+                    "type": "string",
+                    "enum": [
+                      "software",
+                      "service_desk",
+                      "business",
+                      "customer_service"
+                    ],
+                    "description": "프로젝트 유형",
+                    "example": "software"
+                  },
+                  "projectTemplateKey": {
+                    "type": "string",
+                    "description": "프로젝트 템플릿. projectTypeKey와 일치해야 함",
+                    "example": "com.pyxis.greenhopper.jira:gh-simplified-agility-scrum"
+                  },
+                  "leadAccountId": {
+                    "type": "string",
+                    "description": "프로젝트 리더의 계정 ID. lead와 동시 사용 불가",
+                    "example": "5b10a2844c20165700ede21g"
+                  },
+                  "lead": {
+                    "type": "string",
+                    "description": "Deprecated. 프로젝트 리더 사용자명(구버전). leadAccountId와 동시 사용 불가"
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "프로젝트 설명",
+                    "example": "SSAFY 팀 프로젝트"
+                  },
+                  "assigneeType": {
+                    "type": "string",
+                    "enum": [
+                      "PROJECT_LEAD",
+                      "UNASSIGNED"
+                    ],
+                    "description": "기본 담당자",
+                    "example": "PROJECT_LEAD"
+                  },
+                  "avatarId": {
+                    "type": "integer",
+                    "description": "아바타 ID",
+                    "example": 10011
+                  },
+                  "categoryId": {
+                    "type": "integer",
+                    "description": "프로젝트 카테고리 ID",
+                    "example": 10000
+                  },
+                  "notificationScheme": {
+                    "type": "integer",
+                    "description": "알림 스킴 ID",
+                    "example": 10100
+                  },
+                  "permissionScheme": {
+                    "type": "integer",
+                    "description": "권한 스킴 ID",
+                    "example": 10001
+                  },
+                  "issueSecurityScheme": {
+                    "type": "integer",
+                    "description": "이슈 보안 스킴 ID"
+                  },
+                  "fieldConfigurationScheme": {
+                    "type": "integer",
+                    "description": "Deprecated. 필드 구성 스킴 ID. projectTemplateKey와 동시 지정 불가"
+                  },
+                  "fieldScheme": {
+                    "type": "integer",
+                    "description": "필드 스킴 ID. projectTemplateKey와 동시 지정 불가"
+                  },
+                  "issueTypeScheme": {
+                    "type": "integer",
+                    "description": "이슈 타입 스킴 ID. projectTemplateKey와 동시 지정 불가"
+                  },
+                  "issueTypeScreenScheme": {
+                    "type": "integer",
+                    "description": "이슈 타입 화면 스킴 ID. projectTemplateKey와 동시 지정 불가"
+                  },
+                  "workflowScheme": {
+                    "type": "integer",
+                    "description": "워크플로우 스킴 ID. projectTemplateKey와 동시 지정 불가"
+                  },
+                  "url": {
+                    "type": "string",
+                    "description": "프로젝트 관련 문서 링크",
+                    "example": "https://www.example.com"
+                  }
+                },
+                "required": [
+                  "key",
+                  "name"
+                ],
+                "example": {
+                  "key": "EX",
+                  "name": "Example",
+                  "projectTypeKey": "software",
+                  "projectTemplateKey": "com.pyxis.greenhopper.jira:gh-simplified-agility-scrum",
+                  "leadAccountId": "5b10a2844c20165700ede21g",
+                  "description": "SSAFY 팀 프로젝트"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Returned if the project is created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer",
+                      "description": "생성된 프로젝트 ID"
+                    },
+                    "key": {
+                      "type": "string",
+                      "description": "프로젝트 키"
+                    },
+                    "self": {
+                      "type": "string",
+                      "description": "프로젝트 리소스 URL"
+                    }
+                  }
+                },
+                "example": {
+                  "id": 10010,
+                  "key": "EX",
+                  "self": "https://your-domain.atlassian.net/jira/rest/api/3/project/10042"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "요청 본문이 유효하지 않아 프로젝트 생성 실패"
+          },
+          "401": {
+            "description": "인증 정보 누락/오류"
+          },
+          "403": {
+            "description": "프로젝트 생성 권한 없음(Administer Jira 필요)"
+          }
+        }
+      },
+      "get": {
+        "summary": "Get all projects",
+        "description": "페이지네이션과 검색을 지원하지 않는 구버전 API로, Atlassian은 Get projects paginated 사용을 권장한다. 소규모 프로젝트 목록을 빠르게 확인하는 보조 용도로만 유용하다. (Deprecated)",
+        "operationId": "getAllProjects",
+        "tags": [
+          "Projects"
+        ],
+        "x-priority": "medium",
+        "deprecated": true,
+        "parameters": [
+          {
+            "name": "expand",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "추가 정보 확장(description,issueTypes,lead,projectKeys)",
+            "example": "lead"
+          },
+          {
+            "name": "recent",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "최근 접근한 프로젝트 수(최대 20)",
+            "example": 10
+          },
+          {
+            "name": "properties",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "description": "반환할 프로젝트 속성 목록"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returned if the request is successful.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                },
+                "example": [
+                  {
+                    "id": "10000",
+                    "key": "EX",
+                    "name": "Example",
+                    "self": "https://your-domain.atlassian.net/rest/api/3/project/EX"
+                  }
+                ]
+              }
+            }
+          },
+          "401": {
+            "description": "인증 정보 누락/오류"
+          }
+        }
+      }
+    },
+    "/rest/api/3/project/search": {
+      "get": {
+        "summary": "Get projects paginated",
+        "description": "01-get-all-projects의 대체 API로, 대시보드에서 팀이 접근 가능한 프로젝트 목록을 검색어(query)나 키/ID, 상태(live/archived/deleted)로 필터링하여 보여줄 때 사용한다. 정렬(orderBy)과 확장 옵션(expand)을 지원해 목록 화면 구성에 적합하다.",
+        "operationId": "getProjectsPaginated",
+        "tags": [
+          "Projects"
+        ],
+        "x-priority": "high",
+        "parameters": [
+          {
+            "name": "startAt",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "페이지 오프셋",
+            "example": 0
+          },
+          {
+            "name": "maxResults",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "페이지당 최대 개수(최대 100)",
+            "example": 50
+          },
+          {
+            "name": "orderBy",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "category",
+                "issueCount",
+                "key",
+                "lastIssueUpdatedTime",
+                "name",
+                "owner",
+                "archivedDate",
+                "deletedDate"
+              ]
+            },
+            "description": "정렬 기준",
+            "example": "name"
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            },
+            "description": "프로젝트 ID 필터(최대 50개)",
+            "example": [
+              10000,
+              10001
+            ]
+          },
+          {
+            "name": "keys",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "description": "프로젝트 키 필터(최대 50개)",
+            "example": [
+              "PA",
+              "PB"
+            ]
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "키/이름 부분 일치 검색어(대소문자 무시)",
+            "example": "SSAFY"
+          },
+          {
+            "name": "typeKey",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "business",
+                "service_desk",
+                "software"
+              ]
+            },
+            "description": "프로젝트 유형",
+            "example": "software"
+          },
+          {
+            "name": "categoryId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "프로젝트 카테고리 ID",
+            "example": 10000
+          },
+          {
+            "name": "action",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "view",
+                "browse",
+                "edit",
+                "create"
+              ]
+            },
+            "description": "사용자가 가능한 작업 기준 필터",
+            "example": "view"
+          },
+          {
+            "name": "expand",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "추가 정보 확장(description,projectKeys,lead,issueTypes,url,insight)",
+            "example": "description,lead"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "live",
+                  "archived",
+                  "deleted"
+                ]
+              }
+            },
+            "description": "프로젝트 상태 필터",
+            "example": [
+              "live"
+            ]
+          },
+          {
+            "name": "properties",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "description": "반환할 프로젝트 속성 목록"
+          },
+          {
+            "name": "propertyQuery",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "속성 값 검색 쿼리"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returned if the request is successful.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "isLast": {
+                      "type": "boolean",
+                      "description": "마지막 페이지 여부"
+                    },
+                    "maxResults": {
+                      "type": "integer",
+                      "description": "페이지당 결과 수"
+                    },
+                    "startAt": {
+                      "type": "integer",
+                      "description": "시작 오프셋"
+                    },
+                    "total": {
+                      "type": "integer",
+                      "description": "전체 결과 수"
+                    },
+                    "values": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      },
+                      "description": "프로젝트 객체 배열"
+                    }
+                  }
+                },
+                "example": {
+                  "isLast": false,
+                  "maxResults": 2,
+                  "startAt": 0,
+                  "total": 7,
+                  "nextPage": "https://your-domain.atlassian.net/rest/api/3/project/search?startAt=2&maxResults=2",
+                  "self": "https://your-domain.atlassian.net/rest/api/3/project/search?startAt=0&maxResults=2",
+                  "values": [
+                    {
+                      "id": "10000",
+                      "key": "EX",
+                      "name": "Example",
+                      "self": "https://your-domain.atlassian.net/rest/api/3/project/EX",
+                      "simplified": false,
+                      "style": "classic",
+                      "projectCategory": {
+                        "id": "10000",
+                        "name": "FIRST",
+                        "description": "First Project Category",
+                        "self": "https://your-domain.atlassian.net/rest/api/3/projectCategory/10000"
+                      },
+                      "insight": {
+                        "totalIssueCount": 100,
+                        "lastIssueUpdateTime": "2021-04-22T05:37:05.000+0000"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "요청 파라미터가 유효하지 않음"
+          },
+          "401": {
+            "description": "인증 정보 누락/오류"
+          },
+          "404": {
+            "description": "검색 조건에 맞는 프로젝트 없음"
+          }
+        }
+      }
+    },
+    "/rest/api/3/project/{projectIdOrKey}": {
+      "get": {
+        "summary": "Get project",
+        "description": "프로젝트 대시보드나 알림에서 특정 프로젝트의 이름, 리드, 컴포넌트, 이슈 타입, 카테고리 등 상세 정보를 원문 링크와 함께 보여줄 때 사용하는 핵심 조회 API다. expand로 설명, 이슈타입, 리드, 이슈타입 계층 등을 추가로 포함시킬 수 있다.",
+        "operationId": "getProject",
+        "tags": [
+          "Projects"
+        ],
+        "x-priority": "high",
+        "parameters": [
+          {
+            "name": "projectIdOrKey",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "프로젝트 ID 또는 키(대소문자 구분)",
+            "example": "EX"
+          },
+          {
+            "name": "expand",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "추가 정보 확장(description,issueTypes,lead,projectKeys,issueTypeHierarchy)",
+            "example": "lead,issueTypes"
+          },
+          {
+            "name": "properties",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "description": "반환할 프로젝트 속성 목록"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returned if successful.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "프로젝트 ID"
+                    },
+                    "key": {
+                      "type": "string",
+                      "description": "프로젝트 키"
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "프로젝트 이름"
+                    },
+                    "description": {
+                      "type": "string",
+                      "description": "프로젝트 설명"
+                    },
+                    "lead": {
+                      "type": "object",
+                      "description": "프로젝트 리드 정보"
+                    },
+                    "issueTypes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      },
+                      "description": "프로젝트에 연결된 이슈 타입 목록"
+                    },
+                    "self": {
+                      "type": "string",
+                      "description": "리소스 URL"
+                    }
+                  }
+                },
+                "example": {
+                  "id": "10000",
+                  "key": "EX",
+                  "name": "Example",
+                  "description": "This project was created as an example for REST.",
+                  "lead": {
+                    "accountId": "5b10a2844c20165700ede21g",
+                    "displayName": "Mia Krystof"
+                  },
+                  "self": "https://your-domain.atlassian.net/rest/api/3/project/EX"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 정보 누락/오류"
+          },
+          "404": {
+            "description": "프로젝트가 없거나 조회 권한 없음"
+          }
+        }
+      },
+      "put": {
+        "summary": "Update project",
+        "description": "팀 생성 자동화 이후 프로젝트 설정(리드 변경, 설명 갱신, 알림/권한 스킴 연결 등)을 자동으로 조정하는 데 사용한다. 요청 본문의 모든 필드는 선택 사항이며, 포함되지 않은 스킴은 변경되지 않는다.",
+        "operationId": "updateProject",
+        "tags": [
+          "Projects"
+        ],
+        "x-priority": "high",
+        "parameters": [
+          {
+            "name": "projectIdOrKey",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "프로젝트 ID 또는 키(대소문자 구분)",
+            "example": "EX"
+          },
+          {
+            "name": "expand",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "추가 정보 확장(description,issueTypes,lead,projectKeys)",
+            "example": "lead"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "프로젝트 이름",
+                    "example": "Example"
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "프로젝트 설명",
+                    "example": "업데이트된 설명"
+                  },
+                  "leadAccountId": {
+                    "type": "string",
+                    "description": "프로젝트 리드 계정 ID. lead와 동시 사용 불가",
+                    "example": "5b10a2844c20165700ede21g"
+                  },
+                  "key": {
+                    "type": "string",
+                    "description": "프로젝트 키 변경(Administer Jira 필요). 대문자 시작, 최대 10자",
+                    "example": "EX2"
+                  },
+                  "categoryId": {
+                    "type": "integer",
+                    "description": "프로젝트 카테고리 ID. -1이면 카테고리 해제",
+                    "example": 10000
+                  },
+                  "notificationScheme": {
+                    "type": "integer",
+                    "description": "알림 스킴 ID",
+                    "example": 10100
+                  },
+                  "permissionScheme": {
+                    "type": "integer",
+                    "description": "권한 스킴 ID(무료 플랜에서는 변경 불가)",
+                    "example": 10001
+                  },
+                  "assigneeType": {
+                    "type": "string",
+                    "enum": [
+                      "PROJECT_LEAD",
+                      "UNASSIGNED"
+                    ],
+                    "description": "기본 담당자"
+                  },
+                  "avatarId": {
+                    "type": "integer",
+                    "description": "아바타 ID"
+                  },
+                  "issueSecurityScheme": {
+                    "type": "integer",
+                    "description": "이슈 보안 스킴 ID"
+                  },
+                  "url": {
+                    "type": "string",
+                    "description": "프로젝트 관련 문서 링크",
+                    "example": "https://www.example.com"
+                  }
+                },
+                "required": [],
+                "example": {
+                  "name": "Example",
+                  "description": "업데이트된 설명",
+                  "leadAccountId": "5b10a2844c20165700ede21g"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Returned if the project is updated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "프로젝트 ID"
+                    },
+                    "key": {
+                      "type": "string",
+                      "description": "프로젝트 키"
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "갱신된 프로젝트 이름"
+                    },
+                    "self": {
+                      "type": "string",
+                      "description": "리소스 URL"
+                    }
+                  }
+                },
+                "example": {
+                  "id": "10000",
+                  "key": "EX",
+                  "name": "Example",
+                  "self": "https://your-domain.atlassian.net/rest/api/3/project/EX"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "요청이 유효하지 않음"
+          },
+          "401": {
+            "description": "인증 정보 누락/오류"
+          },
+          "403": {
+            "description": "수정 권한 없음 또는 무료 플랜에서 권한 스킴 변경 시도"
+          },
+          "404": {
+            "description": "프로젝트를 찾을 수 없음"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete project",
+        "description": "프로젝트를 완전히 삭제하는 관리 기능이다. 아카이브된 프로젝트는 삭제할 수 없으며, 먼저 복원 후 삭제해야 한다. 핵심 자동화 흐름보다는 프로젝트 정리/폐기 시 사용되는 보조 기능이다.",
+        "operationId": "deleteProject",
+        "tags": [
+          "Projects"
+        ],
+        "x-priority": "medium",
+        "parameters": [
+          {
+            "name": "projectIdOrKey",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "프로젝트 ID 또는 키(대소문자 구분)",
+            "example": "EX"
+          },
+          {
+            "name": "enableUndo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "삭제 시 휴지통 보관 여부",
+            "example": true
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "삭제 성공 시 본문 없음."
+          },
+          "401": {
+            "description": "인증 정보 누락/오류"
+          },
+          "404": {
+            "description": "프로젝트가 없거나 삭제 권한 없음"
+          }
+        }
+      }
+    },
+    "/rest/api/3/project/{projectIdOrKey}/statuses": {
+      "get": {
+        "summary": "Get all statuses for project",
+        "description": "통합 대시보드에서 이슈 상태 전환 가능 목록을 보여주거나, 특정 이슈 타입에서 사용 가능한 워크플로우 상태를 확인할 때 사용한다. 프로젝트 운영 지원(상태 전환 자동화)의 기반 데이터로 활용된다.",
+        "operationId": "getAllStatusesForProject",
+        "tags": [
+          "Projects"
+        ],
+        "x-priority": "high",
+        "parameters": [
+          {
+            "name": "projectIdOrKey",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "프로젝트 ID 또는 키(대소문자 구분)",
+            "example": "EX"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returned if the request is successful.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "description": "이슈 타입 ID"
+                      },
+                      "name": {
+                        "type": "string",
+                        "description": "이슈 타입 이름"
+                      },
+                      "subtask": {
+                        "type": "boolean",
+                        "description": "서브태스크 여부"
+                      },
+                      "statuses": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "self": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "description": "해당 이슈 타입에서 유효한 상태 목록"
+                      }
+                    }
+                  }
+                },
+                "example": [
+                  {
+                    "id": "3",
+                    "name": "Task",
+                    "subtask": false,
+                    "statuses": [
+                      {
+                        "id": "10000",
+                        "name": "In Progress",
+                        "self": "https://your-domain.atlassian.net/rest/api/3/status/10000"
+                      },
+                      {
+                        "id": "5",
+                        "name": "Closed",
+                        "self": "https://your-domain.atlassian.net/rest/api/3/status/5"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          "401": {
+            "description": "인증 정보 누락/오류"
+          },
+          "404": {
+            "description": "프로젝트가 없거나 조회 권한 없음"
+          }
+        }
+      }
+    },
+    "/rest/api/3/project/recent": {
+      "get": {
+        "summary": "Get recent projects",
+        "description": "대시보드에서 '최근 프로젝트' 위젯을 구성할 때 사용할 수 있는 보조 API다. 핵심 CRUD/알림 흐름에는 직접 필요하지 않지만 UX 개선에 유용하다.",
+        "operationId": "getRecentProjects",
+        "tags": [
+          "Projects"
+        ],
+        "x-priority": "medium",
+        "parameters": [
+          {
+            "name": "expand",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "추가 정보 확장(description,projectKeys,lead,issueTypes,url,permissions,insight,*)",
+            "example": "insight"
+          },
+          {
+            "name": "properties",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "description": "반환할 프로젝트 속성 목록"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returned if the request is successful.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                },
+                "example": [
+                  {
+                    "id": "10000",
+                    "key": "EX",
+                    "name": "Example",
+                    "self": "https://your-domain.atlassian.net/rest/api/3/project/EX"
+                  }
+                ]
+              }
+            }
+          },
+          "400": {
+            "description": "요청이 유효하지 않음"
+          },
+          "401": {
+            "description": "인증 정보 누락/오류"
+          }
+        }
+      }
+    },
+    "/rest/api/3/project/{projectIdOrKey}/archive": {
+      "post": {
+        "summary": "Archive project",
+        "description": "더 이상 활성 상태가 아닌 프로젝트를 아카이브하여 목록에서 숨기되 삭제하지는 않는다. 아카이브된 프로젝트는 삭제 전 복원이 필요하다. 프로젝트 생명주기 관리 보조 기능이다.",
+        "operationId": "archiveProject",
+        "tags": [
+          "Projects"
+        ],
+        "x-priority": "medium",
+        "parameters": [
+          {
+            "name": "projectIdOrKey",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "프로젝트 ID 또는 키(대소문자 구분)",
+            "example": "EX"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "아카이브 성공 시 본문 없음."
+          },
+          "400": {
+            "description": "요청이 유효하지 않음"
+          },
+          "401": {
+            "description": "인증 정보 누락/오류"
+          },
+          "403": {
+            "description": "필요한 권한 없음"
+          },
+          "404": {
+            "description": "프로젝트를 찾을 수 없음"
+          }
+        }
+      }
+    },
+    "/rest/api/3/project/{projectIdOrKey}/delete": {
+      "post": {
+        "summary": "Delete project asynchronously",
+        "description": "트랜잭션 방식으로 동작하며(부분 실패 시 삭제되지 않음), 응답의 location 링크를 따라가 Task API로 진행 상태를 확인해야 하는 비동기 작업이다. 대규모 프로젝트 삭제 시 사용하는 보조 기능이다.",
+        "operationId": "deleteProjectAsynchronously",
+        "tags": [
+          "Projects"
+        ],
+        "x-priority": "medium",
+        "parameters": [
+          {
+            "name": "projectIdOrKey",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "프로젝트 ID 또는 키(대소문자 구분)",
+            "example": "EX"
+          }
+        ],
+        "responses": {
+          "303": {
+            "description": "See Other. 비동기 삭제 작업이 생성되어 Task 리소스로 리다이렉트된다.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "태스크 ID"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "ENQUEUED",
+                        "RUNNING",
+                        "COMPLETE",
+                        "FAILED",
+                        "CANCEL_REQUESTED",
+                        "CANCELLED",
+                        "DEAD"
+                      ],
+                      "description": "태스크 상태"
+                    },
+                    "progress": {
+                      "type": "integer",
+                      "description": "진행률(%)"
+                    },
+                    "self": {
+                      "type": "string",
+                      "description": "태스크 리소스 URL"
+                    }
+                  }
+                },
+                "example": {
+                  "id": "10000",
+                  "status": "RUNNING",
+                  "progress": 50,
+                  "self": "https://your-domain.atlassian.net/rest/api/3/task/1",
+                  "elapsedRuntime": 1000,
+                  "lastUpdate": 1610000000000,
+                  "submitted": 1610000000000,
+                  "submittedBy": 10000
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "요청이 유효하지 않음"
+          },
+          "401": {
+            "description": "인증 정보 누락/오류"
+          },
+          "404": {
+            "description": "프로젝트가 없거나 권한 없음"
+          }
+        }
+      }
+    },
+    "/rest/api/3/project/{projectIdOrKey}/restore": {
+      "post": {
+        "summary": "Restore deleted or archived project",
+        "description": "실수로 삭제/아카이브된 프로젝트를 되돌리는 복구용 보조 기능이다. Team-managed 프로젝트의 경우 프로젝트 관리자 권한만으로도 복원이 가능해 교육생 계정에서도 사용할 수 있다.",
+        "operationId": "restoreDeletedOrArchivedProject",
+        "tags": [
+          "Projects"
+        ],
+        "x-priority": "medium",
+        "parameters": [
+          {
+            "name": "projectIdOrKey",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "프로젝트 ID 또는 키(대소문자 구분)",
+            "example": "EX"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returned if the request is successful.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "프로젝트 ID"
+                    },
+                    "key": {
+                      "type": "string",
+                      "description": "프로젝트 키"
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "프로젝트 이름"
+                    }
+                  }
+                },
+                "example": {
+                  "id": "10000",
+                  "key": "EX",
+                  "name": "Example",
+                  "self": "https://your-domain.atlassian.net/rest/api/3/project/EX"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "요청이 유효하지 않음"
+          },
+          "401": {
+            "description": "인증 정보 누락/오류"
+          },
+          "404": {
+            "description": "프로젝트가 없거나 권한 없음"
+          }
+        }
+      }
+    },
+    "/rest/api/3/project/{projectId}/hierarchy": {
+      "get": {
+        "summary": "Get project issue type hierarchy",
+        "description": "이슈 타입 계층(레벨 1 Epic, 레벨 0 Story/Task/Bug 등, 레벨 -1 Subtask)을 조회하여 대시보드에서 이슈 분류 체계를 표시하거나 하위 작업 자동 생성 로직에 참고할 수 있다. 핵심 CRUD/알림 흐름은 아니지만 백로그/에픽 구조를 이해하는 데 유용하다. 넥스트젠(팀 관리형) 프로젝트에만 유효하다.",
+        "operationId": "getProjectIssueTypeHierarchy",
+        "tags": [
+          "Projects"
+        ],
+        "x-priority": "medium",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "프로젝트 ID",
+            "example": 10030
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returned if the request is successful.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "projectId": {
+                      "type": "integer",
+                      "description": "프로젝트 ID"
+                    },
+                    "hierarchy": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "level": {
+                            "type": "integer",
+                            "description": "계층 레벨(1=Epic, 0=기본, -1=Subtask)"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "issueTypes": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "integer"
+                                },
+                                "name": {
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "description": "레벨별 이슈 타입 그룹"
+                    }
+                  }
+                },
+                "example": {
+                  "hierarchy": [
+                    {
+                      "issueTypes": [
+                        {
+                          "id": 10008,
+                          "name": "Story"
+                        },
+                        {
+                          "id": 10001,
+                          "name": "Bug"
+                        }
+                      ],
+                      "level": 0,
+                      "name": "Base"
+                    },
+                    {
+                      "issueTypes": [
+                        {
+                          "id": 10007,
+                          "name": "Epic"
+                        }
+                      ],
+                      "level": 1,
+                      "name": "Epic"
+                    },
+                    {
+                      "issueTypes": [
+                        {
+                          "id": 10009,
+                          "name": "Subtask"
+                        }
+                      ],
+                      "level": -1,
+                      "name": "Subtask"
+                    }
+                  ],
+                  "projectId": 10030
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "요청이 유효하지 않음(projectId 형식 확인)"
+          },
+          "401": {
+            "description": "인증 정보 누락/오류"
+          },
+          "404": {
+            "description": "프로젝트가 없거나 권한 없음"
+          }
+        }
+      }
+    },
+    "/rest/api/3/project/{projectKeyOrId}/notificationscheme": {
+      "get": {
+        "summary": "Get project notification scheme",
+        "description": "어떤 이벤트(이슈 생성, 코멘트 등)에서 누구에게 알림이 가는지 확인할 수 있어, Mattermost 등 외부 채널로의 알림 연동을 설계할 때 기존 Jira 알림 설정과 중복/누락을 점검하는 용도로 유용하다. 핵심 흐름은 아니지만 통합 알림 설계의 참고 자료로 쓰인다.",
+        "operationId": "getProjectNotificationScheme",
+        "tags": [
+          "Projects"
+        ],
+        "x-priority": "medium",
+        "parameters": [
+          {
+            "name": "projectKeyOrId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "프로젝트 ID 또는 키(대소문자 구분)",
+            "example": "EX"
+          },
+          {
+            "name": "expand",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "추가 정보 확장(all,field,group,notificationSchemeEvents,projectRole,user)",
+            "example": "all"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returned if the request is successful.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer",
+                      "description": "알림 스킴 ID"
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "알림 스킴 이름"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "notificationSchemeEvents": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      },
+                      "description": "이벤트별 알림 대상 목록"
+                    }
+                  }
+                },
+                "example": {
+                  "id": 10100,
+                  "name": "notification scheme name",
+                  "description": "description",
+                  "notificationSchemeEvents": [
+                    {
+                      "event": {
+                        "id": 1,
+                        "name": "Issue created"
+                      },
+                      "notifications": [
+                        {
+                          "id": 2,
+                          "notificationType": "CurrentAssignee"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "요청이 유효하지 않음"
+          },
+          "401": {
+            "description": "인증 정보 누락/오류"
+          },
+          "404": {
+            "description": "프로젝트가 없거나 사용자가 관리자가 아님"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "basicAuth": {
+        "type": "http",
+        "scheme": "basic",
+        "description": "Jira Cloud API 토큰 인증. username=계정 이메일, password=API token (https://id.atlassian.com/manage-profile/security/api-tokens 에서 발급)"
+      },
+      "oauth2": {
+        "type": "oauth2",
+        "description": "Jira Cloud OAuth 2.0 (3LO) Bearer 토큰 인증",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "https://auth.atlassian.com/authorize",
+            "tokenUrl": "https://auth.atlassian.com/oauth/token",
+            "scopes": {
+              "read:jira-work": "Jira 작업 항목 읽기",
+              "write:jira-work": "Jira 작업 항목 쓰기",
+              "manage:jira-webhook": "Jira 웹훅 관리"
+            }
+          }
+        }
+      }
+    }
+  }
+}

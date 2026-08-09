@@ -1,0 +1,798 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Jira API - _38-issue-search",
+    "version": "1.0.0",
+    "description": "JQL(Jira Query Language) 쿼리로 이슈를 검색하거나, 이슈 피커(자동완성)용 후보를 찾거나, 특정 이슈가 JQL 조건에 부합하는지 확인하는 등 이슈 검색 관련 기능을 제공하는 API 모음. 이 그룹에서 제외된 API는 없다(모두 프로젝트 단위 권한 또는 무권한으로 호출 가능)."
+  },
+  "servers": [
+    {
+      "url": "https://{siteName}.atlassian.net",
+      "variables": {
+        "siteName": {
+          "default": "ssafy",
+          "description": "Jira Cloud 사이트 이름 (예: ssafy.atlassian.net)"
+        }
+      }
+    }
+  ],
+  "security": [
+    { "basicAuth": [] },
+    { "oauth2": ["read:jira-work", "write:jira-work"] }
+  ],
+  "tags": [
+    { "name": "Issue search", "description": "JQL 기반 이슈 검색, 이슈 피커, 카운트, 매칭 관련 API" }
+  ],
+  "paths": {
+    "/rest/api/3/issue/picker": {
+      "get": {
+        "summary": "이슈 피커 후보 조회",
+        "description": "사용자가 이슈를 검색어(단어/문자열)로 찾을 때 자동완성 후보를 제공하기 위한 API다. History Search(사용자가 최근에 생성/수정/조회한 이슈 중 query와 일치하는 것)와 Current Search(currentJQL 조건에 맞으면서 query와 일치하는 것) 두 목록을 반환한다. 팀 대시보드나 이슈 연결 UI에서 이슈 검색창을 구현할 때 핵심적으로 쓰일 수 있다.",
+        "operationId": "getIssuePickerSuggestions",
+        "tags": ["Issue search"],
+        "x-priority": "high",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "이슈의 제목, 설명, 코멘트 등 텍스트 필드와 매칭할 문자열",
+            "example": "로그인 오류"
+          },
+          {
+            "name": "currentJQL",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "검색어를 찾을 이슈 범위를 정의하는 JQL. username/userkey는 사용 불가(accountId 사용)",
+            "example": "project = SSAFY"
+          },
+          {
+            "name": "currentIssueKey",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "검색 결과에서 제외할 이슈 키(현재 보고 있는 이슈 등)",
+            "example": "SSAFY-12"
+          },
+          {
+            "name": "currentProjectId",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "후보 이슈가 속해야 하는 프로젝트 ID",
+            "example": "10000"
+          },
+          {
+            "name": "showSubTasks",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "boolean" },
+            "description": "하위 작업(sub-task)을 후보에 포함할지 여부",
+            "example": true
+          },
+          {
+            "name": "showSubTaskParent",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "boolean" },
+            "description": "currentIssueKey가 하위 작업일 때, 상위 이슈를 후보에 포함할지 여부",
+            "example": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "이슈 피커 후보 목록 반환 성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "sections": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string", "description": "자동완성용 이슈 유형의 ID" },
+                          "label": { "type": "string", "description": "이슈 유형 섹션의 레이블" },
+                          "sub": { "type": "string", "description": "후보가 있을 때 개수 안내 메시지" },
+                          "msg": { "type": "string", "description": "후보가 없을 때 표시할 메시지" },
+                          "issues": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": { "type": "integer", "description": "이슈 ID" },
+                                "key": { "type": "string", "description": "이슈 키" },
+                                "keyHtml": { "type": "string", "description": "HTML 형식의 이슈 키" },
+                                "img": { "type": "string", "description": "이슈 타입 아바타 URL" },
+                                "summary": { "type": "string", "description": "검색어가 강조(bold)된 HTML 형식 요약" },
+                                "summaryText": { "type": "string", "description": "일반 텍스트 요약" }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "sections": [
+                    {
+                      "id": "cs",
+                      "label": "현재 검색",
+                      "sub": "5개 이슈 찾음",
+                      "issues": [
+                        {
+                          "id": 10001,
+                          "key": "SSAFY-1",
+                          "keyHtml": "SSAFY-1",
+                          "img": "https://your-domain.atlassian.net/secure/viewavatar?size=xsmall&avatarId=10300",
+                          "summary": "로그인 <b>오류</b> 수정",
+                          "summaryText": "로그인 오류 수정"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 자격 증명이 잘못되었거나 없음"
+          }
+        }
+      }
+    },
+    "/rest/api/3/search/jql": {
+      "get": {
+        "summary": "JQL을 이용한 이슈 검색 - 향상된 검색 GET",
+        "description": "기존 /rest/api/3/search(제거 예정)를 대체하는 새로운 검색 엔드포인트로, nextPageToken 기반 페이지네이션을 사용한다. 통합 대시보드에서 이슈 목록/상태를 조회하거나 특정 조건(예: 담당자, 상태, 스프린트)에 맞는 이슈를 가져올 때 핵심적으로 사용된다. 최근 변경 사항이 검색 결과에 즉시 반영되지 않을 수 있으며, 강한 일관성이 필요하면 reconcileIssues 파라미터를 사용한다. JQL은 반드시 bounded(검색 범위 제한이 있는) 쿼리여야 한다.",
+        "operationId": "searchIssuesUsingJqlEnhancedGet",
+        "tags": ["Issue search"],
+        "x-priority": "high",
+        "parameters": [
+          {
+            "name": "jql",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "JQL 표현식(bounded 쿼리 필요). orderBy는 최대 7개 필드까지",
+            "example": "assignee = currentUser() order by key"
+          },
+          {
+            "name": "nextPageToken",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "nullable": true, "default": null },
+            "description": "다음 페이지를 가져오기 위한 토큰. 첫 페이지는 null",
+            "example": "CAEaAggD"
+          },
+          {
+            "name": "maxResults",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer" },
+            "description": "페이지당 최대 항목 수(최대 5000건)",
+            "example": 50
+          },
+          {
+            "name": "fields",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "array", "items": { "type": "string" }, "default": ["id"] },
+            "description": "반환할 필드 목록(콤마 구분). *all, *navigable, id, -필드명(제외) 등 사용 가능. 기본값 id",
+            "example": "summary,comment"
+          },
+          {
+            "name": "expand",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "이슈에 대한 추가 정보 포함 옵션(콤마 구분 문자열)",
+            "example": "names,changelog"
+          },
+          {
+            "name": "properties",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "array", "items": { "type": "string" } },
+            "description": "결과에 포함할 이슈 속성 키(최대 5개)",
+            "example": "prop1,prop2"
+          },
+          {
+            "name": "fieldsByKeys",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "boolean", "default": false },
+            "description": "필드를 ID 대신 키로 참조할지 여부",
+            "example": true
+          },
+          {
+            "name": "failFast",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "boolean" },
+            "description": "필드 조회 실패 시 요청을 조기에 실패시킬지 여부",
+            "example": false
+          },
+          {
+            "name": "reconcileIssues",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "array", "items": { "type": "integer" } },
+            "description": "결과와 강한 일관성으로 대조할 이슈 ID(최대 50개)",
+            "example": [10001, 10002]
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "이슈 검색 결과 반환 성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "isLast": { "type": "boolean", "description": "마지막 페이지 여부" },
+                    "nextPageToken": { "type": "string", "description": "다음 페이지 토큰(마지막 페이지에는 없음)" },
+                    "issues": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string", "description": "이슈 ID" },
+                          "key": { "type": "string", "description": "이슈 키" },
+                          "self": { "type": "string", "description": "이슈 리소스 URL" },
+                          "fields": { "type": "object", "description": "요청한 필드 값들" }
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "isLast": true,
+                  "issues": [
+                    {
+                      "id": "10002",
+                      "key": "ED-1",
+                      "self": "https://your-domain.atlassian.net/rest/api/3/issue/10002",
+                      "fields": {
+                        "description": "Main order flow broken",
+                        "project": {
+                          "id": "10000",
+                          "key": "EX",
+                          "name": "Example"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "검색 요청(JQL 등)이 유효하지 않음"
+          },
+          "401": {
+            "description": "인증 자격 증명이 잘못되었거나 없음"
+          }
+        }
+      },
+      "post": {
+        "summary": "JQL을 이용한 이슈 검색 - 향상된 검색 POST",
+        "description": "GET 버전과 동일한 기능을 제공하되, JQL 쿼리 표현식이 URL 쿼리 파라미터로 인코딩하기에 너무 길 때 사용한다. 요청 본문에 검색 조건을 담아 전달하므로 복잡한 JQL이나 다수의 properties/fields를 다룰 때 유리하다. 통합 대시보드·리포트 자동화에서 정기적으로 이슈를 조회할 때 GET 버전과 함께 핵심적으로 사용된다.",
+        "operationId": "searchIssuesUsingJqlEnhancedPost",
+        "tags": ["Issue search"],
+        "x-priority": "high",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "jql": {
+                    "type": "string",
+                    "description": "JQL 표현식(bounded 쿼리 필요, orderBy 최대 7개 필드)"
+                  },
+                  "nextPageToken": {
+                    "type": "string",
+                    "description": "다음 페이지 토큰"
+                  },
+                  "maxResults": {
+                    "type": "integer",
+                    "description": "페이지당 최대 항목 수(최대 5000건 반환)"
+                  },
+                  "fields": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "반환할 필드 목록. 기본값 id"
+                  },
+                  "fieldsByKeys": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "필드를 키로 참조할지 여부"
+                  },
+                  "expand": {
+                    "type": "string",
+                    "description": "콤마 구분 확장 옵션 문자열"
+                  },
+                  "properties": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "결과에 포함할 이슈 속성(최대 5개)"
+                  },
+                  "reconcileIssues": {
+                    "type": "array",
+                    "items": { "type": "integer" },
+                    "description": "강한 일관성 대조용 이슈 ID(최대 50개)"
+                  }
+                },
+                "required": []
+              },
+              "example": {
+                "jql": "assignee = currentUser() order by key",
+                "maxResults": 50,
+                "fields": ["summary", "status", "assignee"],
+                "fieldsByKeys": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "이슈 검색 결과 반환 성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "isLast": { "type": "boolean", "description": "마지막 페이지 여부" },
+                    "issues": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string", "description": "이슈 ID" },
+                          "key": { "type": "string", "description": "이슈 키" },
+                          "self": { "type": "string", "description": "이슈 리소스 URL" },
+                          "fields": { "type": "object", "description": "요청한 필드 값들" }
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "isLast": true,
+                  "issues": [
+                    {
+                      "id": "10002",
+                      "key": "ED-1",
+                      "self": "https://your-domain.atlassian.net/rest/api/3/issue/10002",
+                      "fields": {
+                        "description": "Main order flow broken"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "검색 요청(JQL 등)이 유효하지 않음"
+          },
+          "401": {
+            "description": "인증 자격 증명이 잘못되었거나 없음"
+          }
+        }
+      }
+    },
+    "/rest/api/3/search/approximate-count": {
+      "post": {
+        "summary": "JQL을 이용한 이슈 개수(카운트) 조회",
+        "description": "대시보드에서 열린 이슈 N건, 이번 스프린트 남은 작업 M건과 같은 통계성 카운트를 표시할 때 이슈 전체를 가져오지 않고 개수만 빠르게 얻을 수 있는 API다. 최근 변경 사항이 즉시 반영되지 않을 수 있으며, 성능상의 이유로 JQL은 반드시 bounded 쿼리여야 한다.",
+        "operationId": "countIssuesUsingJql",
+        "tags": ["Issue search"],
+        "x-priority": "high",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "jql": {
+                    "type": "string",
+                    "description": "개수를 셀 대상 이슈를 정의하는 JQL 표현식(bounded 쿼리 필요)"
+                  }
+                },
+                "required": []
+              },
+              "example": {
+                "jql": "project = SSAFY AND status = \"In Progress\""
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "이슈 개수 반환 성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "count": { "type": "integer", "description": "JQL 조건에 맞는 이슈의 추정 개수" }
+                  }
+                },
+                "example": { "count": 153 }
+              }
+            }
+          },
+          "400": {
+            "description": "JQL 쿼리를 파싱할 수 없음"
+          },
+          "401": {
+            "description": "인증 자격 증명이 잘못되었거나 없음"
+          }
+        }
+      }
+    },
+    "/rest/api/3/jql/match": {
+      "post": {
+        "summary": "여러 이슈의 JQL 매칭 여부 확인",
+        "description": "이슈 ID 목록과 JQL 쿼리 목록을 받아, 각 JQL에 대해 어떤 이슈가 매칭되는지를 배치로 반환한다. 예를 들어 webhook 이벤트로 들어온 이슈가 특정 알림 규칙(JQL로 정의된 조건)에 해당하는지 판별하는 보조 로직에 활용할 수 있다. 핵심 검색 흐름은 아니지만 알림 필터링 등에 유용하다.",
+        "operationId": "matchIssuesAgainstJql",
+        "tags": ["Issue search"],
+        "x-priority": "medium",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "issueIds": {
+                    "type": "array",
+                    "items": { "type": "integer" },
+                    "description": "확인할 이슈 ID 목록"
+                  },
+                  "jqls": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "매칭 여부를 확인할 JQL 쿼리 목록"
+                  }
+                },
+                "required": ["issueIds", "jqls"]
+              },
+              "example": {
+                "issueIds": [10001, 10004],
+                "jqls": ["project = SSAFY", "assignee = currentUser()"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "매칭 결과 반환 성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "matches": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "matchedIssues": {
+                            "type": "array",
+                            "items": { "type": "integer" },
+                            "description": "해당 JQL에 매칭된 이슈 ID 목록"
+                          },
+                          "errors": {
+                            "type": "array",
+                            "items": { "type": "string" },
+                            "description": "해당 JQL 처리 중 발생한 오류 메시지"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "matches": [
+                    { "matchedIssues": [10000, 10004], "errors": [] },
+                    { "matchedIssues": [], "errors": ["Invalid JQL: broken = value"] }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "jqls 또는 issueIds가 최대 허용 개수를 초과함"
+          }
+        }
+      }
+    },
+    "/rest/api/3/search": {
+      "get": {
+        "summary": "JQL을 이용한 이슈 검색 - 구버전 GET (제거 예정)",
+        "description": "Atlassian이 제거 예정으로 공지한 구버전 검색 API로, startAt/total 기반의 오프셋 페이지네이션을 사용한다. 신규 통합에는 /rest/api/3/search/jql(향상된 검색) 사용이 권장되며, 이 API는 향후 제거될 수 있어 장기적으로 의존하기에는 리스크가 있다. 기존 코드 호환이나 참고용으로만 중간 우선순위로 채택한다.",
+        "operationId": "searchIssuesUsingJqlLegacyGet",
+        "tags": ["Issue search"],
+        "x-priority": "medium",
+        "deprecated": true,
+        "parameters": [
+          {
+            "name": "jql",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "JQL 표현식. 없으면 모든 이슈 반환",
+            "example": "project = SSAFY"
+          },
+          {
+            "name": "startAt",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer" },
+            "description": "페이지 오프셋(첫 항목 인덱스)",
+            "example": 0
+          },
+          {
+            "name": "maxResults",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer" },
+            "description": "페이지당 최대 항목 수",
+            "example": 50
+          },
+          {
+            "name": "validateQuery",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "enum": ["strict", "warn", "none", "true", "false"] },
+            "description": "JQL 검증 방식(strict/warn/none/true(deprecated)/false(deprecated))",
+            "example": "strict"
+          },
+          {
+            "name": "fields",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "array", "items": { "type": "string" } },
+            "description": "반환할 필드 목록. 기본값은 모든 navigable 필드",
+            "example": "summary,comment"
+          },
+          {
+            "name": "expand",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "추가 정보 포함 옵션",
+            "example": "changelog"
+          },
+          {
+            "name": "properties",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "array", "items": { "type": "string" } },
+            "description": "포함할 이슈 속성(최대 5개)",
+            "example": "prop1,prop2"
+          },
+          {
+            "name": "fieldsByKeys",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "boolean" },
+            "description": "필드를 키로 참조할지 여부",
+            "example": false
+          },
+          {
+            "name": "failFast",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "boolean" },
+            "description": "필드 로딩 오류 시 즉시 실패할지 여부",
+            "example": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "이슈 검색 결과 반환 성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "startAt": { "type": "integer", "description": "페이지 오프셋" },
+                    "maxResults": { "type": "integer", "description": "페이지당 최대 항목 수" },
+                    "total": { "type": "integer", "description": "전체 이슈 수" },
+                    "issues": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string", "description": "이슈 ID" },
+                          "key": { "type": "string", "description": "이슈 키" },
+                          "self": { "type": "string", "description": "이슈 리소스 URL" },
+                          "fields": { "type": "object", "description": "요청한 필드 값들" }
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "expand": "names,schema",
+                  "startAt": 0,
+                  "maxResults": 50,
+                  "total": 1,
+                  "issues": [
+                    {
+                      "id": "10002",
+                      "key": "ED-1",
+                      "self": "https://your-domain.atlassian.net/rest/api/3/issue/10002",
+                      "fields": {
+                        "description": {
+                          "type": "doc",
+                          "version": 1,
+                          "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Main order flow broken" }] }]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "JQL 쿼리가 유효하지 않음"
+          },
+          "401": {
+            "description": "인증 자격 증명이 잘못됨"
+          }
+        }
+      },
+      "post": {
+        "summary": "JQL을 이용한 이슈 검색 - 구버전 POST (제거 예정)",
+        "description": "구버전 GET 검색과 동일한 기능을 POST 방식으로 제공하며, JQL 쿼리 표현식이 길어 URL 쿼리 파라미터로 인코딩하기 어려운 경우 사용한다. GET 버전과 마찬가지로 Atlassian이 제거 예정으로 공지했으므로, 신규 통합에는 /rest/api/3/search/jql(POST) 사용이 권장된다.",
+        "operationId": "searchIssuesUsingJqlLegacyPost",
+        "tags": ["Issue search"],
+        "x-priority": "medium",
+        "deprecated": true,
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "jql": {
+                    "type": "string",
+                    "description": "JQL 표현식"
+                  },
+                  "startAt": {
+                    "type": "integer",
+                    "default": 0,
+                    "description": "페이지 오프셋"
+                  },
+                  "maxResults": {
+                    "type": "integer",
+                    "description": "페이지당 최대 항목 수"
+                  },
+                  "validateQuery": {
+                    "type": "string",
+                    "enum": ["strict", "warn", "none", "true", "false"],
+                    "default": "strict",
+                    "description": "JQL 검증 방식"
+                  },
+                  "fields": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "default": ["*navigable"],
+                    "description": "반환할 필드 목록. 기본값 *navigable"
+                  },
+                  "fieldsByKeys": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "필드를 키로 참조할지 여부"
+                  },
+                  "properties": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "포함할 이슈 속성(최대 5개)"
+                  },
+                  "expand": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "추가 정보 포함 옵션 목록"
+                  }
+                },
+                "required": []
+              },
+              "example": {
+                "jql": "project = SSAFY",
+                "startAt": 0,
+                "maxResults": 50,
+                "validateQuery": "strict",
+                "fields": ["summary", "status"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "이슈 검색 결과 반환 성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "startAt": { "type": "integer", "description": "페이지 오프셋" },
+                    "maxResults": { "type": "integer", "description": "페이지당 최대 항목 수" },
+                    "total": { "type": "integer", "description": "전체 이슈 수" },
+                    "issues": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string", "description": "이슈 ID" },
+                          "key": { "type": "string", "description": "이슈 키" },
+                          "self": { "type": "string", "description": "이슈 리소스 URL" }
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "expand": "names,schema",
+                  "startAt": 0,
+                  "maxResults": 50,
+                  "total": 1,
+                  "issues": [
+                    {
+                      "id": "10002",
+                      "key": "ED-1",
+                      "self": "https://your-domain.atlassian.net/rest/api/3/issue/10002"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "JQL 쿼리가 유효하지 않음"
+          },
+          "401": {
+            "description": "인증 자격 증명이 잘못됨"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "basicAuth": {
+        "type": "http",
+        "scheme": "basic",
+        "description": "Jira Cloud API 토큰 인증. username=계정 이메일, password=API token (https://id.atlassian.com/manage-profile/security/api-tokens 에서 발급)"
+      },
+      "oauth2": {
+        "type": "oauth2",
+        "description": "Jira Cloud OAuth 2.0 (3LO) Bearer 토큰 인증",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "https://auth.atlassian.com/authorize",
+            "tokenUrl": "https://auth.atlassian.com/oauth/token",
+            "scopes": {
+              "read:jira-work": "Jira 작업 항목 읽기",
+              "write:jira-work": "Jira 작업 항목 쓰기",
+              "manage:jira-webhook": "Jira 웹훅 관리"
+            }
+          }
+        }
+      }
+    }
+  }
+}

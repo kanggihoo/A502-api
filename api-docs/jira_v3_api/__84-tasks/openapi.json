@@ -1,0 +1,244 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Jira API - __84-tasks",
+    "version": "1.0.0",
+    "description": "Jira의 장기 실행 비동기 작업(long-running asynchronous task)의 진행 상태를 조회하거나 취소하는 API. 대량 작업(bulk operation) 등이 비동기로 처리될 때 그 결과를 폴링하거나 중단시키는 용도로 쓰인다."
+  },
+  "servers": [
+    {
+      "url": "https://{siteName}.atlassian.net",
+      "variables": {
+        "siteName": {
+          "default": "ssafy",
+          "description": "Jira Cloud 사이트 이름 (예: ssafy.atlassian.net)"
+        }
+      }
+    }
+  ],
+  "security": [
+    { "basicAuth": [] },
+    { "oauth2": ["read:jira-work", "write:jira-work"] }
+  ],
+  "tags": [
+    {
+      "name": "Tasks",
+      "description": "장기 실행 비동기 작업(long-running asynchronous task)의 진행 상태 조회 및 취소"
+    }
+  ],
+  "paths": {
+    "/rest/api/3/task/{taskId}": {
+      "get": {
+        "summary": "Get task",
+        "description": "비동기로 실행되는 장기 작업의 상태(진행률, 시작/종료 시각, 결과 등)를 조회한다. 작업이 완료되면 해당 작업을 생성한 오퍼레이션에 따라 정의된 JSON 결과가 result 필드에 담겨 반환된다. 작업 상세 정보는 영구 보관되지 않으며 (2019년 9월 기준) 약 14일간만 유지된다. 필요 OAuth 2.0 스코프는 2024년 6월 15일부로 read:jira-work로 변경될 예정이다.",
+        "operationId": "getTask",
+        "tags": ["Tasks"],
+        "x-priority": "medium",
+        "parameters": [
+          {
+            "name": "taskId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "작업(task)의 ID",
+            "example": "1"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "요청이 성공한 경우 반환됨. 장기 실행 작업의 상태 및 결과를 포함한다.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "self": {
+                      "type": "string",
+                      "description": "이 작업의 API 링크"
+                    },
+                    "id": {
+                      "type": "string",
+                      "description": "작업 ID"
+                    },
+                    "description": {
+                      "type": "string",
+                      "description": "작업 설명"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "작업 상태",
+                      "enum": ["ENQUEUED", "RUNNING", "COMPLETE", "FAILED", "CANCEL_REQUESTED", "CANCELLED", "DEAD"]
+                    },
+                    "result": {
+                      "description": "작업 완료 시 결과 (작업 종류에 따라 임의의 JSON)"
+                    },
+                    "submittedBy": {
+                      "type": "integer",
+                      "description": "작업을 제출한 사용자 ID"
+                    },
+                    "progress": {
+                      "type": "integer",
+                      "description": "진행률(%)"
+                    },
+                    "elapsedRuntime": {
+                      "type": "integer",
+                      "description": "경과 실행 시간(ms)"
+                    },
+                    "submitted": {
+                      "type": "integer",
+                      "description": "제출 시각(epoch ms)"
+                    },
+                    "started": {
+                      "type": "integer",
+                      "description": "시작 시각(epoch ms)"
+                    },
+                    "finished": {
+                      "type": "integer",
+                      "description": "종료 시각(epoch ms)"
+                    },
+                    "lastUpdate": {
+                      "type": "integer",
+                      "description": "마지막 업데이트 시각(epoch ms)"
+                    }
+                  }
+                },
+                "example": {
+                  "self": "https://your-domain.atlassian.net/rest/api/3/task/1",
+                  "id": "1",
+                  "description": "Task description",
+                  "status": "COMPLETE",
+                  "result": "the task result, this may be any JSON",
+                  "submittedBy": 10000,
+                  "progress": 100,
+                  "elapsedRuntime": 156,
+                  "submitted": 1501708132800,
+                  "started": 1501708132900,
+                  "finished": 1501708133000,
+                  "lastUpdate": 1501708133000
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 정보가 올바르지 않거나 누락됨"
+          },
+          "403": {
+            "description": "조회 권한 없음 (Administer Jira 권한도 없고 작업 생성자도 아님)"
+          },
+          "404": {
+            "description": "해당 taskId의 작업을 찾을 수 없음 (14일 경과로 만료되었을 수 있음)"
+          }
+        }
+      }
+    },
+    "/rest/api/3/task/{taskId}/cancel": {
+      "post": {
+        "summary": "Cancel task",
+        "description": "지정한 taskId의 비동기 작업을 취소한다. 이미 완료되었거나 취소 불가능한 상태의 작업에 대해서는 400 에러가 반환된다.",
+        "operationId": "cancelTask",
+        "tags": ["Tasks"],
+        "x-priority": "medium",
+        "parameters": [
+          {
+            "name": "taskId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "작업(task)의 ID",
+            "example": "1"
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "취소 요청이 접수되었음을 나타내며, 응답 스키마는 정형화되어 있지 않다(any).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "응답 스키마는 any(내용 없음/비정형)"
+                },
+                "example": {}
+              }
+            }
+          },
+          "400": {
+            "description": "작업 취소가 불가능한 상태 (예: 이미 완료됨)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "type": "string" },
+                  "description": "에러 메시지 배열"
+                },
+                "example": ["Cancellation of the task is not possible."]
+              }
+            }
+          },
+          "401": {
+            "description": "인증 정보가 올바르지 않거나 누락됨",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "type": "string" },
+                  "description": "에러 메시지 배열"
+                },
+                "example": ["The authentication credentials are incorrect or missing."]
+              }
+            }
+          },
+          "403": {
+            "description": "취소 권한 없음 (Administer Jira 권한도 없고 작업 생성자도 아님)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "type": "string" },
+                  "description": "에러 메시지 배열"
+                },
+                "example": ["The user does not have the necessary permission."]
+              }
+            }
+          },
+          "404": {
+            "description": "해당 taskId의 작업을 찾을 수 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "type": "string" },
+                  "description": "에러 메시지 배열"
+                },
+                "example": ["The task is not found."]
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "basicAuth": {
+        "type": "http",
+        "scheme": "basic",
+        "description": "Jira Cloud API 토큰 인증. username=계정 이메일, password=API token (https://id.atlassian.com/manage-profile/security/api-tokens 에서 발급)"
+      },
+      "oauth2": {
+        "type": "oauth2",
+        "description": "Jira Cloud OAuth 2.0 (3LO) Bearer 토큰 인증",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "https://auth.atlassian.com/authorize",
+            "tokenUrl": "https://auth.atlassian.com/oauth/token",
+            "scopes": {
+              "read:jira-work": "Jira 작업 항목 읽기",
+              "write:jira-work": "Jira 작업 항목 쓰기",
+              "manage:jira-webhook": "Jira 웹훅 관리"
+            }
+          }
+        }
+      }
+    }
+  }
+}

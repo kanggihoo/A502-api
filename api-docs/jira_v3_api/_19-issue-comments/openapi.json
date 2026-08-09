@@ -1,0 +1,874 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Jira API - _19-issue-comments",
+    "version": "1.0.0",
+    "description": "Jira 이슈의 코멘트(comment)를 조회·생성·수정·삭제하는 API 모음. 이슈 하나의 코멘트 전체 조회, 코멘트 ID 목록으로 일괄 조회, 단일 코멘트 CRUD를 제공한다."
+  },
+  "servers": [
+    {
+      "url": "https://{siteName}.atlassian.net",
+      "variables": {
+        "siteName": {
+          "default": "ssafy",
+          "description": "Jira Cloud 사이트 이름 (예: ssafy.atlassian.net)"
+        }
+      }
+    }
+  ],
+  "security": [
+    { "basicAuth": [] },
+    { "oauth2": ["read:jira-work", "write:jira-work"] }
+  ],
+  "tags": [
+    { "name": "Issue comments", "description": "Jira 이슈 코멘트 조회/생성/수정/삭제 API" }
+  ],
+  "paths": {
+    "/rest/api/3/issue/{issueIdOrKey}/comment": {
+      "get": {
+        "summary": "이슈의 코멘트 전체 조회",
+        "description": "통합 대시보드에서 이슈 상세를 보여줄 때 코멘트 목록을 가져오는 데 핵심적으로 쓰인다. `orderBy`로 생성일 기준 정렬이 가능하고, `startAt`/`maxResults`로 페이지네이션을 지원한다. `expand=renderedBody`를 사용하면 HTML로 렌더링된 코멘트 본문도 함께 받을 수 있다.",
+        "operationId": "getIssueComments",
+        "tags": ["Issue comments"],
+        "x-priority": "high",
+        "parameters": [
+          {
+            "name": "issueIdOrKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "이슈의 ID 또는 키",
+            "example": "10010"
+          },
+          {
+            "name": "startAt",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer" },
+            "description": "페이지 결과의 시작 인덱스(오프셋)",
+            "example": 0
+          },
+          {
+            "name": "maxResults",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer" },
+            "description": "페이지당 최대 반환 개수",
+            "example": 50
+          },
+          {
+            "name": "orderBy",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "enum": ["created", "-created", "+created"] },
+            "description": "정렬 기준 필드. `created`만 허용",
+            "example": "created"
+          },
+          {
+            "name": "expand",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "추가 정보 포함. `renderedBody`(HTML 렌더링 본문) 지원",
+            "example": "renderedBody"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "요청 성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "comments": {
+                      "type": "array",
+                      "description": "코멘트 객체 배열",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "author": {
+                            "type": "object",
+                            "description": "작성자 정보",
+                            "properties": {
+                              "accountId": { "type": "string" },
+                              "active": { "type": "boolean" },
+                              "displayName": { "type": "string" },
+                              "self": { "type": "string" }
+                            }
+                          },
+                          "body": {
+                            "type": "object",
+                            "description": "Atlassian Document Format 본문"
+                          },
+                          "created": { "type": "string", "description": "생성 일시" },
+                          "id": { "type": "string", "description": "코멘트 ID" },
+                          "self": { "type": "string", "description": "코멘트 URL" },
+                          "updateAuthor": {
+                            "type": "object",
+                            "description": "최종 수정자 정보",
+                            "properties": {
+                              "accountId": { "type": "string" },
+                              "active": { "type": "boolean" },
+                              "displayName": { "type": "string" },
+                              "self": { "type": "string" }
+                            }
+                          },
+                          "updated": { "type": "string", "description": "최종 수정 일시" },
+                          "visibility": {
+                            "type": "object",
+                            "description": "코멘트 가시성 제한",
+                            "properties": {
+                              "identifier": { "type": "string" },
+                              "type": { "type": "string" },
+                              "value": { "type": "string" }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "maxResults": { "type": "integer", "description": "페이지당 최대 개수" },
+                    "startAt": { "type": "integer", "description": "시작 오프셋" },
+                    "total": { "type": "integer", "description": "전체 코멘트 수" }
+                  }
+                },
+                "example": {
+                  "comments": [
+                    {
+                      "author": {
+                        "accountId": "5b10a2844c20165700ede21g",
+                        "active": false,
+                        "displayName": "Mia Krystof",
+                        "self": "https://your-domain.atlassian.net/rest/api/3/user?accountId=5b10a2844c20165700ede21g"
+                      },
+                      "body": {
+                        "type": "doc",
+                        "version": 1,
+                        "content": [
+                          {
+                            "type": "paragraph",
+                            "content": [
+                              { "type": "text", "text": "Lorem ipsum dolor sit amet..." }
+                            ]
+                          }
+                        ]
+                      },
+                      "created": "2021-01-17T12:34:00.000+0000",
+                      "id": "10000",
+                      "self": "https://your-domain.atlassian.net/rest/api/3/issue/10010/comment/10000",
+                      "updateAuthor": {
+                        "accountId": "5b10a2844c20165700ede21g",
+                        "active": false,
+                        "displayName": "Mia Krystof",
+                        "self": "https://your-domain.atlassian.net/rest/api/3/user?accountId=5b10a2844c20165700ede21g"
+                      },
+                      "updated": "2021-01-18T23:45:00.000+0000",
+                      "visibility": {
+                        "identifier": "Administrators",
+                        "type": "role",
+                        "value": "Administrators"
+                      }
+                    }
+                  ],
+                  "maxResults": 1,
+                  "startAt": 0,
+                  "total": 1
+                }
+              }
+            }
+          },
+          "400": { "description": "`orderBy`가 `created` 외의 값으로 설정됨" },
+          "401": { "description": "인증 정보가 잘못되었거나 없음" },
+          "404": { "description": "이슈를 찾을 수 없거나 조회 권한 없음" }
+        }
+      },
+      "post": {
+        "summary": "이슈에 코멘트 추가",
+        "description": "프로젝트 운영 지원 자동화(예: 상태 전환 시 자동 코멘트 남기기, 다른 도구의 이벤트를 Jira 코멘트로 동기화)에 핵심적으로 사용된다. 본문은 Atlassian Document Format(ADF)으로 작성해야 하며, `visibility`로 특정 그룹/역할에만 보이도록 제한할 수 있다. 이슈당 코멘트/첨부파일 개수 제한을 초과하면 413 에러가 발생한다.",
+        "operationId": "addIssueComment",
+        "tags": ["Issue comments"],
+        "x-priority": "high",
+        "parameters": [
+          {
+            "name": "issueIdOrKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "이슈의 ID 또는 키",
+            "example": "10010"
+          },
+          {
+            "name": "expand",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "추가 정보 포함. `renderedBody`(HTML 렌더링 본문) 지원",
+            "example": "renderedBody"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "body": {
+                    "type": "object",
+                    "description": "코멘트 본문 텍스트 (Atlassian Document Format)"
+                  },
+                  "visibility": {
+                    "type": "object",
+                    "description": "코멘트를 볼 수 있는 그룹/역할 제한 (생성 시 선택)",
+                    "properties": {
+                      "identifier": { "type": "string" },
+                      "type": { "type": "string" },
+                      "value": { "type": "string" }
+                    }
+                  },
+                  "jsdPublic": {
+                    "type": "boolean",
+                    "description": "Jira Service Desk에서 코멘트 공개 여부",
+                    "default": true
+                  },
+                  "properties": {
+                    "type": "array",
+                    "description": "코멘트 속성 목록",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "key": { "type": "string" },
+                        "value": { "type": "string" }
+                      }
+                    }
+                  }
+                },
+                "required": []
+              },
+              "example": {
+                "body": {
+                  "type": "doc",
+                  "version": 1,
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        { "type": "text", "text": "Lorem ipsum dolor sit amet, consectetur adipiscing elit." }
+                      ]
+                    }
+                  ]
+                },
+                "visibility": {
+                  "identifier": "Administrators",
+                  "type": "role",
+                  "value": "Administrators"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "코멘트 추가 성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "author": {
+                      "type": "object",
+                      "description": "작성자 정보",
+                      "properties": {
+                        "accountId": { "type": "string" },
+                        "active": { "type": "boolean" },
+                        "displayName": { "type": "string" },
+                        "self": { "type": "string" }
+                      }
+                    },
+                    "body": { "type": "object", "description": "등록된 코멘트 본문(ADF)" },
+                    "created": { "type": "string", "description": "생성 일시" },
+                    "id": { "type": "string", "description": "코멘트 ID" },
+                    "self": { "type": "string", "description": "코멘트 URL" },
+                    "updateAuthor": {
+                      "type": "object",
+                      "description": "최종 수정자",
+                      "properties": {
+                        "accountId": { "type": "string" },
+                        "active": { "type": "boolean" },
+                        "displayName": { "type": "string" },
+                        "self": { "type": "string" }
+                      }
+                    },
+                    "updated": { "type": "string", "description": "최종 수정 일시" },
+                    "visibility": {
+                      "type": "object",
+                      "description": "가시성 제한",
+                      "properties": {
+                        "identifier": { "type": "string" },
+                        "type": { "type": "string" },
+                        "value": { "type": "string" }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "author": {
+                    "accountId": "5b10a2844c20165700ede21g",
+                    "active": false,
+                    "displayName": "Mia Krystof",
+                    "self": "https://your-domain.atlassian.net/rest/api/3/user?accountId=5b10a2844c20165700ede21g"
+                  },
+                  "body": {
+                    "type": "doc",
+                    "version": 1,
+                    "content": [
+                      {
+                        "type": "paragraph",
+                        "content": [
+                          { "type": "text", "text": "Lorem ipsum dolor sit amet..." }
+                        ]
+                      }
+                    ]
+                  },
+                  "created": "2021-01-17T12:34:00.000+0000",
+                  "id": "10000",
+                  "self": "https://your-domain.atlassian.net/rest/api/3/issue/10010/comment/10000",
+                  "updateAuthor": {
+                    "accountId": "5b10a2844c20165700ede21g",
+                    "active": false,
+                    "displayName": "Mia Krystof",
+                    "self": "https://your-domain.atlassian.net/rest/api/3/user?accountId=5b10a2844c20165700ede21g"
+                  },
+                  "updated": "2021-01-18T23:45:00.000+0000",
+                  "visibility": {
+                    "identifier": "Administrators",
+                    "type": "role",
+                    "value": "Administrators"
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "요청이 잘못됨 (예: ADF 형식 오류)" },
+          "401": { "description": "인증 정보가 잘못됨" },
+          "404": { "description": "이슈를 찾을 수 없거나 조회 권한 없음" },
+          "413": { "description": "이슈당 코멘트 또는 첨부파일 개수 제한 초과" }
+        }
+      }
+    },
+    "/rest/api/3/issue/{issueIdOrKey}/comment/{id}": {
+      "get": {
+        "summary": "단일 코멘트 조회",
+        "description": "webhook 이벤트(예: comment_created)로 코멘트 ID만 전달받았을 때, 해당 코멘트의 상세 내용을 조회해 알림/대시보드에 표시하는 데 사용된다. 단일 코멘트 조회이므로 페이지네이션이 없다.",
+        "operationId": "getIssueComment",
+        "tags": ["Issue comments"],
+        "x-priority": "high",
+        "parameters": [
+          {
+            "name": "issueIdOrKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "이슈의 ID 또는 키",
+            "example": "10010"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "코멘트 ID",
+            "example": "10000"
+          },
+          {
+            "name": "expand",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "추가 정보 포함. `renderedBody`(HTML 렌더링 본문) 지원",
+            "example": "renderedBody"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "요청 성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "author": {
+                      "type": "object",
+                      "description": "작성자 정보",
+                      "properties": {
+                        "accountId": { "type": "string" },
+                        "active": { "type": "boolean" },
+                        "displayName": { "type": "string" },
+                        "self": { "type": "string" }
+                      }
+                    },
+                    "body": { "type": "object", "description": "코멘트 본문(ADF)" },
+                    "created": { "type": "string", "description": "생성 일시" },
+                    "id": { "type": "string", "description": "코멘트 ID" },
+                    "self": { "type": "string", "description": "코멘트 URL" },
+                    "updateAuthor": {
+                      "type": "object",
+                      "description": "최종 수정자",
+                      "properties": {
+                        "accountId": { "type": "string" },
+                        "active": { "type": "boolean" },
+                        "displayName": { "type": "string" },
+                        "self": { "type": "string" }
+                      }
+                    },
+                    "updated": { "type": "string", "description": "최종 수정 일시" },
+                    "visibility": {
+                      "type": "object",
+                      "description": "가시성 제한",
+                      "properties": {
+                        "identifier": { "type": "string" },
+                        "type": { "type": "string" },
+                        "value": { "type": "string" }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "author": {
+                    "accountId": "5b10a2844c20165700ede21g",
+                    "active": false,
+                    "displayName": "Mia Krystof",
+                    "self": "https://your-domain.atlassian.net/rest/api/3/user?accountId=5b10a2844c20165700ede21g"
+                  },
+                  "body": {
+                    "type": "doc",
+                    "version": 1,
+                    "content": [
+                      {
+                        "type": "paragraph",
+                        "content": [
+                          { "type": "text", "text": "Lorem ipsum dolor sit amet..." }
+                        ]
+                      }
+                    ]
+                  },
+                  "created": "2021-01-17T12:34:00.000+0000",
+                  "id": "10000",
+                  "self": "https://your-domain.atlassian.net/rest/api/3/issue/10010/comment/10000",
+                  "updateAuthor": {
+                    "accountId": "5b10a2844c20165700ede21g",
+                    "active": false,
+                    "displayName": "Mia Krystof",
+                    "self": "https://your-domain.atlassian.net/rest/api/3/user?accountId=5b10a2844c20165700ede21g"
+                  },
+                  "updated": "2021-01-18T23:45:00.000+0000",
+                  "visibility": {
+                    "identifier": "Administrators",
+                    "type": "role",
+                    "value": "Administrators"
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "인증 정보가 잘못되었거나 없음" },
+          "404": { "description": "이슈 또는 코멘트를 찾을 수 없거나 조회 권한 없음" }
+        }
+      },
+      "put": {
+        "summary": "코멘트 수정",
+        "description": "기존 코멘트를 정정하거나 자동화 도구가 남긴 상태 코멘트를 갱신할 때 사용한다. 자식 코멘트(child comment)는 부모 코멘트의 가시성을 상속받으므로, 자식 코멘트의 `visibility`를 변경하려 하면 400 에러가 발생한다. `overrideEditableFlag`는 *Administer Jira* 전역 권한을 가진 Connect/Forge 앱에서만 의미가 있다.",
+        "operationId": "updateIssueComment",
+        "tags": ["Issue comments"],
+        "x-priority": "high",
+        "parameters": [
+          {
+            "name": "issueIdOrKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "이슈의 ID 또는 키",
+            "example": "10010"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "코멘트 ID",
+            "example": "10000"
+          },
+          {
+            "name": "notifyUsers",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "boolean" },
+            "description": "코멘트 수정 시 사용자에게 알림 발송 여부",
+            "example": true
+          },
+          {
+            "name": "overrideEditableFlag",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "boolean" },
+            "description": "편집 불가 필드를 강제로 편집하도록 화면 보안을 무시 (Administer Jira 권한 필요)",
+            "example": false
+          },
+          {
+            "name": "expand",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "추가 정보 포함. `renderedBody`(HTML 렌더링 본문) 지원",
+            "example": "renderedBody"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "body": {
+                    "type": "object",
+                    "description": "수정할 코멘트 본문 (Atlassian Document Format)"
+                  },
+                  "visibility": {
+                    "type": "object",
+                    "description": "코멘트 가시성 제한 (자식 코멘트는 변경 불가, 400 에러 발생)",
+                    "properties": {
+                      "identifier": { "type": "string" },
+                      "type": { "type": "string" },
+                      "value": { "type": "string" }
+                    }
+                  },
+                  "properties": {
+                    "type": "array",
+                    "description": "코멘트 속성 목록",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "key": { "type": "string" },
+                        "value": { "type": "string" }
+                      }
+                    }
+                  }
+                },
+                "required": []
+              },
+              "example": {
+                "body": {
+                  "type": "doc",
+                  "version": 1,
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        { "type": "text", "text": "Lorem ipsum dolor sit amet, consectetur adipiscing elit." }
+                      ]
+                    }
+                  ]
+                },
+                "visibility": {
+                  "identifier": "Administrators",
+                  "type": "role",
+                  "value": "Administrators"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "코멘트 수정 성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "author": {
+                      "type": "object",
+                      "description": "작성자 정보",
+                      "properties": {
+                        "accountId": { "type": "string" },
+                        "active": { "type": "boolean" },
+                        "displayName": { "type": "string" },
+                        "self": { "type": "string" }
+                      }
+                    },
+                    "body": { "type": "object", "description": "수정된 코멘트 본문(ADF)" },
+                    "id": { "type": "string", "description": "코멘트 ID" },
+                    "self": { "type": "string", "description": "코멘트 URL" },
+                    "updateAuthor": {
+                      "type": "object",
+                      "description": "최종 수정자",
+                      "properties": {
+                        "accountId": { "type": "string" },
+                        "active": { "type": "boolean" },
+                        "displayName": { "type": "string" },
+                        "self": { "type": "string" }
+                      }
+                    },
+                    "updated": { "type": "string", "description": "최종 수정 일시" },
+                    "visibility": {
+                      "type": "object",
+                      "description": "가시성 제한",
+                      "properties": {
+                        "identifier": { "type": "string" },
+                        "type": { "type": "string" },
+                        "value": { "type": "string" }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "author": {
+                    "accountId": "5b10a2844c20165700ede21g",
+                    "active": false,
+                    "displayName": "Mia Krystof",
+                    "self": "https://your-domain.atlassian.net/rest/api/3/user?accountId=5b10a2844c20165700ede21g"
+                  },
+                  "body": {
+                    "type": "doc",
+                    "version": 1,
+                    "content": [
+                      {
+                        "type": "paragraph",
+                        "content": [
+                          { "type": "text", "text": "Lorem ipsum dolor sit amet..." }
+                        ]
+                      }
+                    ]
+                  },
+                  "created": "2021-01-17T12:34:00.000+0000",
+                  "id": "10000",
+                  "self": "https://your-domain.atlassian.net/rest/api/3/issue/10010/comment/10000",
+                  "updateAuthor": {
+                    "accountId": "5b10a2844c20165700ede21g",
+                    "active": false,
+                    "displayName": "Mia Krystof",
+                    "self": "https://your-domain.atlassian.net/rest/api/3/user?accountId=5b10a2844c20165700ede21g"
+                  },
+                  "updated": "2021-01-18T23:45:00.000+0000",
+                  "visibility": {
+                    "identifier": "Administrators",
+                    "type": "role",
+                    "value": "Administrators"
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "코멘트 수정 권한이 없거나 요청이 잘못됨 (예: 자식 코멘트의 visibility 변경 시도)" },
+          "401": { "description": "인증 정보가 잘못되었거나 없음" },
+          "404": { "description": "이슈 또는 코멘트를 찾을 수 없거나 조회 권한 없음" }
+        }
+      },
+      "delete": {
+        "summary": "코멘트 삭제",
+        "description": "프로젝트 운영 지원 흐름에서 코멘트 CRUD의 마지막 조각으로, 잘못 등록된 코멘트나 자동화가 남긴 임시 코멘트를 정리할 때 사용한다. 반드시 인증된 사용자로 호출해야 하며 익명 호출은 허용되지 않는다.",
+        "operationId": "deleteIssueComment",
+        "tags": ["Issue comments"],
+        "x-priority": "high",
+        "parameters": [
+          {
+            "name": "issueIdOrKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "이슈의 ID 또는 키",
+            "example": "10010"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "코멘트 ID",
+            "example": "10000"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "삭제 성공 시 응답 본문 없음"
+          },
+          "400": { "description": "코멘트 삭제 권한이 없음" },
+          "401": { "description": "인증 정보가 잘못되었거나 없음" },
+          "404": { "description": "이슈 또는 코멘트를 찾을 수 없거나 조회 권한 없음" },
+          "405": { "description": "익명 호출로 요청함" }
+        }
+      }
+    },
+    "/rest/api/3/comment/list": {
+      "post": {
+        "summary": "코멘트 ID 목록으로 일괄 조회",
+        "description": "여러 코멘트를 ID로 한 번에 조회해야 하는 배치성 작업(예: 여러 webhook 이벤트를 모아 한 번에 상세 조회)에 유용하지만, 팀 생성/알림/운영 지원의 핵심 흐름에서 필수적이지는 않다. 최대 1000개의 ID까지 한 번에 조회할 수 있다.",
+        "operationId": "getCommentsByIds",
+        "tags": ["Issue comments"],
+        "x-priority": "medium",
+        "parameters": [
+          {
+            "name": "expand",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "추가 정보 포함. `renderedBody`(HTML 렌더링 본문), `properties`(코멘트 속성) 지원",
+            "example": "renderedBody,properties"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ids": {
+                    "type": "array",
+                    "description": "조회할 코멘트 ID 목록 (최대 1000개)",
+                    "items": { "type": "integer" },
+                    "maxItems": 1000
+                  }
+                },
+                "required": ["ids"]
+              },
+              "example": {
+                "ids": [10000, 10001]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "요청 성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "isLast": { "type": "boolean", "description": "마지막 페이지 여부" },
+                    "maxResults": { "type": "integer", "description": "페이지당 최대 개수" },
+                    "startAt": { "type": "integer", "description": "시작 오프셋" },
+                    "total": { "type": "integer", "description": "전체 개수" },
+                    "values": {
+                      "type": "array",
+                      "description": "코멘트 객체 배열",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "author": {
+                            "type": "object",
+                            "description": "작성자 정보",
+                            "properties": {
+                              "accountId": { "type": "string" },
+                              "active": { "type": "boolean" },
+                              "displayName": { "type": "string" },
+                              "self": { "type": "string" }
+                            }
+                          },
+                          "body": { "type": "object", "description": "코멘트 본문(ADF)" },
+                          "created": { "type": "string", "description": "생성 일시" },
+                          "id": { "type": "string", "description": "코멘트 ID" },
+                          "self": { "type": "string", "description": "코멘트 URL" },
+                          "updateAuthor": {
+                            "type": "object",
+                            "description": "최종 수정자 정보",
+                            "properties": {
+                              "accountId": { "type": "string" },
+                              "active": { "type": "boolean" },
+                              "displayName": { "type": "string" },
+                              "self": { "type": "string" }
+                            }
+                          },
+                          "updated": { "type": "string", "description": "최종 수정 일시" },
+                          "visibility": {
+                            "type": "object",
+                            "description": "가시성 제한",
+                            "properties": {
+                              "identifier": { "type": "string" },
+                              "type": { "type": "string" },
+                              "value": { "type": "string" }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "isLast": true,
+                  "maxResults": 1048576,
+                  "startAt": 0,
+                  "total": 1,
+                  "values": [
+                    {
+                      "author": {
+                        "accountId": "5b10a2844c20165700ede21g",
+                        "active": false,
+                        "displayName": "Mia Krystof",
+                        "self": "https://your-domain.atlassian.net/rest/api/3/user?accountId=5b10a2844c20165700ede21g"
+                      },
+                      "body": {
+                        "type": "doc",
+                        "version": 1,
+                        "content": [
+                          {
+                            "type": "paragraph",
+                            "content": [
+                              { "type": "text", "text": "Lorem ipsum dolor sit amet..." }
+                            ]
+                          }
+                        ]
+                      },
+                      "created": "2021-01-17T12:34:00.000+0000",
+                      "id": "10000",
+                      "self": "https://your-domain.atlassian.net/rest/api/3/issue/10010/comment/10000",
+                      "updateAuthor": {
+                        "accountId": "5b10a2844c20165700ede21g",
+                        "active": false,
+                        "displayName": "Mia Krystof",
+                        "self": "https://your-domain.atlassian.net/rest/api/3/user?accountId=5b10a2844c20165700ede21g"
+                      },
+                      "updated": "2021-01-18T23:45:00.000+0000",
+                      "visibility": {
+                        "identifier": "Administrators",
+                        "type": "role",
+                        "value": "Administrators"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": { "description": "요청에 1000개를 초과하는 ID가 포함되었거나 `ids`가 비어 있음" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "basicAuth": {
+        "type": "http",
+        "scheme": "basic",
+        "description": "Jira Cloud API 토큰 인증. username=계정 이메일, password=API token (https://id.atlassian.com/manage-profile/security/api-tokens 에서 발급)"
+      },
+      "oauth2": {
+        "type": "oauth2",
+        "description": "Jira Cloud OAuth 2.0 (3LO) Bearer 토큰 인증",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "https://auth.atlassian.com/authorize",
+            "tokenUrl": "https://auth.atlassian.com/oauth/token",
+            "scopes": {
+              "read:jira-work": "Jira 작업 항목 읽기",
+              "write:jira-work": "Jira 작업 항목 쓰기",
+              "manage:jira-webhook": "Jira 웹훅 관리"
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Jira API - _86-time-tracking",
+    "version": "1.0.0",
+    "description": "Jira의 시간 추적(Time Tracking) 제공자 선택 및 시간 추적 옵션(기본 단위, 시간 형식, 주당 근무일/일당 근무시간)을 조회·설정하는 사이트 전역 설정용 API 5개로 구성된 리소스 그룹. 모든 엔드포인트가 'Administer Jira' 글로벌 권한(사이트 전체 관리자)을 요구하여, 교육생(프로젝트 관리자) 권한으로는 호출할 수 없어 summary.md 상에서 전부 제외되었다. 이에 따라 이 문서의 paths는 비어 있다.",
+    "x-excluded-note": "summary.md 기준: 이 리소스 그룹의 5개 API(01~05) 전부가 'Administer Jira' 글로벌 권한 필요로 제외되어, 채택된(우선순위 접두사가 붙은) API가 없음."
+  },
+  "servers": [
+    {
+      "url": "https://{siteName}.atlassian.net",
+      "variables": {
+        "siteName": {
+          "default": "ssafy",
+          "description": "Jira Cloud 사이트 이름 (예: ssafy.atlassian.net)"
+        }
+      }
+    }
+  ],
+  "security": [
+    { "basicAuth": [] },
+    { "oauth2": ["read:jira-work", "write:jira-work"] }
+  ],
+  "paths": {},
+  "components": {
+    "securitySchemes": {
+      "basicAuth": {
+        "type": "http",
+        "scheme": "basic",
+        "description": "Jira Cloud API 토큰 인증. username=계정 이메일, password=API token (https://id.atlassian.com/manage-profile/security/api-tokens 에서 발급)"
+      },
+      "oauth2": {
+        "type": "oauth2",
+        "description": "Jira Cloud OAuth 2.0 (3LO) Bearer 토큰 인증",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "https://auth.atlassian.com/authorize",
+            "tokenUrl": "https://auth.atlassian.com/oauth/token",
+            "scopes": {
+              "read:jira-work": "Jira 작업 항목 읽기",
+              "write:jira-work": "Jira 작업 항목 쓰기",
+              "manage:jira-webhook": "Jira 웹훅 관리"
+            }
+          }
+        }
+      }
+    }
+  }
+}

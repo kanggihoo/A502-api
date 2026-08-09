@@ -1,0 +1,808 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Jira API - _98-workflows",
+    "version": "1.0.0",
+    "description": "Jira의 워크플로우(상태 흐름, 전이 규칙) 자체를 조회·생성·수정·삭제하는 API 모음. 팀 프로젝트 상태를 파악하거나 어떤 프로젝트/이슈타입이 어떤 워크플로우를 쓰는지 확인하는 용도로 주로 사용한다. 사이트 전체 관리자 권한이 필요한 구버전/제한적 API(03, 04)는 제외되었다."
+  },
+  "servers": [
+    {
+      "url": "https://{siteName}.atlassian.net",
+      "variables": {
+        "siteName": {
+          "default": "ssafy",
+          "description": "Jira Cloud 사이트 이름 (예: ssafy.atlassian.net)"
+        }
+      }
+    }
+  ],
+  "security": [
+    { "basicAuth": [] },
+    { "oauth2": ["read:jira-work", "write:jira-work"] }
+  ],
+  "tags": [
+    { "name": "Workflows", "description": "Jira 워크플로우 조회/검색/미리보기 API" }
+  ],
+  "paths": {
+    "/rest/api/3/workflow/{workflowId}/project/{projectId}/issueTypeUsages": {
+      "get": {
+        "summary": "프로젝트 내 워크플로우를 사용하는 이슈 타입 조회",
+        "description": "워크플로우 ID와 프로젝트 ID를 지정하면 해당 프로젝트에서 그 워크플로우가 적용된 이슈 타입들을 반환한다. 프로젝트-워크플로우-이슈타입 매핑을 파악해 대시보드에서 \"이 프로젝트의 이슈 타입별 상태 흐름이 무엇인지\" 보여줄 때 유용하다. 결과는 커서 기반(nextPageToken) 페이지네이션을 사용한다.",
+        "operationId": "getIssueTypeUsagesForWorkflowInProject",
+        "tags": ["Workflows"],
+        "x-priority": "high",
+        "parameters": [
+          {
+            "name": "workflowId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "워크플로우 ID",
+            "example": "fb759d53-a3a4-45ff-9de4-547c4b638dde"
+          },
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" },
+            "description": "프로젝트 ID",
+            "example": "6e2bde9f-f213-4920-95cd-28e015af59a1"
+          },
+          {
+            "name": "nextPageToken",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "페이지네이션 커서",
+            "example": "eyJvIjoyfQ=="
+          },
+          {
+            "name": "maxResults",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 1, "maximum": 200 },
+            "description": "반환할 최대 결과 수 (1~200 사이 정수)",
+            "example": 50
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "요청이 성공적으로 처리됨",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "issueTypes": {
+                      "type": "object",
+                      "properties": {
+                        "nextPageToken": { "type": "string", "description": "다음 페이지 커서" },
+                        "values": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": { "id": { "type": "string" } }
+                          },
+                          "description": "워크플로우를 사용하는 이슈 타입 ID 목록"
+                        }
+                      }
+                    },
+                    "projectId": { "type": "string", "description": "프로젝트 ID" },
+                    "workflowId": { "type": "string", "description": "워크플로우 ID" }
+                  }
+                },
+                "example": {
+                  "issueTypes": {
+                    "nextPageToken": "eyJvIjoyfQ==",
+                    "values": [{ "id": "1000" }]
+                  },
+                  "projectId": "6e2bde9f-f213-4920-95cd-28e015af59a1",
+                  "workflowId": "fb759d53-a3a4-45ff-9de4-547c4b638dde"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "nextPageToken 형식이 잘못된 경우 등 요청이 유효하지 않음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "errorMessages": { "type": "array", "items": { "type": "string" } },
+                    "errors": { "type": "object" }
+                  }
+                },
+                "example": { "errorMessages": ["Invalid format of nextPageToken"], "errors": {} }
+              }
+            }
+          },
+          "401": { "description": "인증 정보 누락/오류, 또는 권한 부족" },
+          "404": { "description": "지정한 workflowId의 워크플로우가 존재하지 않음" }
+        }
+      }
+    },
+    "/rest/api/3/workflow/{workflowId}/projectUsages": {
+      "get": {
+        "summary": "워크플로우를 사용하는 프로젝트 조회",
+        "description": "특정 워크플로우 ID를 기준으로 어떤 프로젝트들이 이 워크플로우를 사용하고 있는지 조회한다. 팀/프로젝트 생성 자동화나 통합 대시보드에서 워크플로우와 프로젝트 간 매핑 정보를 파악할 때 사용한다.",
+        "operationId": "getProjectUsagesForWorkflow",
+        "tags": ["Workflows"],
+        "x-priority": "high",
+        "parameters": [
+          {
+            "name": "workflowId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "워크플로우 ID",
+            "example": "fb759d53-a3a4-45ff-9de4-547c4b638dde"
+          },
+          {
+            "name": "nextPageToken",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "페이지네이션 커서",
+            "example": "eyJvIjoyfQ=="
+          },
+          {
+            "name": "maxResults",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 1, "maximum": 200 },
+            "description": "반환할 최대 결과 수 (1~200 사이 정수)",
+            "example": 50
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "요청이 성공적으로 처리됨",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "projects": {
+                      "type": "object",
+                      "properties": {
+                        "nextPageToken": { "type": "string", "description": "다음 페이지 커서" },
+                        "values": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": { "id": { "type": "string" } }
+                          },
+                          "description": "워크플로우를 사용하는 프로젝트 ID 목록"
+                        }
+                      }
+                    },
+                    "workflowId": { "type": "string", "description": "워크플로우 ID" }
+                  }
+                },
+                "example": {
+                  "projects": {
+                    "nextPageToken": "eyJvIjoyfQ==",
+                    "values": [{ "id": "1003" }]
+                  },
+                  "workflowId": "fb759d53-a3a4-45ff-9de4-547c4b638dde"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "nextPageToken 형식이 잘못된 경우 등 요청이 유효하지 않음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "errorMessages": { "type": "array", "items": { "type": "string" } },
+                    "errors": { "type": "object" }
+                  }
+                },
+                "example": { "errorMessages": ["Invalid format of nextPageToken"], "errors": {} }
+              }
+            }
+          },
+          "401": { "description": "인증 정보 누락/오류, 또는 권한 부족" },
+          "404": { "description": "지정한 workflowId의 워크플로우가 존재하지 않음" }
+        }
+      }
+    },
+    "/rest/api/3/workflow/{workflowId}/workflowSchemes": {
+      "get": {
+        "summary": "워크플로우를 사용하는 워크플로우 스킴 조회",
+        "description": "워크플로우 ID를 기준으로 해당 워크플로우를 참조하는 워크플로우 스킴들을 조회한다. 프로젝트 운영 지원 시 특정 워크플로우 변경이 어느 스킴/프로젝트에 영향을 미치는지 파악하는 데 사용할 수 있다.",
+        "operationId": "getWorkflowSchemeUsagesForWorkflow",
+        "tags": ["Workflows"],
+        "x-priority": "high",
+        "parameters": [
+          {
+            "name": "workflowId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "워크플로우 ID",
+            "example": "fb759d53-a3a4-45ff-9de4-547c4b638dde"
+          },
+          {
+            "name": "nextPageToken",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "페이지네이션 커서",
+            "example": "eyJvIjoyfQ=="
+          },
+          {
+            "name": "maxResults",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 1, "maximum": 200 },
+            "description": "반환할 최대 결과 수 (1~200 사이 정수)",
+            "example": 50
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "요청이 성공적으로 처리됨",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "workflowId": { "type": "string", "description": "워크플로우 ID" },
+                    "workflowSchemes": {
+                      "type": "object",
+                      "properties": {
+                        "nextPageToken": { "type": "string", "description": "다음 페이지 커서" },
+                        "values": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": { "id": { "type": "string" } }
+                          },
+                          "description": "워크플로우를 사용하는 워크플로우 스킴 ID 목록"
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "workflowId": "fb759d53-a3a4-45ff-9de4-547c4b638dde",
+                  "workflowSchemes": {
+                    "nextPageToken": "eyJvIjoyfQ==",
+                    "values": [{ "id": "1000" }]
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "nextPageToken 형식이 잘못된 경우 등 요청이 유효하지 않음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "errorMessages": { "type": "array", "items": { "type": "string" } },
+                    "errors": { "type": "object" }
+                  }
+                },
+                "example": { "errorMessages": ["Invalid format of nextPageToken"], "errors": {} }
+              }
+            }
+          },
+          "401": { "description": "인증 정보 누락/오류, 또는 권한 부족" },
+          "404": { "description": "지정한 workflowId의 워크플로우가 존재하지 않음" }
+        }
+      }
+    },
+    "/rest/api/3/workflows": {
+      "post": {
+        "summary": "워크플로우 일괄 조회",
+        "description": "여러 워크플로우를 한 번에 조회할 수 있는 API로, 워크플로우 이름 배열, 워크플로우 ID 배열, 또는 프로젝트-이슈타입 쌍의 배열 중 원하는 기준으로 질의한다. 통합 대시보드에서 여러 프로젝트의 워크플로우 상태/전이 구조를 한번에 가져올 때 유용하다. 프로젝트 범위 워크플로우는 프로젝트 관리자(또는 읽기 전용 워크플로우 조회) 권한만으로도 접근 가능하다.",
+        "operationId": "bulkGetWorkflows",
+        "tags": ["Workflows"],
+        "x-priority": "high",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "projectAndIssueTypes": {
+                    "type": "array",
+                    "description": "조회할 프로젝트-이슈타입 조합 리스트",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "issueTypeId": { "type": "string", "description": "이슈 타입 ID" },
+                        "projectId": { "type": "string", "description": "프로젝트 ID" }
+                      },
+                      "required": ["issueTypeId", "projectId"]
+                    }
+                  },
+                  "workflowIds": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "조회할 워크플로우 ID 리스트"
+                  },
+                  "workflowNames": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "조회할 워크플로우 이름 리스트"
+                  }
+                },
+                "example": { "workflowNames": ["Workflow 1"] }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "요청이 성공적으로 처리됨",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "statuses": {
+                      "type": "array",
+                      "description": "워크플로우에 포함된 상태 목록",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "description": { "type": "string" },
+                          "id": { "type": "string" },
+                          "name": { "type": "string" },
+                          "scope": {
+                            "type": "object",
+                            "properties": { "type": { "type": "string" } }
+                          },
+                          "statusCategory": { "type": "string" },
+                          "statusReference": { "type": "string" }
+                        }
+                      }
+                    },
+                    "workflows": {
+                      "type": "array",
+                      "description": "조회된 워크플로우 상세(상태, 전이 포함)",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "description": { "type": "string" },
+                          "id": { "type": "string" },
+                          "isEditable": { "type": "boolean" },
+                          "name": { "type": "string" },
+                          "scope": {
+                            "type": "object",
+                            "properties": { "type": { "type": "string" } }
+                          },
+                          "statuses": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "deprecated": { "type": "boolean" },
+                                "statusReference": { "type": "string" }
+                              }
+                            }
+                          },
+                          "transitions": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": { "type": "string" },
+                                "name": { "type": "string" },
+                                "toStatusReference": { "type": "string" },
+                                "type": { "type": "string" }
+                              }
+                            }
+                          },
+                          "version": {
+                            "type": "object",
+                            "properties": {
+                              "id": { "type": "string" },
+                              "versionNumber": { "type": "integer" }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "statuses": [
+                    { "description": "", "id": "10003", "name": "Done", "scope": { "type": "GLOBAL" }, "statusCategory": "DONE", "statusReference": "10003" },
+                    { "description": "", "id": "10001", "name": "To Do", "scope": { "type": "GLOBAL" }, "statusCategory": "TODO", "statusReference": "10001" }
+                  ],
+                  "workflows": [
+                    {
+                      "description": "",
+                      "id": "b9ff2384-d3b6-4d4e-9509-3ee19f607168",
+                      "isEditable": true,
+                      "name": "Workflow 1",
+                      "scope": { "type": "GLOBAL" },
+                      "statuses": [{ "deprecated": false, "statusReference": "10001" }],
+                      "transitions": [{ "id": "1", "name": "Create", "toStatusReference": "10001", "type": "INITIAL" }],
+                      "version": { "id": "f010ac1b-3dd3-43a3-aa66-0ee8a447f76e", "versionNumber": 0 }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": { "description": "요청 본문이 유효하지 않음 (조회 기준(이름/ID/프로젝트-이슈타입)이 올바르지 않음)" },
+          "401": { "description": "인증 정보 누락/오류 또는 권한 부족" }
+        }
+      }
+    },
+    "/rest/api/3/workflows/preview": {
+      "post": {
+        "summary": "워크플로우 미리보기",
+        "description": "프로젝트 ID와 함께 워크플로우 이름/ID/이슈타입 ID 중 하나 이상을 지정하면 해당 워크플로우의 상태·전이 구조를 읽기 전용으로 반환한다. 사이트 전체 관리자 권한이 필요 없고 프로젝트 관리자 또는 읽기 전용 권한만으로 호출 가능해 SSAFY 교육생 계정 환경에 적합하며, 대시보드에서 프로젝트의 이슈 상태 흐름을 시각화할 때 사용하기 좋다.",
+        "operationId": "previewWorkflow",
+        "tags": ["Workflows"],
+        "x-priority": "high",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "projectId": {
+                    "type": "string",
+                    "description": "권한 확인에 사용되는 프로젝트 ID. workflowNames/workflowIds/issueTypeIds 중 최소 하나를 함께 지정해야 함"
+                  },
+                  "issueTypeIds": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "조회할 이슈 타입 ID 목록 (최대 25개)",
+                    "maxItems": 25
+                  },
+                  "workflowIds": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "조회할 워크플로우 ID 목록 (최대 25개)",
+                    "maxItems": 25
+                  },
+                  "workflowNames": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "조회할 워크플로우 이름 목록 (최대 25개)",
+                    "maxItems": 25
+                  }
+                },
+                "required": ["projectId"],
+                "example": {
+                  "projectId": "10000",
+                  "issueTypeIds": ["10001", "10002"]
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "요청이 성공적으로 처리됨",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "statuses": {
+                      "type": "array",
+                      "description": "워크플로우 내 상태 목록 (rawName 포함)",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "description": { "type": "string" },
+                          "id": { "type": "string" },
+                          "name": { "type": "string" },
+                          "rawName": { "type": "string" },
+                          "scope": {
+                            "type": "object",
+                            "properties": { "type": { "type": "string" } }
+                          },
+                          "statusCategory": { "type": "string" },
+                          "statusReference": { "type": "string" }
+                        }
+                      }
+                    },
+                    "workflows": {
+                      "type": "array",
+                      "description": "미리보기 워크플로우 목록(전이 포함, 세부 규칙 생략)",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "description": { "type": "string" },
+                          "id": { "type": "string" },
+                          "name": { "type": "string" },
+                          "queryContext": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "issueTypes": { "type": "array", "items": { "type": "string" } },
+                                "project": { "type": "string" }
+                              }
+                            }
+                          },
+                          "scope": {
+                            "type": "object",
+                            "properties": { "type": { "type": "string" } }
+                          },
+                          "statuses": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "deprecated": { "type": "boolean" },
+                                "statusReference": { "type": "string" }
+                              }
+                            }
+                          },
+                          "transitions": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": { "type": "string" },
+                                "name": { "type": "string" },
+                                "toStatusReference": { "type": "string" },
+                                "type": { "type": "string" }
+                              }
+                            }
+                          },
+                          "version": {
+                            "type": "object",
+                            "properties": {
+                              "id": { "type": "string" },
+                              "versionNumber": { "type": "integer" }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "statuses": [
+                    { "description": "The initial status for tasks", "id": "1", "name": "Zrobic", "rawName": "To Do", "scope": { "type": "GLOBAL" }, "statusCategory": "TODO", "statusReference": "1" }
+                  ],
+                  "workflows": [
+                    {
+                      "description": "A sample workflow for demonstration purposes",
+                      "id": "b9ff2384-d3b6-4d4e-9509-3ee19f607168",
+                      "name": "Sample Workflow",
+                      "queryContext": [{ "issueTypes": ["10001", "10002"], "project": "10000" }],
+                      "scope": { "type": "GLOBAL" },
+                      "statuses": [{ "deprecated": false, "statusReference": "1" }],
+                      "transitions": [{ "id": "1", "name": "Create", "toStatusReference": "1", "type": "INITIAL" }],
+                      "version": { "id": "f010ac1b-3dd3-43a3-aa66-0ee8a447f76e", "versionNumber": 1 }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": { "description": "요청이 유효하지 않음 (조회 기준 누락 등)" },
+          "401": { "description": "인증 정보 누락/오류 또는 권한 부족" },
+          "404": { "description": "하나 이상의 미리보기 대상을 찾을 수 없음" }
+        }
+      }
+    },
+    "/rest/api/3/workflows/search": {
+      "get": {
+        "summary": "워크플로우 검색",
+        "description": "워크플로우 이름으로 부분 일치 검색을 하거나, 이름을 지정하지 않으면 전체 워크플로우를 페이지 단위로 조회한다. 기존 Get workflows paginated(03번, deprecated) API를 대체하는 최신 API이며, projectId로 필터링도 가능해 특정 프로젝트가 쓰는 워크플로우를 찾는 데 사용할 수 있다.",
+        "operationId": "searchWorkflows",
+        "tags": ["Workflows"],
+        "x-priority": "high",
+        "parameters": [
+          {
+            "name": "startAt",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer" },
+            "description": "페이지 오프셋(첫 항목 인덱스)",
+            "example": 0
+          },
+          {
+            "name": "maxResults",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer" },
+            "description": "페이지당 최대 항목 수",
+            "example": 50
+          },
+          {
+            "name": "expand",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "values.transitions 등 추가 정보 포함 옵션 (콤마 구분)",
+            "example": "values.transitions"
+          },
+          {
+            "name": "queryString",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "워크플로우 이름 대소문자 무시 부분 일치 검색어",
+            "example": "SCRUM"
+          },
+          {
+            "name": "orderBy",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "enum": ["name", "created", "updated"] },
+            "description": "정렬 기준: name, created, updated",
+            "example": "updated"
+          },
+          {
+            "name": "scope",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "워크플로우 범위: 전역(Global)/프로젝트(Project)",
+            "example": "PROJECT"
+          },
+          {
+            "name": "isActive",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "boolean" },
+            "description": "활성/비활성 워크플로우 필터",
+            "example": true
+          },
+          {
+            "name": "projectId",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer" },
+            "description": "특정 프로젝트가 사용하는 워크플로우만 필터링",
+            "example": 10000
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "요청이 성공적으로 처리됨",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "isLast": { "type": "boolean", "description": "마지막 페이지 여부" },
+                    "maxResults": { "type": "integer", "description": "페이지당 최대 항목 수" },
+                    "startAt": { "type": "integer", "description": "현재 페이지 오프셋" },
+                    "total": { "type": "integer", "description": "전체 결과 수" },
+                    "self": { "type": "string" },
+                    "nextPage": { "type": "string" },
+                    "statuses": {
+                      "type": "array",
+                      "description": "워크플로우들에 포함된 상태 목록",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "description": { "type": "string" },
+                          "id": { "type": "string" },
+                          "name": { "type": "string" },
+                          "scope": {
+                            "type": "object",
+                            "properties": { "type": { "type": "string" } }
+                          },
+                          "statusCategory": { "type": "string" },
+                          "statusReference": { "type": "string" }
+                        }
+                      }
+                    },
+                    "values": {
+                      "type": "array",
+                      "description": "워크플로우 목록",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "description": { "type": "string" },
+                          "id": { "type": "string" },
+                          "isEditable": { "type": "boolean" },
+                          "name": { "type": "string" },
+                          "scope": {
+                            "type": "object",
+                            "properties": { "type": { "type": "string" } }
+                          },
+                          "statuses": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "deprecated": { "type": "boolean" },
+                                "statusReference": { "type": "string" }
+                              }
+                            }
+                          },
+                          "transitions": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": { "type": "string" },
+                                "name": { "type": "string" },
+                                "toStatusReference": { "type": "string" },
+                                "type": { "type": "string" }
+                              }
+                            }
+                          },
+                          "version": {
+                            "type": "object",
+                            "properties": {
+                              "id": { "type": "string" },
+                              "versionNumber": { "type": "integer" }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "isLast": false,
+                  "maxResults": 50,
+                  "nextPage": "https://your-domain.atlassian.net/rest/api/3/workflows/search?startAt=50",
+                  "self": "https://your-domain.atlassian.net/rest/api/3/workflows/search",
+                  "startAt": 0,
+                  "total": 100,
+                  "statuses": [
+                    { "description": "", "id": "10003", "name": "Done", "scope": { "type": "GLOBAL" }, "statusCategory": "DONE", "statusReference": "10003" }
+                  ],
+                  "values": [
+                    {
+                      "description": "",
+                      "id": "b9ff2384-d3b6-4d4e-9509-3ee19f607168",
+                      "isEditable": true,
+                      "name": "Workflow 1",
+                      "scope": { "type": "GLOBAL" },
+                      "statuses": [{ "deprecated": false, "statusReference": "10002" }],
+                      "transitions": [{ "id": "1", "name": "Create", "toStatusReference": "10001", "type": "INITIAL" }],
+                      "version": { "id": "f010ac1b-3dd3-43a3-aa66-0ee8a447f76e", "versionNumber": 0 }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": { "description": "요청이 유효하지 않음" },
+          "401": { "description": "인증 정보 누락/오류 또는 권한 부족" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "basicAuth": {
+        "type": "http",
+        "scheme": "basic",
+        "description": "Jira Cloud API 토큰 인증. username=계정 이메일, password=API token (https://id.atlassian.com/manage-profile/security/api-tokens 에서 발급)"
+      },
+      "oauth2": {
+        "type": "oauth2",
+        "description": "Jira Cloud OAuth 2.0 (3LO) Bearer 토큰 인증",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "https://auth.atlassian.com/authorize",
+            "tokenUrl": "https://auth.atlassian.com/oauth/token",
+            "scopes": {
+              "read:jira-work": "Jira 작업 항목 읽기",
+              "write:jira-work": "Jira 작업 항목 쓰기",
+              "manage:jira-webhook": "Jira 웹훅 관리"
+            }
+          }
+        }
+      }
+    }
+  }
+}

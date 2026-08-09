@@ -1,0 +1,182 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Jira API - __28-issue-link-types",
+    "version": "1.0.0",
+    "description": "Jira의 이슈 링크 타입(issue link type) — 예: \"Duplicate\", \"Blocks\" 등 이슈 간 연결 관계의 종류 — 을 조회하는 API. 사용하려면 사이트에 issue linking 기능이 활성화되어 있어야 한다. 생성/수정/삭제 API는 \"Administer Jira\" 글로벌 권한이 필요하여 이 스펙에서는 제외되었다."
+  },
+  "servers": [
+    {
+      "url": "https://{siteName}.atlassian.net",
+      "variables": {
+        "siteName": {
+          "default": "ssafy",
+          "description": "Jira Cloud 사이트 이름 (예: ssafy.atlassian.net)"
+        }
+      }
+    }
+  ],
+  "security": [
+    { "basicAuth": [] },
+    { "oauth2": ["read:jira-work", "write:jira-work"] }
+  ],
+  "paths": {
+    "/rest/api/3/issueLinkType": {
+      "get": {
+        "summary": "Get issue link types",
+        "description": "사이트에 설정된 전체 이슈 링크 타입 목록을 반환한다. 각 링크 타입은 이름(name)과 정방향(outward)/역방향(inward) 관계 설명을 포함한다. 이슈 상세 정보나 대시보드에서 링크된 이슈의 관계 종류를 사람이 읽을 수 있는 텍스트로 표시할 때 참조용으로 사용할 수 있다. 사이트에 issue linking 기능이 비활성화되어 있으면 호출할 수 없다.",
+        "operationId": "getIssueLinkTypes",
+        "tags": ["Issue link types"],
+        "x-priority": "medium",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "인증된 사용자로 호출 시 필요 (Basic/Bearer). 이 오퍼레이션은 익명 접근이 허용된다.",
+            "example": "Basic base64(email:api_token)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "요청이 성공한 경우 반환된다.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "issueLinkTypes": {
+                      "type": "array",
+                      "description": "이슈 링크 타입 객체 배열",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string", "description": "링크 타입 ID" },
+                          "name": { "type": "string", "description": "링크 타입 이름" },
+                          "inward": { "type": "string", "description": "역방향 관계 설명" },
+                          "outward": { "type": "string", "description": "정방향 관계 설명" },
+                          "self": { "type": "string", "description": "해당 리소스의 URL" }
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "issueLinkTypes": [
+                    {
+                      "id": "1000",
+                      "inward": "Duplicated by",
+                      "name": "Duplicate",
+                      "outward": "Duplicates",
+                      "self": "https://your-domain.atlassian.net/rest/api/3/issueLinkType/1000"
+                    },
+                    {
+                      "id": "1010",
+                      "inward": "Blocked by",
+                      "name": "Blocks",
+                      "outward": "Blocks",
+                      "self": "https://your-domain.atlassian.net/rest/api/3/issueLinkType/1010"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 정보가 없거나 올바르지 않은 경우 반환된다."
+          },
+          "404": {
+            "description": "사이트에 issue linking 기능이 비활성화된 경우 반환된다."
+          }
+        }
+      }
+    },
+    "/rest/api/3/issueLinkType/{issueLinkTypeId}": {
+      "get": {
+        "summary": "Get issue link type",
+        "description": "특정 이슈 링크 타입의 상세 정보(이름, inward/outward 설명)를 조회한다. 이슈 링크 목록 화면에서 특정 링크 타입 ID에 대한 표시 텍스트를 확인하거나 유효성을 검증할 때 사용할 수 있다. 사이트에 issue linking 기능이 비활성화되어 있으면 호출할 수 없다.",
+        "operationId": "getIssueLinkType",
+        "tags": ["Issue link types"],
+        "x-priority": "medium",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "인증된 사용자로 호출 시 필요 (Basic/Bearer). 이 오퍼레이션은 익명 접근이 허용된다.",
+            "example": "Basic base64(email:api_token)"
+          },
+          {
+            "name": "issueLinkTypeId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "조회할 이슈 링크 타입의 ID",
+            "example": "1000"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "요청이 성공한 경우 반환된다.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string", "description": "링크 타입 ID" },
+                    "name": { "type": "string", "description": "링크 타입 이름" },
+                    "inward": { "type": "string", "description": "역방향 관계 설명" },
+                    "outward": { "type": "string", "description": "정방향 관계 설명" },
+                    "self": { "type": "string", "description": "해당 리소스의 URL" }
+                  }
+                },
+                "example": {
+                  "id": "1000",
+                  "inward": "Duplicated by",
+                  "name": "Duplicate",
+                  "outward": "Duplicates",
+                  "self": "https://your-domain.atlassian.net/rest/api/3/issueLinkType/1000"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "issueLinkTypeId 값이 유효하지 않은 경우 반환된다."
+          },
+          "401": {
+            "description": "인증 정보가 없거나 올바르지 않은 경우 반환된다."
+          },
+          "404": {
+            "description": "issue linking이 비활성화되었거나, 해당 링크 타입이 없거나, 사용자가 필요한 권한을 갖고 있지 않은 경우 반환된다."
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "basicAuth": {
+        "type": "http",
+        "scheme": "basic",
+        "description": "Jira Cloud API 토큰 인증. username=계정 이메일, password=API token (https://id.atlassian.com/manage-profile/security/api-tokens 에서 발급)"
+      },
+      "oauth2": {
+        "type": "oauth2",
+        "description": "Jira Cloud OAuth 2.0 (3LO) Bearer 토큰 인증",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "https://auth.atlassian.com/authorize",
+            "tokenUrl": "https://auth.atlassian.com/oauth/token",
+            "scopes": {
+              "read:jira-work": "Jira 작업 항목 읽기",
+              "write:jira-work": "Jira 작업 항목 쓰기",
+              "manage:jira-webhook": "Jira 웹훅 관리"
+            }
+          }
+        }
+      }
+    }
+  }
+}

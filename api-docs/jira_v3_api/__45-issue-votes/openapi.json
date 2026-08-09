@@ -1,0 +1,247 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Jira API - __45-issue-votes",
+    "version": "1.0.0",
+    "description": "이슈에 대한 사용자 투표(vote)를 다루는 API 리소스 그룹. 이슈의 투표 상세 조회, 투표 등록(Vote), 투표 취소(Unvote) 기능을 제공한다. 모든 API가 프로젝트 단위 권한(Browse projects)만 요구하며, 사이트 전체 관리자 권한이 필요한 API는 없다."
+  },
+  "servers": [
+    {
+      "url": "https://{siteName}.atlassian.net",
+      "variables": {
+        "siteName": {
+          "default": "ssafy",
+          "description": "Jira Cloud 사이트 이름 (예: ssafy.atlassian.net)"
+        }
+      }
+    }
+  ],
+  "security": [
+    { "basicAuth": [] },
+    { "oauth2": ["read:jira-work", "write:jira-work"] }
+  ],
+  "tags": [
+    {
+      "name": "Issue votes",
+      "description": "이슈 투표(vote) 조회 및 등록/취소 API"
+    }
+  ],
+  "paths": {
+    "/rest/api/3/issue/{issueIdOrKey}/votes": {
+      "get": {
+        "summary": "Get votes",
+        "description": "이슈에 대한 투표 현황을 조회하는 API로, 현재 사용자가 투표했는지 여부(hasVoted), 총 투표 수(votes), 투표한 사용자 목록(voters)을 반환한다. Jira 전역 설정에서 \"Allow users to vote on issues\" 옵션이 켜져 있어야 동작한다. 익명으로도 호출할 수 있으나 익명 사용자는 voters 상세 정보를 볼 권한이 없을 수 있다.",
+        "operationId": "getIssueVotes",
+        "tags": ["Issue votes"],
+        "x-priority": "medium",
+        "security": [
+          { "basicAuth": [] },
+          { "oauth2": ["read:jira-work"] },
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "issueIdOrKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "이슈의 ID 또는 키",
+            "example": "MKY-1"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "요청이 성공한 경우 반환됨.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "hasVoted": {
+                      "type": "boolean",
+                      "description": "현재 사용자의 투표 여부"
+                    },
+                    "self": {
+                      "type": "string",
+                      "description": "이 리소스의 API 링크"
+                    },
+                    "votes": {
+                      "type": "integer",
+                      "description": "총 투표 수"
+                    },
+                    "voters": {
+                      "type": "array",
+                      "description": "투표한 사용자 목록 (User 객체 배열). View voters and watchers 권한이 없으면 상세 정보가 채워지지 않을 수 있음",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "accountId": {
+                            "type": "string",
+                            "description": "사용자 계정 ID"
+                          },
+                          "accountType": {
+                            "type": "string",
+                            "description": "사용자 계정 유형"
+                          },
+                          "active": {
+                            "type": "boolean",
+                            "description": "사용자 활성 여부"
+                          },
+                          "avatarUrls": {
+                            "type": "object",
+                            "description": "사용자 아바타 URL 모음",
+                            "properties": {
+                              "16x16": { "type": "string" },
+                              "24x24": { "type": "string" },
+                              "32x32": { "type": "string" },
+                              "48x48": { "type": "string" }
+                            }
+                          },
+                          "displayName": {
+                            "type": "string",
+                            "description": "사용자 표시 이름"
+                          },
+                          "key": {
+                            "type": "string",
+                            "description": "사용자 키 (deprecated)"
+                          },
+                          "name": {
+                            "type": "string",
+                            "description": "사용자 이름 (deprecated)"
+                          },
+                          "self": {
+                            "type": "string",
+                            "description": "사용자 리소스 API 링크"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "hasVoted": true,
+                  "self": "https://your-domain.atlassian.net/rest/api/issue/MKY-1/votes",
+                  "voters": [
+                    {
+                      "accountId": "5b10a2844c20165700ede21g",
+                      "accountType": "atlassian",
+                      "active": false,
+                      "avatarUrls": {
+                        "16x16": "https://avatar-management--avatars.server-location.prod.public.atl-paas.net/initials/MK-5.png?size=16&s=16",
+                        "24x24": "https://avatar-management--avatars.server-location.prod.public.atl-paas.net/initials/MK-5.png?size=24&s=24",
+                        "32x32": "https://avatar-management--avatars.server-location.prod.public.atl-paas.net/initials/MK-5.png?size=32&s=32",
+                        "48x48": "https://avatar-management--avatars.server-location.prod.public.atl-paas.net/initials/MK-5.png?size=48&s=48"
+                      },
+                      "displayName": "Mia Krystof",
+                      "key": "",
+                      "name": "",
+                      "self": "https://your-domain.atlassian.net/rest/api/3/user?accountId=5b10a2844c20165700ede21g"
+                    }
+                  ],
+                  "votes": 24
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 자격 증명이 올바르지 않거나 없는 경우 반환됨."
+          },
+          "404": {
+            "description": "투표 기능이 비활성화된 경우 / 이슈를 볼 권한이 없는 경우 / 이슈를 찾을 수 없는 경우 반환됨."
+          }
+        }
+      },
+      "post": {
+        "summary": "Add vote",
+        "description": "지정한 이슈에 현재 인증된 사용자의 투표를 추가한다. Jira UI의 \"Vote\" 클릭과 동일한 동작이다. Jira 전역 설정에서 \"Allow users to vote on issues\" 옵션이 켜져 있어야 하며, 성공 시 본문 없이 204를 반환한다. 익명 접근은 불가하며 인증된 사용자만 호출 가능하다.",
+        "operationId": "addIssueVote",
+        "tags": ["Issue votes"],
+        "x-priority": "medium",
+        "security": [
+          { "basicAuth": [] },
+          { "oauth2": ["write:jira-work"] }
+        ],
+        "parameters": [
+          {
+            "name": "issueIdOrKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "이슈의 ID 또는 키",
+            "example": "MKY-1"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "요청이 성공한 경우 반환됨. 응답 본문 없음."
+          },
+          "400": {
+            "description": "요청이 유효하지 않은 경우 반환됨."
+          },
+          "401": {
+            "description": "인증 자격 증명이 올바르지 않거나 없는 경우 반환됨."
+          },
+          "404": {
+            "description": "투표 기능이 비활성화된 경우 / 이슈를 찾을 수 없는 경우 반환됨."
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete vote",
+        "description": "지정한 이슈에서 현재 인증된 사용자의 투표를 제거한다. Jira UI의 \"Unvote\" 클릭과 동일한 동작이다. Jira 전역 설정에서 \"Allow users to vote on issues\" 옵션이 켜져 있어야 하며, 성공 시 본문 없이 204를 반환한다. 투표한 적이 없는 이슈에 대해 호출하면 404가 반환된다.",
+        "operationId": "deleteIssueVote",
+        "tags": ["Issue votes"],
+        "x-priority": "medium",
+        "security": [
+          { "basicAuth": [] },
+          { "oauth2": ["write:jira-work"] }
+        ],
+        "parameters": [
+          {
+            "name": "issueIdOrKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "이슈의 ID 또는 키",
+            "example": "MKY-1"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "요청이 성공한 경우 반환됨. 응답 본문 없음."
+          },
+          "401": {
+            "description": "인증 자격 증명이 올바르지 않거나 없는 경우 반환됨."
+          },
+          "404": {
+            "description": "투표 기능이 비활성화된 경우 / 사용자가 해당 이슈에 투표한 적이 없는 경우 / 이슈를 찾을 수 없는 경우 반환됨."
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "basicAuth": {
+        "type": "http",
+        "scheme": "basic",
+        "description": "Jira Cloud API 토큰 인증. username=계정 이메일, password=API token (https://id.atlassian.com/manage-profile/security/api-tokens 에서 발급)"
+      },
+      "oauth2": {
+        "type": "oauth2",
+        "description": "Jira Cloud OAuth 2.0 (3LO) Bearer 토큰 인증",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "https://auth.atlassian.com/authorize",
+            "tokenUrl": "https://auth.atlassian.com/oauth/token",
+            "scopes": {
+              "read:jira-work": "Jira 작업 항목 읽기",
+              "write:jira-work": "Jira 작업 항목 쓰기",
+              "manage:jira-webhook": "Jira 웹훅 관리"
+            }
+          }
+        }
+      }
+    }
+  }
+}

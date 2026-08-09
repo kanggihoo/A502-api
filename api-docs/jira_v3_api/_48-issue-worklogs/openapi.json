@@ -1,0 +1,2528 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Jira API - _48-issue-worklogs",
+    "version": "1.0.0",
+    "description": "Jira 이슈의 워클로그(작업 시간 기록)를 조회·생성·수정·삭제하고, 변경/삭제된 워클로그 ID 목록을 동기화하는 API 모음. 모든 엔드포인트는 프로젝트 권한 수준에서 사용 가능하며 사이트 전체 시스템 관리자 권한을 요구하지 않는다."
+  },
+  "servers": [
+    {
+      "url": "https://{siteName}.atlassian.net",
+      "variables": {
+        "siteName": {
+          "default": "ssafy",
+          "description": "Jira Cloud 사이트 이름 (예: ssafy.atlassian.net)"
+        }
+      }
+    }
+  ],
+  "security": [
+    {
+      "basicAuth": []
+    },
+    {
+      "oauth2": [
+        "read:jira-work",
+        "write:jira-work"
+      ]
+    }
+  ],
+  "tags": [
+    {
+      "name": "Issue worklogs",
+      "description": "이슈 워클로그(작업 시간 기록) 조회/생성/수정/삭제 및 동기화 API"
+    }
+  ],
+  "paths": {
+    "/rest/api/3/issue/{issueIdOrKey}/worklog": {
+      "get": {
+        "summary": "Get issue worklogs",
+        "description": "이슈에 기록된 워클로그들을 페이지네이션으로 조회하며, 특정 시작일 이후/이전의 워클로그만 필터링할 수 있다. Jira에서 시간 추적(Time tracking) 기능이 꺼져 있으면 오류가 반환된다. 통합 대시보드에서 이슈별 작업 시간 현황을 보여줄 때 핵심적으로 쓰인다.",
+        "operationId": "getIssueWorklogs",
+        "tags": [
+          "Issue worklogs"
+        ],
+        "x-priority": "high",
+        "parameters": [
+          {
+            "name": "issueIdOrKey",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "이슈의 ID 또는 키",
+            "example": "10010"
+          },
+          {
+            "name": "startAt",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0
+            },
+            "description": "반환할 첫 항목의 페이지 오프셋",
+            "example": 0
+          },
+          {
+            "name": "maxResults",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "페이지당 최대 반환 개수",
+            "example": 50
+          },
+          {
+            "name": "startedAfter",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "description": "이 시각(UNIX ms) 이후 시작된 워클로그만 반환",
+            "example": 1610000000000
+          },
+          {
+            "name": "startedBefore",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "description": "이 시각(UNIX ms) 이전 시작된 워클로그만 반환",
+            "example": 1620000000000
+          },
+          {
+            "name": "expand",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "`properties` 지정 시 워클로그 속성 포함",
+            "example": "properties"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "워클로그 목록 조회 성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "maxResults": {
+                      "type": "integer",
+                      "example": 1
+                    },
+                    "startAt": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "total": {
+                      "type": "integer",
+                      "example": 1
+                    },
+                    "worklogs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "description": "워클로그 ID",
+                            "example": "100028"
+                          },
+                          "issueId": {
+                            "type": "string",
+                            "description": "워클로그가 속한 이슈 ID",
+                            "example": "10002"
+                          },
+                          "self": {
+                            "type": "string",
+                            "description": "워클로그 리소스 URL"
+                          },
+                          "author": {
+                            "type": "object",
+                            "properties": {
+                              "accountId": {
+                                "type": "string",
+                                "description": "사용자 계정 ID"
+                              },
+                              "active": {
+                                "type": "boolean",
+                                "description": "활성 사용자 여부"
+                              },
+                              "displayName": {
+                                "type": "string",
+                                "description": "표시 이름"
+                              },
+                              "self": {
+                                "type": "string",
+                                "description": "사용자 리소스 URL"
+                              }
+                            }
+                          },
+                          "updateAuthor": {
+                            "type": "object",
+                            "properties": {
+                              "accountId": {
+                                "type": "string",
+                                "description": "사용자 계정 ID"
+                              },
+                              "active": {
+                                "type": "boolean",
+                                "description": "활성 사용자 여부"
+                              },
+                              "displayName": {
+                                "type": "string",
+                                "description": "표시 이름"
+                              },
+                              "self": {
+                                "type": "string",
+                                "description": "사용자 리소스 URL"
+                              }
+                            }
+                          },
+                          "comment": {
+                            "type": "object",
+                            "description": "Atlassian Document Format(ADF) 형식의 코멘트",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "example": "doc"
+                              },
+                              "version": {
+                                "type": "integer",
+                                "example": 1
+                              },
+                              "content": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object"
+                                }
+                              }
+                            }
+                          },
+                          "started": {
+                            "type": "string",
+                            "format": "date-time",
+                            "description": "작업 시작 일시",
+                            "example": "2021-01-17T12:34:00.000+0000"
+                          },
+                          "updated": {
+                            "type": "string",
+                            "format": "date-time",
+                            "description": "마지막 수정 시각",
+                            "example": "2021-01-18T23:45:00.000+0000"
+                          },
+                          "timeSpent": {
+                            "type": "string",
+                            "description": "소요 시간 문자열 (일/시간/분)",
+                            "example": "3h 20m"
+                          },
+                          "timeSpentSeconds": {
+                            "type": "integer",
+                            "description": "소요 시간(초)",
+                            "example": 12000
+                          },
+                          "visibility": {
+                            "type": "object",
+                            "description": "워클로그 공개 범위 제한",
+                            "properties": {
+                              "identifier": {
+                                "type": "string",
+                                "description": "그룹/역할 식별자"
+                              },
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "group",
+                                  "role"
+                                ],
+                                "description": "제한 유형"
+                              },
+                              "value": {
+                                "type": "string",
+                                "description": "그룹명 또는 역할명"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "maxResults": 1,
+                  "startAt": 0,
+                  "total": 1,
+                  "worklogs": [
+                    {
+                      "author": {
+                        "accountId": "5b10a2844c20165700ede21g",
+                        "active": false,
+                        "displayName": "Mia Krystof",
+                        "self": "https://your-domain.atlassian.net/rest/api/3/user?accountId=5b10a2844c20165700ede21g"
+                      },
+                      "comment": {
+                        "type": "doc",
+                        "version": 1,
+                        "content": [
+                          {
+                            "type": "paragraph",
+                            "content": [
+                              {
+                                "type": "text",
+                                "text": "I did some work here."
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      "id": "100028",
+                      "issueId": "10002",
+                      "self": "https://your-domain.atlassian.net/rest/api/3/issue/10010/worklog/10000",
+                      "started": "2021-01-17T12:34:00.000+0000",
+                      "timeSpent": "3h 20m",
+                      "timeSpentSeconds": 12000,
+                      "updateAuthor": {
+                        "accountId": "5b10a2844c20165700ede21g",
+                        "active": false,
+                        "displayName": "Mia Krystof",
+                        "self": "https://your-domain.atlassian.net/rest/api/3/user?accountId=5b10a2844c20165700ede21g"
+                      },
+                      "updated": "2021-01-18T23:45:00.000+0000",
+                      "visibility": {
+                        "identifier": "276f955c-63d7-42c8-9520-92d01dca0625",
+                        "type": "group",
+                        "value": "jira-developers"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 정보가 없거나 잘못됨",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "errorMessages": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "errors": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "이슈를 찾을 수 없음 / 열람 권한 없음 / startAt·maxResults가 숫자가 아님 / 시간 추적 비활성화",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "errorMessages": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "errors": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Add worklog",
+        "description": "이슈에 작업 시간과 코멘트를 기록하는 워클로그를 생성한다. timeSpent 또는 timeSpentSeconds 중 하나가 필수이며 adjustEstimate 쿼리 파라미터로 잔여 예상 시간을 함께 조정할 수 있다. 프로젝트 운영 지원(작업 시간 기록 자동화)의 핵심 API다.",
+        "operationId": "addWorklog",
+        "tags": [
+          "Issue worklogs"
+        ],
+        "x-priority": "high",
+        "parameters": [
+          {
+            "name": "issueIdOrKey",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "이슈의 ID 또는 키",
+            "example": "10010"
+          },
+          {
+            "name": "notifyUsers",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "이슈를 watch 중인 사용자에게 이메일 알림 여부",
+            "example": true
+          },
+          {
+            "name": "adjustEstimate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "new",
+                "leave",
+                "manual",
+                "auto"
+              ]
+            },
+            "description": "예상 시간 조정 방식",
+            "example": "auto"
+          },
+          {
+            "name": "newEstimate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "adjustEstimate=new일 때 필수, 새 예상 시간",
+            "example": "2d"
+          },
+          {
+            "name": "reduceBy",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "adjustEstimate=manual일 때 필수, 감소시킬 양",
+            "example": "2d"
+          },
+          {
+            "name": "expand",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "`properties` 지정 시 워클로그 속성 포함",
+            "example": "properties"
+          },
+          {
+            "name": "overrideEditableFlag",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "description": "이슈가 편집 불가 상태여도 강제로 워클로그 추가 (Connect/Forge 앱 + Administer Jira 권한 필요)",
+            "example": false
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [],
+                "properties": {
+                  "started": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "작업 시작 일시",
+                    "example": "2021-01-17T12:34:00.000+0000"
+                  },
+                  "timeSpent": {
+                    "type": "string",
+                    "description": "소요 시간 (timeSpentSeconds와 동시 사용 불가)",
+                    "example": "3h 20m"
+                  },
+                  "timeSpentSeconds": {
+                    "type": "integer",
+                    "description": "소요 시간(초) (timeSpent와 동시 사용 불가)",
+                    "example": 12000
+                  },
+                  "comment": {
+                    "type": "object",
+                    "description": "Atlassian Document Format(ADF) 형식의 코멘트",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "example": "doc"
+                      },
+                      "version": {
+                        "type": "integer",
+                        "example": 1
+                      },
+                      "content": {
+                        "type": "array",
+                        "items": {
+                          "type": "object"
+                        }
+                      }
+                    }
+                  },
+                  "visibility": {
+                    "type": "object",
+                    "description": "워클로그 공개 범위 제한",
+                    "properties": {
+                      "identifier": {
+                        "type": "string",
+                        "description": "그룹/역할 식별자"
+                      },
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "group",
+                          "role"
+                        ],
+                        "description": "제한 유형"
+                      },
+                      "value": {
+                        "type": "string",
+                        "description": "그룹명 또는 역할명"
+                      }
+                    }
+                  },
+                  "properties": {
+                    "type": "array",
+                    "description": "워클로그 커스텀 속성",
+                    "items": {
+                      "type": "object"
+                    },
+                    "example": []
+                  }
+                },
+                "example": {
+                  "comment": {
+                    "type": "doc",
+                    "version": 1,
+                    "content": [
+                      {
+                        "type": "paragraph",
+                        "content": [
+                          {
+                            "type": "text",
+                            "text": "I did some work here."
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  "started": "2021-01-17T12:34:00.000+0000",
+                  "timeSpent": "3h 20m",
+                  "visibility": {
+                    "identifier": "276f955c-63d7-42c8-9520-92d01dca0625",
+                    "type": "group",
+                    "value": "jira-developers"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "워클로그 생성 성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "워클로그 ID",
+                      "example": "100028"
+                    },
+                    "issueId": {
+                      "type": "string",
+                      "description": "워클로그가 속한 이슈 ID",
+                      "example": "10002"
+                    },
+                    "self": {
+                      "type": "string",
+                      "description": "워클로그 리소스 URL"
+                    },
+                    "author": {
+                      "type": "object",
+                      "properties": {
+                        "accountId": {
+                          "type": "string",
+                          "description": "사용자 계정 ID"
+                        },
+                        "active": {
+                          "type": "boolean",
+                          "description": "활성 사용자 여부"
+                        },
+                        "displayName": {
+                          "type": "string",
+                          "description": "표시 이름"
+                        },
+                        "self": {
+                          "type": "string",
+                          "description": "사용자 리소스 URL"
+                        }
+                      }
+                    },
+                    "updateAuthor": {
+                      "type": "object",
+                      "properties": {
+                        "accountId": {
+                          "type": "string",
+                          "description": "사용자 계정 ID"
+                        },
+                        "active": {
+                          "type": "boolean",
+                          "description": "활성 사용자 여부"
+                        },
+                        "displayName": {
+                          "type": "string",
+                          "description": "표시 이름"
+                        },
+                        "self": {
+                          "type": "string",
+                          "description": "사용자 리소스 URL"
+                        }
+                      }
+                    },
+                    "comment": {
+                      "type": "object",
+                      "description": "Atlassian Document Format(ADF) 형식의 코멘트",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "example": "doc"
+                        },
+                        "version": {
+                          "type": "integer",
+                          "example": 1
+                        },
+                        "content": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        }
+                      }
+                    },
+                    "started": {
+                      "type": "string",
+                      "format": "date-time",
+                      "description": "작업 시작 일시",
+                      "example": "2021-01-17T12:34:00.000+0000"
+                    },
+                    "updated": {
+                      "type": "string",
+                      "format": "date-time",
+                      "description": "마지막 수정 시각",
+                      "example": "2021-01-18T23:45:00.000+0000"
+                    },
+                    "timeSpent": {
+                      "type": "string",
+                      "description": "소요 시간 문자열 (일/시간/분)",
+                      "example": "3h 20m"
+                    },
+                    "timeSpentSeconds": {
+                      "type": "integer",
+                      "description": "소요 시간(초)",
+                      "example": 12000
+                    },
+                    "visibility": {
+                      "type": "object",
+                      "description": "워클로그 공개 범위 제한",
+                      "properties": {
+                        "identifier": {
+                          "type": "string",
+                          "description": "그룹/역할 식별자"
+                        },
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "group",
+                            "role"
+                          ],
+                          "description": "제한 유형"
+                        },
+                        "value": {
+                          "type": "string",
+                          "description": "그룹명 또는 역할명"
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "author": {
+                    "accountId": "5b10a2844c20165700ede21g",
+                    "active": false,
+                    "displayName": "Mia Krystof",
+                    "self": "https://your-domain.atlassian.net/rest/api/3/user?accountId=5b10a2844c20165700ede21g"
+                  },
+                  "comment": {
+                    "type": "doc",
+                    "version": 1,
+                    "content": [
+                      {
+                        "type": "paragraph",
+                        "content": [
+                          {
+                            "type": "text",
+                            "text": "I did some work here."
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  "id": "100028",
+                  "issueId": "10002",
+                  "self": "https://your-domain.atlassian.net/rest/api/3/issue/10010/worklog/10000",
+                  "started": "2021-01-17T12:34:00.000+0000",
+                  "timeSpent": "3h 20m",
+                  "timeSpentSeconds": 12000,
+                  "updateAuthor": {
+                    "accountId": "5b10a2844c20165700ede21g",
+                    "active": false,
+                    "displayName": "Mia Krystof",
+                    "self": "https://your-domain.atlassian.net/rest/api/3/user?accountId=5b10a2844c20165700ede21g"
+                  },
+                  "updated": "2021-01-18T23:45:00.000+0000",
+                  "visibility": {
+                    "identifier": "276f955c-63d7-42c8-9520-92d01dca0625",
+                    "type": "group",
+                    "value": "jira-developers"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "adjustEstimate=new인데 newEstimate 누락/오류, adjustEstimate=manual인데 reduceBy 누락/오류, 권한 없음, JSON 형식 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "errorMessages": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "errors": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 정보 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "errorMessages": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "errors": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "이슈를 찾을 수 없음 / 열람 권한 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "errorMessages": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "errors": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "이슈당 워클로그/첨부파일 개수 제한 초과",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "errorMessages": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "errors": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Bulk delete worklogs",
+        "description": "실험적(experimental) API로 한 번에 최대 5000개까지 워클로그를 삭제할 수 있다. 삭제된 워클로그에 대한 알림은 발송되지 않는다. 대량 정리 작업에 유용하지만 팀 생성/알림/일상 CRUD 핵심 흐름은 아니다.",
+        "operationId": "bulkDeleteWorklogs",
+        "tags": [
+          "Issue worklogs"
+        ],
+        "x-priority": "medium",
+        "parameters": [
+          {
+            "name": "issueIdOrKey",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "이슈의 ID 또는 키",
+            "example": "10010"
+          },
+          {
+            "name": "adjustEstimate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "leave",
+                "auto"
+              ]
+            },
+            "description": "예상 시간 조정 방식",
+            "example": "auto"
+          },
+          {
+            "name": "overrideEditableFlag",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "description": "이슈 편집 불가 상태여도 강제 삭제 (admin 권한 필요)",
+            "example": false
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "ids"
+                ],
+                "properties": {
+                  "ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "description": "삭제할 워클로그 ID 목록 (최대 5000개)",
+                    "example": [
+                      100028,
+                      100029
+                    ]
+                  }
+                },
+                "example": {
+                  "ids": [
+                    100028,
+                    100029
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "부분 성공 (일부만 삭제됨). 응답 메시지로 실패 항목 확인",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "errorMessages": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "errors": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "전체 성공 시 본문 없이 204 반환"
+          },
+          "400": {
+            "description": "request 누락/유효하지 않음, 권한 없음, 삭제 개수 제한 초과",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "errorMessages": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "errors": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 정보 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "errorMessages": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "errors": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "이슈 없음/열람 권한 없음, 워클로그가 해당 이슈 소속 아님, 시간 추적 비활성화",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "errorMessages": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "errors": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rest/api/3/issue/{issueIdOrKey}/worklog/{id}": {
+      "get": {
+        "summary": "Get worklog",
+        "description": "워클로그 ID로 단건 상세 정보를 조회한다. 알림/대시보드에서 특정 워클로그 원문 링크를 보여주거나 상세 내용을 드릴다운할 때 사용한다.",
+        "operationId": "getWorklog",
+        "tags": [
+          "Issue worklogs"
+        ],
+        "x-priority": "high",
+        "parameters": [
+          {
+            "name": "issueIdOrKey",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "이슈의 ID 또는 키",
+            "example": "10010"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "워클로그 ID",
+            "example": "100028"
+          },
+          {
+            "name": "expand",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "`properties` 지정 시 워클로그 속성 포함",
+            "example": "properties"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "워클로그 조회 성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "워클로그 ID",
+                      "example": "100028"
+                    },
+                    "issueId": {
+                      "type": "string",
+                      "description": "워클로그가 속한 이슈 ID",
+                      "example": "10002"
+                    },
+                    "self": {
+                      "type": "string",
+                      "description": "워클로그 리소스 URL"
+                    },
+                    "author": {
+                      "type": "object",
+                      "properties": {
+                        "accountId": {
+                          "type": "string",
+                          "description": "사용자 계정 ID"
+                        },
+                        "active": {
+                          "type": "boolean",
+                          "description": "활성 사용자 여부"
+                        },
+                        "displayName": {
+                          "type": "string",
+                          "description": "표시 이름"
+                        },
+                        "self": {
+                          "type": "string",
+                          "description": "사용자 리소스 URL"
+                        }
+                      }
+                    },
+                    "updateAuthor": {
+                      "type": "object",
+                      "properties": {
+                        "accountId": {
+                          "type": "string",
+                          "description": "사용자 계정 ID"
+                        },
+                        "active": {
+                          "type": "boolean",
+                          "description": "활성 사용자 여부"
+                        },
+                        "displayName": {
+                          "type": "string",
+                          "description": "표시 이름"
+                        },
+                        "self": {
+                          "type": "string",
+                          "description": "사용자 리소스 URL"
+                        }
+                      }
+                    },
+                    "comment": {
+                      "type": "object",
+                      "description": "Atlassian Document Format(ADF) 형식의 코멘트",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "example": "doc"
+                        },
+                        "version": {
+                          "type": "integer",
+                          "example": 1
+                        },
+                        "content": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        }
+                      }
+                    },
+                    "started": {
+                      "type": "string",
+                      "format": "date-time",
+                      "description": "작업 시작 일시",
+                      "example": "2021-01-17T12:34:00.000+0000"
+                    },
+                    "updated": {
+                      "type": "string",
+                      "format": "date-time",
+                      "description": "마지막 수정 시각",
+                      "example": "2021-01-18T23:45:00.000+0000"
+                    },
+                    "timeSpent": {
+                      "type": "string",
+                      "description": "소요 시간 문자열 (일/시간/분)",
+                      "example": "3h 20m"
+                    },
+                    "timeSpentSeconds": {
+                      "type": "integer",
+                      "description": "소요 시간(초)",
+                      "example": 12000
+                    },
+                    "visibility": {
+                      "type": "object",
+                      "description": "워클로그 공개 범위 제한",
+                      "properties": {
+                        "identifier": {
+                          "type": "string",
+                          "description": "그룹/역할 식별자"
+                        },
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "group",
+                            "role"
+                          ],
+                          "description": "제한 유형"
+                        },
+                        "value": {
+                          "type": "string",
+                          "description": "그룹명 또는 역할명"
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "author": {
+                    "accountId": "5b10a2844c20165700ede21g",
+                    "active": false,
+                    "displayName": "Mia Krystof",
+                    "self": "https://your-domain.atlassian.net/rest/api/3/user?accountId=5b10a2844c20165700ede21g"
+                  },
+                  "comment": {
+                    "type": "doc",
+                    "version": 1,
+                    "content": [
+                      {
+                        "type": "paragraph",
+                        "content": [
+                          {
+                            "type": "text",
+                            "text": "I did some work here."
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  "id": "100028",
+                  "issueId": "10002",
+                  "self": "https://your-domain.atlassian.net/rest/api/3/issue/10010/worklog/10000",
+                  "started": "2021-01-17T12:34:00.000+0000",
+                  "timeSpent": "3h 20m",
+                  "timeSpentSeconds": 12000,
+                  "updateAuthor": {
+                    "accountId": "5b10a2844c20165700ede21g",
+                    "active": false,
+                    "displayName": "Mia Krystof",
+                    "self": "https://your-domain.atlassian.net/rest/api/3/user?accountId=5b10a2844c20165700ede21g"
+                  },
+                  "updated": "2021-01-18T23:45:00.000+0000",
+                  "visibility": {
+                    "identifier": "276f955c-63d7-42c8-9520-92d01dca0625",
+                    "type": "group",
+                    "value": "jira-developers"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 정보 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "errorMessages": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "errors": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "이슈/워클로그를 찾을 수 없음 또는 열람 권한 없음, 시간 추적 비활성화",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "errorMessages": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "errors": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Update worklog",
+        "description": "워클로그의 시작 시각, 소요 시간, 코멘트 등을 갱신한다. adjustEstimate=auto 사용 시 기존 값과 변경 값의 차이만큼 이슈의 잔여 예상 시간이 자동 조정된다.",
+        "operationId": "updateWorklog",
+        "tags": [
+          "Issue worklogs"
+        ],
+        "x-priority": "high",
+        "parameters": [
+          {
+            "name": "issueIdOrKey",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "이슈의 ID 또는 키",
+            "example": "10010"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "워클로그 ID",
+            "example": "100028"
+          },
+          {
+            "name": "notifyUsers",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "watch 사용자 이메일 알림 여부",
+            "example": true
+          },
+          {
+            "name": "adjustEstimate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "new",
+                "leave",
+                "auto"
+              ]
+            },
+            "description": "예상 시간 조정 방식",
+            "example": "auto"
+          },
+          {
+            "name": "newEstimate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "adjustEstimate=new일 때 필수",
+            "example": "2d"
+          },
+          {
+            "name": "expand",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "`properties` 지정 시 워클로그 속성 포함",
+            "example": "properties"
+          },
+          {
+            "name": "overrideEditableFlag",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "description": "이슈 편집 불가 상태여도 강제 수정 (Connect/Forge + Administer Jira 권한 필요)",
+            "example": false
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "started": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "작업 시작 일시",
+                    "example": "2021-01-17T12:34:00.000+0000"
+                  },
+                  "timeSpent": {
+                    "type": "string",
+                    "description": "소요 시간 (timeSpentSeconds와 동시 사용 불가)",
+                    "example": "3h 20m"
+                  },
+                  "timeSpentSeconds": {
+                    "type": "integer",
+                    "description": "소요 시간(초) (timeSpent와 동시 사용 불가)",
+                    "example": 12000
+                  },
+                  "comment": {
+                    "type": "object",
+                    "description": "Atlassian Document Format(ADF) 형식의 코멘트",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "example": "doc"
+                      },
+                      "version": {
+                        "type": "integer",
+                        "example": 1
+                      },
+                      "content": {
+                        "type": "array",
+                        "items": {
+                          "type": "object"
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "comment": {
+                    "type": "doc",
+                    "version": 1,
+                    "content": [
+                      {
+                        "type": "paragraph",
+                        "content": [
+                          {
+                            "type": "text",
+                            "text": "I did some work here."
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  "started": "2021-01-17T12:34:00.000+0000",
+                  "timeSpent": "3h 20m"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "워클로그 수정 성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "워클로그 ID",
+                      "example": "100028"
+                    },
+                    "issueId": {
+                      "type": "string",
+                      "description": "워클로그가 속한 이슈 ID",
+                      "example": "10002"
+                    },
+                    "self": {
+                      "type": "string",
+                      "description": "워클로그 리소스 URL"
+                    },
+                    "author": {
+                      "type": "object",
+                      "properties": {
+                        "accountId": {
+                          "type": "string",
+                          "description": "사용자 계정 ID"
+                        },
+                        "active": {
+                          "type": "boolean",
+                          "description": "활성 사용자 여부"
+                        },
+                        "displayName": {
+                          "type": "string",
+                          "description": "표시 이름"
+                        },
+                        "self": {
+                          "type": "string",
+                          "description": "사용자 리소스 URL"
+                        }
+                      }
+                    },
+                    "updateAuthor": {
+                      "type": "object",
+                      "properties": {
+                        "accountId": {
+                          "type": "string",
+                          "description": "사용자 계정 ID"
+                        },
+                        "active": {
+                          "type": "boolean",
+                          "description": "활성 사용자 여부"
+                        },
+                        "displayName": {
+                          "type": "string",
+                          "description": "표시 이름"
+                        },
+                        "self": {
+                          "type": "string",
+                          "description": "사용자 리소스 URL"
+                        }
+                      }
+                    },
+                    "comment": {
+                      "type": "object",
+                      "description": "Atlassian Document Format(ADF) 형식의 코멘트",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "example": "doc"
+                        },
+                        "version": {
+                          "type": "integer",
+                          "example": 1
+                        },
+                        "content": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        }
+                      }
+                    },
+                    "started": {
+                      "type": "string",
+                      "format": "date-time",
+                      "description": "작업 시작 일시",
+                      "example": "2021-01-17T12:34:00.000+0000"
+                    },
+                    "updated": {
+                      "type": "string",
+                      "format": "date-time",
+                      "description": "마지막 수정 시각",
+                      "example": "2021-01-18T23:45:00.000+0000"
+                    },
+                    "timeSpent": {
+                      "type": "string",
+                      "description": "소요 시간 문자열 (일/시간/분)",
+                      "example": "3h 20m"
+                    },
+                    "timeSpentSeconds": {
+                      "type": "integer",
+                      "description": "소요 시간(초)",
+                      "example": 12000
+                    },
+                    "visibility": {
+                      "type": "object",
+                      "description": "워클로그 공개 범위 제한",
+                      "properties": {
+                        "identifier": {
+                          "type": "string",
+                          "description": "그룹/역할 식별자"
+                        },
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "group",
+                            "role"
+                          ],
+                          "description": "제한 유형"
+                        },
+                        "value": {
+                          "type": "string",
+                          "description": "그룹명 또는 역할명"
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "author": {
+                    "accountId": "5b10a2844c20165700ede21g",
+                    "active": false,
+                    "displayName": "Mia Krystof",
+                    "self": "https://your-domain.atlassian.net/rest/api/3/user?accountId=5b10a2844c20165700ede21g"
+                  },
+                  "comment": {
+                    "type": "doc",
+                    "version": 1,
+                    "content": [
+                      {
+                        "type": "paragraph",
+                        "content": [
+                          {
+                            "type": "text",
+                            "text": "I did some work here."
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  "id": "100028",
+                  "issueId": "10002",
+                  "self": "https://your-domain.atlassian.net/rest/api/3/issue/10010/worklog/10000",
+                  "started": "2021-01-17T12:34:00.000+0000",
+                  "timeSpent": "3h 20m",
+                  "timeSpentSeconds": 12000,
+                  "updateAuthor": {
+                    "accountId": "5b10a2844c20165700ede21g",
+                    "active": false,
+                    "displayName": "Mia Krystof",
+                    "self": "https://your-domain.atlassian.net/rest/api/3/user?accountId=5b10a2844c20165700ede21g"
+                  },
+                  "updated": "2021-01-18T23:45:00.000+0000",
+                  "visibility": {
+                    "identifier": "276f955c-63d7-42c8-9520-92d01dca0625",
+                    "type": "group",
+                    "value": "jira-developers"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "adjustEstimate=new인데 newEstimate 누락/오류, 권한 없음, JSON 형식 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "errorMessages": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "errors": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 정보 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "errorMessages": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "errors": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "이슈/워클로그 없음 또는 열람 권한 없음, 시간 추적 비활성화",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "errorMessages": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "errors": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete worklog",
+        "description": "지정한 워클로그를 이슈에서 제거한다. adjustEstimate 옵션으로 삭제 시 이슈의 잔여 예상 시간을 함께 조정할 수 있다.",
+        "operationId": "deleteWorklog",
+        "tags": [
+          "Issue worklogs"
+        ],
+        "x-priority": "high",
+        "parameters": [
+          {
+            "name": "issueIdOrKey",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "이슈의 ID 또는 키",
+            "example": "10010"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "워클로그 ID",
+            "example": "100028"
+          },
+          {
+            "name": "notifyUsers",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "watch 사용자 이메일 알림 여부",
+            "example": true
+          },
+          {
+            "name": "adjustEstimate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "new",
+                "leave",
+                "manual",
+                "auto"
+              ]
+            },
+            "description": "예상 시간 조정 방식",
+            "example": "auto"
+          },
+          {
+            "name": "newEstimate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "adjustEstimate=new일 때 필수",
+            "example": "2d"
+          },
+          {
+            "name": "increaseBy",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "adjustEstimate=manual일 때 필수, 증가시킬 양",
+            "example": "2d"
+          },
+          {
+            "name": "overrideEditableFlag",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "description": "이슈 편집 불가 상태여도 강제 삭제 (admin 권한 필요)",
+            "example": false
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "삭제 성공 시 본문 없이 204를 반환한다."
+          },
+          "400": {
+            "description": "adjustEstimate=new인데 newEstimate 누락/오류, adjustEstimate=manual인데 reduceBy 누락/오류, 권한 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "errorMessages": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "errors": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 정보 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "errorMessages": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "errors": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "이슈/워클로그 없음 또는 열람 권한 없음, 시간 추적 비활성화",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "errorMessages": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "errors": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rest/api/3/issue/{issueIdOrKey}/worklog/move": {
+      "post": {
+        "summary": "Bulk move worklogs",
+        "description": "실험적(experimental) API로 최대 5000개까지 워클로그를 이동할 수 있다. 첨부파일이 포함되거나 프로젝트 역할로 제한된 워클로그는 이동할 수 없으며, 알림/webhook/이슈 히스토리가 기록되지 않는다. 이슈 재구성 시 보조적으로 쓰인다.",
+        "operationId": "bulkMoveWorklogs",
+        "tags": [
+          "Issue worklogs"
+        ],
+        "x-priority": "medium",
+        "parameters": [
+          {
+            "name": "issueIdOrKey",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "원본(소스) 이슈의 ID 또는 키",
+            "example": "10010"
+          },
+          {
+            "name": "adjustEstimate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "leave",
+                "auto"
+              ]
+            },
+            "description": "예상 시간 조정 방식",
+            "example": "auto"
+          },
+          {
+            "name": "overrideEditableFlag",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "description": "이슈 편집 불가 상태여도 강제 이동 (admin 권한 필요)",
+            "example": false
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "description": "이동할 워클로그 ID 목록 (최대 5000개)",
+                    "example": [
+                      100028,
+                      100029
+                    ]
+                  },
+                  "issueIdOrKey": {
+                    "type": "string",
+                    "description": "이동 대상(목적지) 이슈의 ID 또는 키",
+                    "example": "10011"
+                  }
+                },
+                "example": {
+                  "ids": [
+                    100028,
+                    100029
+                  ],
+                  "issueIdOrKey": "10011"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "부분 성공. 응답 메시지 확인",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "errorMessages": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "errors": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "전체 성공 시 본문 없이 204 반환"
+          },
+          "400": {
+            "description": "request 누락/유효하지 않음, 권한 없음, 이동 개수/크기 제한 초과, 첨부파일 포함",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "errorMessages": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "errors": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 정보 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "errorMessages": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "errors": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "원본/대상 이슈 없음 또는 열람 권한 없음, 워클로그가 원본 이슈 소속 아님, 시간 추적 비활성화",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "errorMessages": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "errors": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rest/api/3/worklog/deleted": {
+      "get": {
+        "summary": "Get IDs of deleted worklogs",
+        "description": "사이트 전체에서 삭제된 워클로그를 폴링 방식으로 동기화할 때 사용한다. 페이지당 최대 1000개이며 nextPage로 다음 페이지를 가져오고 lastPage가 true면 마지막 페이지다. 요청 직전 1분 이내 삭제된 항목은 반환되지 않는다. 외부 시스템과의 워클로그 동기화/캐시 무효화에 보조적으로 쓰인다.",
+        "operationId": "getIdsOfDeletedWorklogs",
+        "tags": [
+          "Issue worklogs"
+        ],
+        "x-priority": "medium",
+        "parameters": [
+          {
+            "name": "since",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "description": "이 시각(UNIX ms) 이후 삭제된 워클로그만 반환",
+            "example": 1438013671562
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "삭제된 워클로그 ID 목록 조회 성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "lastPage": {
+                      "type": "boolean",
+                      "description": "마지막 페이지 여부",
+                      "example": true
+                    },
+                    "nextPage": {
+                      "type": "string",
+                      "description": "다음 페이지 URL"
+                    },
+                    "self": {
+                      "type": "string",
+                      "description": "현재 페이지 URL"
+                    },
+                    "since": {
+                      "type": "integer",
+                      "description": "조회 시작 시각(UNIX ms)",
+                      "example": 1438013671562
+                    },
+                    "until": {
+                      "type": "integer",
+                      "description": "페이지 내 최신 항목 시각(UNIX ms)",
+                      "example": 1438013693136
+                    },
+                    "values": {
+                      "type": "array",
+                      "description": "삭제된 워클로그 목록",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "worklogId": {
+                            "type": "integer",
+                            "description": "워클로그 ID",
+                            "example": 103
+                          },
+                          "updatedTime": {
+                            "type": "integer",
+                            "description": "갱신/삭제 시각(UNIX ms)",
+                            "example": 1438013671562
+                          },
+                          "properties": {
+                            "type": "array",
+                            "items": {
+                              "type": "object"
+                            },
+                            "example": []
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "lastPage": true,
+                  "nextPage": "https://your-domain.atlassian.net/api/~ver~/worklog/deleted?since=1438013693136",
+                  "self": "https://your-domain.atlassian.net/api/~ver~/worklog/deleted?since=1438013671562",
+                  "since": 1438013671562,
+                  "until": 1438013693136,
+                  "values": [
+                    {
+                      "properties": [],
+                      "updatedTime": 1438013671562,
+                      "worklogId": 103
+                    },
+                    {
+                      "properties": [],
+                      "updatedTime": 1438013672165,
+                      "worklogId": 104
+                    },
+                    {
+                      "properties": [],
+                      "updatedTime": 1438013693136,
+                      "worklogId": 105
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 정보가 없거나 잘못됨",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "errorMessages": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "errors": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rest/api/3/worklog/list": {
+      "post": {
+        "summary": "Get worklogs",
+        "description": "여러 워클로그를 개별 조회 없이 ID 배열로 일괄 조회할 수 있다. 최대 1000개까지 반환되며, Get IDs of deleted/updated worklogs로 얻은 ID 목록의 상세 정보를 가져올 때 함께 사용하면 유용하다.",
+        "operationId": "getWorklogsByIds",
+        "tags": [
+          "Issue worklogs"
+        ],
+        "x-priority": "medium",
+        "parameters": [
+          {
+            "name": "expand",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "`properties` 지정 시 각 워클로그의 속성 포함",
+            "example": "properties"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "ids"
+                ],
+                "properties": {
+                  "ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "description": "조회할 워클로그 ID 목록 (최대 1000개)",
+                    "example": [
+                      100028
+                    ]
+                  }
+                },
+                "example": {
+                  "ids": [
+                    100028
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "워클로그 목록 조회 성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "description": "워클로그 ID",
+                        "example": "100028"
+                      },
+                      "issueId": {
+                        "type": "string",
+                        "description": "워클로그가 속한 이슈 ID",
+                        "example": "10002"
+                      },
+                      "self": {
+                        "type": "string",
+                        "description": "워클로그 리소스 URL"
+                      },
+                      "author": {
+                        "type": "object",
+                        "properties": {
+                          "accountId": {
+                            "type": "string",
+                            "description": "사용자 계정 ID"
+                          },
+                          "active": {
+                            "type": "boolean",
+                            "description": "활성 사용자 여부"
+                          },
+                          "displayName": {
+                            "type": "string",
+                            "description": "표시 이름"
+                          },
+                          "self": {
+                            "type": "string",
+                            "description": "사용자 리소스 URL"
+                          }
+                        }
+                      },
+                      "updateAuthor": {
+                        "type": "object",
+                        "properties": {
+                          "accountId": {
+                            "type": "string",
+                            "description": "사용자 계정 ID"
+                          },
+                          "active": {
+                            "type": "boolean",
+                            "description": "활성 사용자 여부"
+                          },
+                          "displayName": {
+                            "type": "string",
+                            "description": "표시 이름"
+                          },
+                          "self": {
+                            "type": "string",
+                            "description": "사용자 리소스 URL"
+                          }
+                        }
+                      },
+                      "comment": {
+                        "type": "object",
+                        "description": "Atlassian Document Format(ADF) 형식의 코멘트",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "example": "doc"
+                          },
+                          "version": {
+                            "type": "integer",
+                            "example": 1
+                          },
+                          "content": {
+                            "type": "array",
+                            "items": {
+                              "type": "object"
+                            }
+                          }
+                        }
+                      },
+                      "started": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "작업 시작 일시",
+                        "example": "2021-01-17T12:34:00.000+0000"
+                      },
+                      "updated": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "마지막 수정 시각",
+                        "example": "2021-01-18T23:45:00.000+0000"
+                      },
+                      "timeSpent": {
+                        "type": "string",
+                        "description": "소요 시간 문자열 (일/시간/분)",
+                        "example": "3h 20m"
+                      },
+                      "timeSpentSeconds": {
+                        "type": "integer",
+                        "description": "소요 시간(초)",
+                        "example": 12000
+                      },
+                      "visibility": {
+                        "type": "object",
+                        "description": "워클로그 공개 범위 제한",
+                        "properties": {
+                          "identifier": {
+                            "type": "string",
+                            "description": "그룹/역할 식별자"
+                          },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "group",
+                              "role"
+                            ],
+                            "description": "제한 유형"
+                          },
+                          "value": {
+                            "type": "string",
+                            "description": "그룹명 또는 역할명"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": [
+                  {
+                    "author": {
+                      "accountId": "5b10a2844c20165700ede21g",
+                      "active": false,
+                      "displayName": "Mia Krystof",
+                      "self": "https://your-domain.atlassian.net/rest/api/3/user?accountId=5b10a2844c20165700ede21g"
+                    },
+                    "comment": {
+                      "type": "doc",
+                      "version": 1,
+                      "content": [
+                        {
+                          "type": "paragraph",
+                          "content": [
+                            {
+                              "type": "text",
+                              "text": "I did some work here."
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    "id": "100028",
+                    "issueId": "10002",
+                    "self": "https://your-domain.atlassian.net/rest/api/3/issue/10010/worklog/10000",
+                    "started": "2021-01-17T12:34:00.000+0000",
+                    "timeSpent": "3h 20m",
+                    "timeSpentSeconds": 12000,
+                    "updateAuthor": {
+                      "accountId": "5b10a2844c20165700ede21g",
+                      "active": false,
+                      "displayName": "Mia Krystof",
+                      "self": "https://your-domain.atlassian.net/rest/api/3/user?accountId=5b10a2844c20165700ede21g"
+                    },
+                    "updated": "2021-01-18T23:45:00.000+0000",
+                    "visibility": {
+                      "identifier": "276f955c-63d7-42c8-9520-92d01dca0625",
+                      "type": "group",
+                      "value": "jira-developers"
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "400": {
+            "description": "요청에 워클로그 ID가 1000개 초과 또는 비어 있음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "errorMessages": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "errors": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 정보가 없거나 잘못됨",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "errorMessages": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "errors": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rest/api/3/worklog/updated": {
+      "get": {
+        "summary": "Get IDs of updated worklogs",
+        "description": "사이트 전체에서 변경된 워클로그를 폴링 방식으로 동기화할 때 사용한다. 페이지당 최대 1000개이며 nextPage/lastPage로 페이지네이션을 처리한다. 요청 직전 1분 이내 업데이트된 항목은 반환되지 않는다. 변경분을 Get worklogs와 조합해 상세를 가져오는 흐름으로 자주 쓰인다.",
+        "operationId": "getIdsOfUpdatedWorklogs",
+        "tags": [
+          "Issue worklogs"
+        ],
+        "x-priority": "medium",
+        "parameters": [
+          {
+            "name": "since",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "description": "이 시각(UNIX ms) 이후 업데이트된 워클로그만 반환",
+            "example": 1438013671562
+          },
+          {
+            "name": "expand",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "`properties` 지정 시 각 워클로그의 속성 포함",
+            "example": "properties"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "업데이트된 워클로그 ID 목록 조회 성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "lastPage": {
+                      "type": "boolean",
+                      "description": "마지막 페이지 여부",
+                      "example": true
+                    },
+                    "nextPage": {
+                      "type": "string",
+                      "description": "다음 페이지 URL"
+                    },
+                    "self": {
+                      "type": "string",
+                      "description": "현재 페이지 URL"
+                    },
+                    "since": {
+                      "type": "integer",
+                      "description": "조회 시작 시각(UNIX ms)",
+                      "example": 1438013671562
+                    },
+                    "until": {
+                      "type": "integer",
+                      "description": "페이지 내 최신 항목 시각(UNIX ms)",
+                      "example": 1438013693136
+                    },
+                    "values": {
+                      "type": "array",
+                      "description": "업데이트된 워클로그 목록",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "worklogId": {
+                            "type": "integer",
+                            "description": "워클로그 ID",
+                            "example": 103
+                          },
+                          "updatedTime": {
+                            "type": "integer",
+                            "description": "갱신/삭제 시각(UNIX ms)",
+                            "example": 1438013671562
+                          },
+                          "properties": {
+                            "type": "array",
+                            "items": {
+                              "type": "object"
+                            },
+                            "example": []
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "lastPage": true,
+                  "nextPage": "https://your-domain.atlassian.net/api/~ver~/worklog/deleted?since=1438013693136",
+                  "self": "https://your-domain.atlassian.net/api/~ver~/worklog/deleted?since=1438013671562",
+                  "since": 1438013671562,
+                  "until": 1438013693136,
+                  "values": [
+                    {
+                      "properties": [],
+                      "updatedTime": 1438013671562,
+                      "worklogId": 103
+                    },
+                    {
+                      "properties": [],
+                      "updatedTime": 1438013672165,
+                      "worklogId": 104
+                    },
+                    {
+                      "properties": [],
+                      "updatedTime": 1438013693136,
+                      "worklogId": 105
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 정보가 없거나 잘못됨",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "errorMessages": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "errors": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "basicAuth": {
+        "type": "http",
+        "scheme": "basic",
+        "description": "Jira Cloud API 토큰 인증. username=계정 이메일, password=API token (https://id.atlassian.com/manage-profile/security/api-tokens 에서 발급)"
+      },
+      "oauth2": {
+        "type": "oauth2",
+        "description": "Jira Cloud OAuth 2.0 (3LO) Bearer 토큰 인증",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "https://auth.atlassian.com/authorize",
+            "tokenUrl": "https://auth.atlassian.com/oauth/token",
+            "scopes": {
+              "read:jira-work": "Jira 작업 항목 읽기",
+              "write:jira-work": "Jira 작업 항목 쓰기",
+              "manage:jira-webhook": "Jira 웹훅 관리"
+            }
+          }
+        }
+      }
+    }
+  }
+}

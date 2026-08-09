@@ -1,0 +1,296 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Jira API - _46-issue-watchers",
+    "version": "1.0.0",
+    "description": "Jira 이슈를 워칭(watching)하는 사용자를 다루는 API 모음. 이슈의 워처 목록 조회, 워처 추가/삭제, 여러 이슈에 대한 현재 사용자의 워칭 여부 일괄 조회 기능을 제공한다. 이 그룹의 모든 API는 프로젝트 단위 권한(Browse projects, Manage watcher list, View voters and watchers)만 요구한다."
+  },
+  "servers": [
+    {
+      "url": "https://{siteName}.atlassian.net",
+      "variables": {
+        "siteName": {
+          "default": "ssafy",
+          "description": "Jira Cloud 사이트 이름 (예: ssafy.atlassian.net)"
+        }
+      }
+    }
+  ],
+  "security": [
+    { "basicAuth": [] },
+    { "oauth2": ["read:jira-work", "write:jira-work"] }
+  ],
+  "tags": [
+    { "name": "Issue watchers", "description": "이슈 워처(watcher) 관련 API" }
+  ],
+  "paths": {
+    "/rest/api/3/issue/{issueIdOrKey}/watchers": {
+      "get": {
+        "summary": "Get issue watchers",
+        "description": "이슈에 대해 현재 워칭 중인 사용자 목록과 총 워치 수를 반환한다. Jira 관리 화면의 \"Allow users to watch issues\" 옵션이 켜져 있어야 동작한다. 통합 대시보드에서 이슈별 관심 인원(워처)을 표시하거나 알림 대상을 파악하는 데 사용할 수 있다. 이 엔드포인트 자체는 익명 접근도 가능하다.",
+        "operationId": "getIssueWatchers",
+        "tags": ["Issue watchers"],
+        "x-priority": "high",
+        "parameters": [
+          {
+            "name": "issueIdOrKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "이슈의 ID 또는 키",
+            "example": "EX-1"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "요청이 성공한 경우 반환된다.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "isWatching": {
+                      "type": "boolean",
+                      "description": "현재 요청 사용자가 해당 이슈를 워칭 중인지 여부"
+                    },
+                    "self": {
+                      "type": "string",
+                      "description": "이 리소스의 API 링크"
+                    },
+                    "watchCount": {
+                      "type": "integer",
+                      "description": "워처 총 수"
+                    },
+                    "watchers": {
+                      "type": "array",
+                      "description": "워처 사용자 목록",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "accountId": {
+                            "type": "string",
+                            "description": "사용자의 계정 ID"
+                          },
+                          "active": {
+                            "type": "boolean",
+                            "description": "사용자 활성화 여부"
+                          },
+                          "displayName": {
+                            "type": "string",
+                            "description": "사용자 표시 이름"
+                          },
+                          "self": {
+                            "type": "string",
+                            "description": "사용자 리소스 API 링크"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "isWatching": false,
+                  "self": "https://your-domain.atlassian.net/rest/api/3/issue/EX-1/watchers",
+                  "watchCount": 1,
+                  "watchers": [
+                    {
+                      "accountId": "5b10a2844c20165700ede21g",
+                      "active": false,
+                      "displayName": "Mia Krystof",
+                      "self": "https://your-domain.atlassian.net/rest/api/3/user?accountId=5b10a2844c20165700ede21g"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 정보가 올바르지 않거나 없음"
+          },
+          "404": {
+            "description": "이슈를 찾을 수 없거나 열람 권한이 없음"
+          }
+        }
+      },
+      "post": {
+        "summary": "Add watcher",
+        "description": "계정 ID(accountId)를 전달하여 해당 사용자를 이슈의 워처로 등록한다. 사용자를 지정하지 않으면 호출한 사용자 자신이 워처로 추가된다. \"Allow users to watch issues\" 옵션이 켜져 있어야 동작한다. 팀 생성/온보딩 자동화 시 팀원을 관련 이슈의 워처로 자동 등록하는 데 활용 가능하다.",
+        "operationId": "addWatcher",
+        "tags": ["Issue watchers"],
+        "x-priority": "high",
+        "parameters": [
+          {
+            "name": "issueIdOrKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "이슈의 ID 또는 키",
+            "example": "EX-1"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "워처로 추가할 사용자의 accountId 문자열 (JSON 문자열 그대로 전달)",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "string",
+                "description": "워처로 추가할 사용자의 accountId"
+              },
+              "example": "5b10ac8d82e05b22cc7d4ef5"
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "요청이 성공한 경우 반환된다. 본문 없음."
+          },
+          "400": {
+            "description": "요청이 유효하지 않음"
+          },
+          "401": {
+            "description": "인증 정보가 올바르지 않거나 없음"
+          },
+          "403": {
+            "description": "워처 목록을 관리할 권한이 없음"
+          },
+          "404": {
+            "description": "이슈나 사용자를 찾을 수 없거나 이슈를 열람할 권한이 없음"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete watcher",
+        "description": "계정 ID로 지정한 사용자를 이슈 워처 목록에서 제거한다. `username` 쿼리 파라미터는 더 이상 사용되지 않으며(deprecated), `accountId`가 필수적으로 요구된다.",
+        "operationId": "deleteWatcher",
+        "tags": ["Issue watchers"],
+        "x-priority": "medium",
+        "parameters": [
+          {
+            "name": "issueIdOrKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "이슈의 ID 또는 키",
+            "example": "EX-1"
+          },
+          {
+            "name": "username",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "더 이상 사용되지 않는 파라미터(사용자 프라이버시 API 마이그레이션으로 폐기됨). 사용하지 말 것."
+          },
+          {
+            "name": "accountId",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "워처에서 제거할 사용자의 계정 ID. 사실상 필수 파라미터.",
+            "example": "5b10ac8d82e05b22cc7d4ef5"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "요청이 성공한 경우 반환된다. 본문 없음."
+          },
+          "400": {
+            "description": "accountId가 제공되지 않음"
+          },
+          "401": {
+            "description": "인증 정보가 올바르지 않거나 없음"
+          },
+          "403": {
+            "description": "워처 목록을 관리할 권한이 없음"
+          },
+          "404": {
+            "description": "이슈나 사용자를 찾을 수 없거나 이슈를 열람할 권한이 없음"
+          }
+        }
+      }
+    },
+    "/rest/api/3/issue/watching": {
+      "post": {
+        "summary": "Get is watching issue bulk",
+        "description": "이슈 ID 목록을 받아 각 이슈에 대한 현재 사용자의 워칭 여부(true/false)를 한 번에 반환한다. 유효하지 않은 이슈 ID는 `false`로 처리된다. \"Allow users to watch issues\" 옵션이 켜져 있어야 동작한다.",
+        "operationId": "getIsWatchingIssueBulk",
+        "tags": ["Issue watchers"],
+        "x-priority": "medium",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["issueIds"],
+                "properties": {
+                  "issueIds": {
+                    "type": "array",
+                    "description": "조회할 이슈 ID 목록",
+                    "items": { "type": "string" }
+                  }
+                }
+              },
+              "example": {
+                "issueIds": ["10001", "10002", "10005"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "요청이 성공한 경우 반환된다.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "issuesIsWatching": {
+                      "type": "object",
+                      "description": "이슈 ID를 키로, 워칭 여부(boolean)를 값으로 하는 맵",
+                      "additionalProperties": { "type": "boolean" }
+                    }
+                  }
+                },
+                "example": {
+                  "issuesIsWatching": {
+                    "10001": true,
+                    "10002": false,
+                    "10005": true
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 정보가 올바르지 않거나 없음"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "basicAuth": {
+        "type": "http",
+        "scheme": "basic",
+        "description": "Jira Cloud API 토큰 인증. username=계정 이메일, password=API token (https://id.atlassian.com/manage-profile/security/api-tokens 에서 발급)"
+      },
+      "oauth2": {
+        "type": "oauth2",
+        "description": "Jira Cloud OAuth 2.0 (3LO) Bearer 토큰 인증",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "https://auth.atlassian.com/authorize",
+            "tokenUrl": "https://auth.atlassian.com/oauth/token",
+            "scopes": {
+              "read:jira-work": "Jira 작업 항목 읽기",
+              "write:jira-work": "Jira 작업 항목 쓰기",
+              "manage:jira-webhook": "Jira 웹훅 관리"
+            }
+          }
+        }
+      }
+    }
+  }
+}
