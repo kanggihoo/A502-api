@@ -3,7 +3,7 @@
   "info": {
     "title": "Jira API - _91-webhooks",
     "version": "1.0.0",
-    "description": "Jira의 \"동적 웹훅(dynamic webhooks)\"을 등록/조회/삭제/연장하는 API 모음. 특정 이슈에 대해 JQL 필터로 지정한 조건이 만족될 때 지정된 URL로 이벤트를 전송받도록 설정하는 기능이며, Connect 앱 또는 OAuth 2.0 앱만 호출할 수 있다."
+    "description": "Jira Cloud 동적 웹훅(dynamic webhook) API. 앱이 자기 명의로 웹훅을 등록·조회·갱신·삭제하고, 전달 실패 내역을 확인한다.\n\n**포함 기준**: 01~05 (총 5건 — 디렉토리 전체).\n\n**🚨 이 그룹에서 가장 먼저 알아야 할 것 — API 토큰으로는 호출할 수 없다**\n\n다섯 엔드포인트 **모두** \"Only **Connect** and **OAuth 2.0** apps can use this operation\"을 명시한다. 즉:\n\n- ❌ **basic auth(계정 이메일 + API 토큰)로 호출하면 403** 이다\n- ✅ SSAGY를 **OAuth 2.0 (3LO) 앱으로 등록**하고 그 앱의 액세스 토큰으로 호출해야 한다\n- 04번(실패 웹훅 조회)은 더 엄격해 **Connect 앱만** 가능하다 — OAuth 앱도 403\n\n**SSAGY가 Jira 이벤트를 실시간으로 받으려면 OAuth 앱 등록이 선행 조건**이라는 뜻이다. 이것이 어렵다면 대안은 다음 두 가지다.\n1. Jira 관리 화면에서 **관리자가 직접 웹훅을 등록**(이 API를 쓰지 않음)\n2. `_38-issue-search` 의 JQL 검색을 주기적으로 폴링\n\n**⚠️ 두 번째로 중요한 것 — 웹훅은 30일 후 만료된다**\nREST API로 등록한 웹훅은 **30일 뒤 자동 만료**된다. 05번(`/webhook/refresh`)을 주기적으로 호출해 연장하지 않으면 **알림이 조용히 끊긴다.** SSAGY에 30일보다 짧은 주기의 갱신 크론을 반드시 두어야 한다 — 이 그룹에서 가장 놓치기 쉬운 운영 함정이다.\n\n**기타 제약**\n- **앱당 URL 하나만** 등록 가능하며, 그 URL은 Connect 앱과 **같은 base URL**을 써야 한다.\n- 비공개 OAuth 앱의 경우, **앱 소유자와 웹훅 등록자가 일치할 때만** 웹훅이 전달된다.\n- `jqlFilter` 는 **JQL의 일부 문법만** 지원한다 — 필드는 `issueKey`, `project`, `issuetype`, `status`, `assignee`, `reporter`, `issue.property`, `cf[id]`(에픽 라벨 커스텀 필드만), 연산자는 `=`, `!=`, `IN`, `NOT IN` 뿐이다.\n- 다른 앱이 만든 웹훅 ID를 지정하면 **오류가 아니라 조용히 무시**된다(03번, 05번).\n\n**연동 활용**\n등록 가능하다면 AGENTS.md의 \"통합 알림\" 가설을 폴링 없이 구현할 수 있다. `jqlFilter` 로 팀 프로젝트만 걸러 받으면 불필요한 이벤트도 줄어든다.\n\n**x-priority 의미**: SSAGY(통합 워크스페이스) 관점의 연동 우선순위."
   },
   "servers": [
     {
@@ -17,168 +17,38 @@
     }
   ],
   "security": [
-    { "basicAuth": [] },
-    { "oauth2": ["read:jira-work", "write:jira-work"] }
+    { "oauth2": ["read:jira-work", "write:jira-work", "manage:jira-webhook"] }
   ],
-  "tags": [
-    { "name": "Webhooks", "description": "Jira 동적 웹훅 등록/조회/삭제/연장 API" }
-  ],
+  "tags": [{ "name": "Webhooks", "description": "동적 웹훅 등록·조회·갱신·삭제 (Connect/OAuth 2.0 앱 전용)" }],
   "paths": {
     "/rest/api/3/webhook": {
       "get": {
-        "summary": "앱의 동적 웹훅 목록 조회",
-        "description": "현재 우리 앱이 Jira에 등록해 둔 웹훅 목록(이벤트 종류, JQL 필터, 대상 URL, 만료일 등)을 확인할 때 사용한다. 통합 알림/대시보드 기능에서 웹훅 설정 상태를 점검하거나, 팀 생성 자동화 시 이미 등록된 웹훅과 중복 여부를 확인하는 용도로 쓸 수 있다. 결과는 페이지 단위로 반환된다.",
+        "summary": "01. Get dynamic webhooks for app — 앱이 등록한 웹훅 목록 조회",
+        "description": "호출한 앱이 등록한 웹훅 목록을 페이지 단위로 조회한다.\n\n**🚨 Connect 또는 OAuth 2.0 앱만 호출 가능** — API 토큰(basic auth)으로 호출하면 **403**이다.\n\n**05번 갱신 크론에서 이 API로 대상 ID를 수집한다.** 응답의 `expirationDate` 를 확인해 만료가 임박한 웹훅을 골라 갱신하는 흐름이 안전하다.\n\n다른 앱이 등록한 웹훅은 반환되지 않는다.",
         "operationId": "getDynamicWebhooksForApp",
         "tags": ["Webhooks"],
         "x-priority": "high",
-        "security": [
-          { "oauth2": ["read:jira-work", "manage:jira-webhook"] }
-        ],
+        "x-permissions": "**Connect 또는 OAuth 2.0 앱만 사용 가능.** 일반 사용자 계정의 API 토큰으로는 403.",
         "parameters": [
-          {
-            "name": "startAt",
-            "in": "query",
-            "required": false,
-            "schema": { "type": "integer" },
-            "description": "반환할 결과 페이지의 시작 인덱스(오프셋)",
-            "example": 0
-          },
-          {
-            "name": "maxResults",
-            "in": "query",
-            "required": false,
-            "schema": { "type": "integer" },
-            "description": "페이지당 최대 반환 개수",
-            "example": 3
-          }
+          { "name": "startAt", "in": "query", "required": false, "schema": { "type": "integer", "format": "int64", "default": 0 }, "description": "결과 페이지에서 반환을 시작할 항목의 인덱스(페이지 오프셋)" },
+          { "name": "maxResults", "in": "query", "required": false, "schema": { "type": "integer", "default": 100 }, "description": "페이지당 반환할 최대 항목 수" }
         ],
         "responses": {
           "200": {
-            "description": "요청이 성공한 경우, 앱이 등록한 웹훅 목록을 페이지네이션하여 반환",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "isLast": { "type": "boolean", "description": "마지막 페이지 여부" },
-                    "maxResults": { "type": "integer", "description": "페이지당 최대 개수" },
-                    "startAt": { "type": "integer", "description": "시작 인덱스" },
-                    "total": { "type": "integer", "description": "전체 웹훅 개수" },
-                    "values": {
-                      "type": "array",
-                      "description": "웹훅 객체 목록",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": { "type": "integer", "description": "웹훅 ID" },
-                          "events": {
-                            "type": "array",
-                            "items": { "type": "string" },
-                            "description": "웹훅을 트리거하는 이벤트 목록"
-                          },
-                          "jqlFilter": { "type": "string", "description": "대상 이슈를 지정하는 JQL 필터" },
-                          "url": { "type": "string", "description": "웹훅을 전송할 URL" },
-                          "expirationDate": { "type": "string", "description": "웹훅 만료일(ISO 8601)" },
-                          "fieldIdsFilter": {
-                            "type": "array",
-                            "items": { "type": "string" },
-                            "description": "지정한 필드 변경 시에만 jira:issue_updated 전송"
-                          },
-                          "issuePropertyKeysFilter": {
-                            "type": "array",
-                            "items": { "type": "string" },
-                            "description": "지정한 이슈 속성 키 변경 시에만 issue_property_set/issue_property_deleted 전송"
-                          }
-                        }
-                      }
-                    }
-                  }
-                },
-                "example": {
-                  "isLast": true,
-                  "maxResults": 3,
-                  "startAt": 0,
-                  "total": 3,
-                  "values": [
-                    {
-                      "events": ["jira:issue_updated", "jira:issue_created"],
-                      "expirationDate": "2019-06-01T12:42:30.000+0000",
-                      "fieldIdsFilter": ["summary", "customfield_10029"],
-                      "id": 10000,
-                      "jqlFilter": "project = PRJ",
-                      "url": "https://your-app.example.com/webhook-received"
-                    },
-                    {
-                      "events": ["jira:issue_created"],
-                      "expirationDate": "2019-06-01T12:42:30.000+0000",
-                      "id": 10001,
-                      "jqlFilter": "issuetype = Bug",
-                      "url": "https://your-app.example.com/webhook-received"
-                    },
-                    {
-                      "events": ["issue_property_set"],
-                      "expirationDate": "2019-06-01T12:42:30.000+0000",
-                      "id": 10002,
-                      "issuePropertyKeysFilter": ["my-issue-property-key"],
-                      "jqlFilter": "project = PRJ",
-                      "url": "https://your-app.example.com/webhook-received"
-                    }
-                  ]
-                }
-              }
-            }
+            "description": "요청이 성공한 경우 반환됨",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PageBeanWebhook" } } }
           },
-          "400": {
-            "description": "요청 파라미터가 잘못된 경우",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "errorMessages": { "type": "array", "items": { "type": "string" } },
-                    "errors": { "type": "object" },
-                    "status": { "type": "integer" }
-                  }
-                },
-                "example": {
-                  "errorMessages": ["input parameter 'key' must be provided"],
-                  "errors": {},
-                  "status": 400
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "호출자가 앱(Connect/OAuth 2.0)이 아닌 경우",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "errorMessages": { "type": "array", "items": { "type": "string" } },
-                    "errors": { "type": "object" },
-                    "status": { "type": "integer" }
-                  }
-                },
-                "example": {
-                  "errorMessages": ["input parameter 'key' must be provided"],
-                  "errors": {},
-                  "status": 403
-                }
-              }
-            }
-          }
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/NotAnApp" }
         }
       },
       "post": {
-        "summary": "동적 웹훅 등록",
-        "description": "팀 생성 자동화 시 프로젝트별로 이슈 생성/수정, 코멘트 작성 등의 이벤트를 감지하기 위한 웹훅을 등록하는 핵심 API다. JQL 필터로 대상 이슈 범위를 제한할 수 있어 프로젝트 단위로 알림을 분리할 수 있다. non-public OAuth 앱의 경우 앱 소유자와 웹훅을 등록한 사용자가 일치해야 실제로 전달된다는 제약이 있다.",
+        "summary": "02. Register dynamic webhooks — 웹훅 등록",
+        "description": "웹훅을 등록한다. **SSAGY가 Jira 이벤트를 실시간으로 받는 진입점**이다.\n\n**🚨 Connect 또는 OAuth 2.0 앱만 호출 가능** — API 토큰으로는 403.\n\n**⚠️ 등록 즉시 30일 만료 시계가 돈다.** 05번으로 주기적으로 연장하지 않으면 알림이 조용히 끊긴다.\n\n**제약 요약**\n- **앱당 URL 하나만** 등록 가능하며, Connect 앱과 **같은 base URL**이어야 한다\n- 비공개 OAuth 앱은 **앱 소유자와 등록자가 일치**해야 전달된다\n- `jqlFilter` 는 **필수**이며 지원 문법이 제한적이다(아래 참고)\n\n**`jqlFilter` 지원 범위 — 일반 JQL과 다르다**\n- 필드: `issueKey`, `project`, `issuetype`, `status`, `assignee`, `reporter`, `issue.property`, `cf[id]`(**에픽 라벨 커스텀 필드만**)\n- 연산자: `=`, `!=`, `IN`, `NOT IN`\n- `ORDER BY`, 날짜 함수, 텍스트 검색 등은 쓸 수 없다\n\n팀 프로젝트만 받으려면 `project = A502` 정도가 현실적인 필터다.\n\n**`fieldIdsFilter` 로 소음을 줄일 것**: 지정하지 않으면 **모든 필드 변경**에 대해 `jira:issue_updated` 가 온다. 상태와 담당자 변경만 필요하다면 해당 필드 ID만 지정해 알림 폭주를 막는다.",
         "operationId": "registerDynamicWebhooks",
         "tags": ["Webhooks"],
         "x-priority": "high",
-        "security": [
-          { "oauth2": ["write:jira-work", "manage:jira-webhook"] }
-        ],
+        "x-permissions": "**Connect 또는 OAuth 2.0 앱만 사용 가능.** 일반 사용자 계정의 API 토큰으로는 403.",
         "requestBody": {
           "required": true,
           "content": {
@@ -187,71 +57,17 @@
                 "type": "object",
                 "required": ["url", "webhooks"],
                 "properties": {
-                  "url": {
-                    "type": "string",
-                    "description": "웹훅을 전송할 URL. Connect 앱과 동일한 base URL 사용, 앱당 단일 URL만 등록 가능"
-                  },
-                  "webhooks": {
-                    "type": "array",
-                    "description": "등록할 웹훅 목록",
-                    "items": {
-                      "type": "object",
-                      "required": ["events", "jqlFilter"],
-                      "properties": {
-                        "events": {
-                          "type": "array",
-                          "description": "웹훅을 트리거할 이벤트 목록",
-                          "items": {
-                            "type": "string",
-                            "enum": [
-                              "jira:issue_created",
-                              "jira:issue_updated",
-                              "jira:issue_deleted",
-                              "comment_created",
-                              "comment_updated",
-                              "comment_deleted",
-                              "issue_property_set",
-                              "issue_property_deleted",
-                              "sprint_created",
-                              "sprint_updated",
-                              "sprint_closed",
-                              "sprint_deleted",
-                              "sprint_started",
-                              "jira:version_released",
-                              "jira:version_unreleased",
-                              "jira:version_created",
-                              "jira:version_moved",
-                              "jira:version_updated",
-                              "jira:version_merged",
-                              "jira:version_deleted"
-                            ]
-                          }
-                        },
-                        "fieldIdsFilter": {
-                          "type": "array",
-                          "items": { "type": "string" },
-                          "description": "지정한 필드가 변경 이력에 포함될 때만 jira:issue_updated 전송. 미지정 시 모든 필드 변경에 대해 알림"
-                        },
-                        "issuePropertyKeysFilter": {
-                          "type": "array",
-                          "items": { "type": "string" },
-                          "description": "지정한 이슈 속성 키 변경 시에만 issue_property_set/issue_property_deleted 전송"
-                        },
-                        "jqlFilter": {
-                          "type": "string",
-                          "description": "웹훅 대상 이슈를 지정하는 JQL 필터. 지원 필드: issueKey, project, issuetype, status, assignee, reporter, issue.property, cf[id](epic label만 지원). 지원 연산자: =, !=, IN, NOT IN"
-                        }
-                      }
-                    }
-                  }
+                  "url": { "type": "string", "description": "웹훅을 보낼 URL. **Connect 앱과 같은 base URL을 써야 하며, 앱당 URL 하나만 등록할 수 있다.**" },
+                  "webhooks": { "type": "array", "items": { "$ref": "#/components/schemas/WebhookRegistrationDetails" }, "description": "등록할 웹훅 목록" }
                 }
               },
               "example": {
-                "url": "https://your-app.example.com/webhook-received",
+                "url": "https://ssagy.example.com/api/jira/webhook",
                 "webhooks": [
                   {
-                    "events": ["jira:issue_created", "jira:issue_updated"],
-                    "jqlFilter": "project = PRJ"
+                    "events": ["jira:issue_created", "jira:issue_updated", "comment_created"],
+                    "jqlFilter": "project = A502",
+                    "fieldIdsFilter": ["status", "assignee"]
                   }
                 ]
               }
@@ -260,90 +76,20 @@
         },
         "responses": {
           "200": {
-            "description": "요청이 성공한 경우, 각 웹훅 등록 결과를 반환",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "webhookRegistrationResult": {
-                      "type": "array",
-                      "description": "각 웹훅 등록 결과(createdWebhookId 또는 errors)",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "createdWebhookId": { "type": "integer", "description": "생성된 웹훅 ID" },
-                          "errors": {
-                            "type": "array",
-                            "items": { "type": "string" },
-                            "description": "등록 실패 시 오류 메시지"
-                          }
-                        }
-                      }
-                    }
-                  }
-                },
-                "example": {
-                  "webhookRegistrationResult": [
-                    { "createdWebhookId": 1000 },
-                    { "errors": ["The clause watchCount is unsupported"] },
-                    { "createdWebhookId": 1001 }
-                  ]
-                }
-              }
-            }
+            "description": "요청이 성공한 경우 반환됨. 등록된 웹훅의 ID와 실패 사유가 함께 반환된다.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ContainerForRegisteredWebhooks" } } }
           },
-          "400": {
-            "description": "요청 본문이 잘못된 경우",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "errorMessages": { "type": "array", "items": { "type": "string" } },
-                    "errors": { "type": "object" },
-                    "status": { "type": "integer" }
-                  }
-                },
-                "example": {
-                  "errorMessages": ["input parameter 'key' must be provided"],
-                  "errors": {},
-                  "status": 400
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "호출자가 앱(Connect/OAuth 2.0)이 아닌 경우",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "errorMessages": { "type": "array", "items": { "type": "string" } },
-                    "errors": { "type": "object" },
-                    "status": { "type": "integer" }
-                  }
-                },
-                "example": {
-                  "errorMessages": ["input parameter 'key' must be provided"],
-                  "errors": {},
-                  "status": 403
-                }
-              }
-            }
-          }
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/NotAnApp" }
         }
       },
       "delete": {
-        "summary": "웹훅 ID로 삭제",
-        "description": "호출한 앱이 등록한 웹훅만 삭제되며, 다른 앱이 생성한 웹훅 ID를 지정해도 무시된다. 프로젝트 종료, 웹훅 설정 변경, 정리 작업 등 부가적인 관리 시나리오에서 사용된다.",
+        "summary": "03. Delete webhooks by ID — 웹훅 삭제",
+        "description": "ID로 웹훅을 삭제한다. **호출한 앱이 등록한 웹훅만 제거되며, 다른 앱의 웹훅 ID를 지정하면 오류 없이 조용히 무시된다** — 삭제 성공 응답이 왔다고 해서 지정한 ID가 모두 삭제된 것은 아니다.\n\n**🚨 Connect 또는 OAuth 2.0 앱만 호출 가능.**\n\n**주의**: 성공 응답이 200이 아니라 **202 Accepted** 다.",
         "operationId": "deleteWebhookById",
         "tags": ["Webhooks"],
         "x-priority": "medium",
-        "security": [
-          { "oauth2": ["write:jira-work", "manage:jira-webhook"] }
-        ],
+        "x-permissions": "**Connect 또는 OAuth 2.0 앱만 사용 가능.** 일반 사용자 계정의 API 토큰으로는 403.",
         "requestBody": {
           "required": true,
           "content": {
@@ -352,76 +98,31 @@
                 "type": "object",
                 "required": ["webhookIds"],
                 "properties": {
-                  "webhookIds": {
-                    "type": "array",
-                    "items": { "type": "integer" },
-                    "description": "삭제할 웹훅 ID 목록"
-                  }
+                  "webhookIds": { "type": "array", "items": { "type": "integer", "format": "int64" }, "description": "삭제할 웹훅 ID 목록. **다른 앱의 ID는 조용히 무시된다.**" }
                 }
               },
-              "example": {
-                "webhookIds": [10000, 10001]
-              }
+              "example": { "webhookIds": [10000, 10001] }
             }
           }
         },
         "responses": {
-          "202": {
-            "description": "요청이 정상적으로 접수되었음을 의미. 응답 본문 없음"
-          },
+          "202": { "description": "요청이 성공한 경우 반환됨. **다른 앱의 웹훅 ID는 무시되므로, 이 응답이 모든 ID의 삭제를 보장하지는 않는다.**" },
           "400": {
-            "description": "웹훅 ID 목록이 누락된 경우",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "errorMessages": { "type": "array", "items": { "type": "string" } },
-                    "errors": { "type": "object" },
-                    "status": { "type": "integer" }
-                  }
-                },
-                "example": {
-                  "errorMessages": ["input parameter 'key' must be provided"],
-                  "errors": {},
-                  "status": 400
-                }
-              }
-            }
+            "description": "웹훅 ID 목록이 누락된 경우 반환됨",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorCollection" } } }
           },
-          "403": {
-            "description": "호출자가 앱(Connect/OAuth 2.0)이 아닌 경우",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "errorMessages": { "type": "array", "items": { "type": "string" } },
-                    "errors": { "type": "object" },
-                    "status": { "type": "integer" }
-                  }
-                },
-                "example": {
-                  "errorMessages": ["input parameter 'key' must be provided"],
-                  "errors": {},
-                  "status": 403
-                }
-              }
-            }
-          }
+          "403": { "$ref": "#/components/responses/NotAnApp" }
         }
       }
     },
     "/rest/api/3/webhook/refresh": {
       "put": {
-        "summary": "웹훅 생명 연장",
-        "description": "REST API를 통해 등록한 웹훅은 30일이 지나면 자동 만료되므로, 지속적인 웹훅 이벤트 수신을 위해서는 주기적으로 이 API를 호출해 만료일을 연장해야 한다. 다른 앱 소유이거나 존재하지 않는 웹훅 ID는 무시된다.",
-        "operationId": "extendWebhookLife",
+        "summary": "05. Extend webhook life — 웹훅 수명 연장 (필수 운영 작업)",
+        "description": "웹훅의 수명을 연장한다.\n\n**🚨 이 API를 주기적으로 호출하지 않으면 알림이 끊긴다.** REST API로 등록한 웹훅은 **30일 후 만료**되며, 만료 시 별도 통지가 없다. SSAGY에 **30일보다 짧은 주기(예: 주 1회)의 갱신 크론을 반드시** 두어야 한다.\n\n권장 흐름: 01번으로 웹훅 목록과 `expirationDate` 를 조회 → 만료 임박분을 골라 이 API로 연장.\n\n**인식되지 않는 웹훅 ID**(존재하지 않거나 다른 앱 소유)는 **오류 없이 무시**된다.\n\n**🚨 Connect 또는 OAuth 2.0 앱만 호출 가능.**",
+        "operationId": "refreshWebhooks",
         "tags": ["Webhooks"],
         "x-priority": "high",
-        "security": [
-          { "oauth2": ["write:jira-work", "manage:jira-webhook"] }
-        ],
+        "x-permissions": "**Connect 또는 OAuth 2.0 앱만 사용 가능.** 일반 사용자 계정의 API 토큰으로는 403.",
         "requestBody": {
           "required": true,
           "content": {
@@ -430,182 +131,64 @@
                 "type": "object",
                 "required": ["webhookIds"],
                 "properties": {
-                  "webhookIds": {
-                    "type": "array",
-                    "items": { "type": "integer" },
-                    "description": "연장할 웹훅 ID 목록"
-                  }
+                  "webhookIds": { "type": "array", "items": { "type": "integer", "format": "int64" }, "description": "수명을 연장할 웹훅 ID 목록. **인식되지 않는 ID는 조용히 무시된다.**" }
                 }
               },
-              "example": {
-                "webhookIds": [10000, 10001]
-              }
+              "example": { "webhookIds": [10000, 10001] }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "요청이 성공한 경우, 연장된 새 만료일을 반환",
+            "description": "요청이 성공한 경우 반환됨. 갱신된 만료 시각이 반환된다.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "expirationDate": { "type": "string", "description": "연장된 새 만료일(ISO 8601)" }
+                    "expirationDate": { "type": "string", "format": "date-time", "description": "연장된 웹훅의 새 만료 시각" }
                   }
-                },
-                "example": {
-                  "expirationDate": "2019-06-01T12:42:30.000+0000"
                 }
               }
             }
           },
-          "400": {
-            "description": "요청이 잘못된 경우",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "errorMessages": { "type": "array", "items": { "type": "string" } },
-                    "errors": { "type": "object" },
-                    "status": { "type": "integer" }
-                  }
-                },
-                "example": {
-                  "errorMessages": ["input parameter 'key' must be provided"],
-                  "errors": {},
-                  "status": 400
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "호출자가 앱(Connect/OAuth 2.0)이 아닌 경우",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "errorMessages": { "type": "array", "items": { "type": "string" } },
-                    "errors": { "type": "object" },
-                    "status": { "type": "integer" }
-                  }
-                },
-                "example": {
-                  "errorMessages": ["input parameter 'key' must be provided"],
-                  "errors": {},
-                  "status": 403
-                }
-              }
-            }
-          }
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/NotAnApp" }
         }
       }
     },
     "/rest/api/3/webhook/failed": {
       "get": {
-        "summary": "실패한 웹훅 조회",
-        "description": "웹훅 전달이 반복적으로 실패한 이력을 확인하는 모니터링/디버깅용 API다. 실패 후 72시간이 지나면 더 이상 조회되지 않을 수 있으며, 가장 오래된 실패 건부터 반환된다. failedAfter 값 또는 응답의 next URL을 이용한 커서 기반 페이지네이션을 사용한다.",
+        "summary": "04. Get failed webhooks — 전달 실패 웹훅 조회",
+        "description": "최대 재시도 횟수를 넘겨 전달에 실패한 웹훅 내역을 조회한다. **가장 오래된 실패부터** 반환된다.\n\n**🚨 이 엔드포인트는 Connect 앱만 사용할 수 있다** — 01·02·03·05번과 달리 **OAuth 2.0 앱도 403**이다. 이 그룹에서 권한 요구가 가장 엄격하다.\n\n**⚠️ 실패 기록은 72시간 후 사라진다.** 장애를 뒤늦게 조사하면 이미 조회되지 않을 수 있으므로, 정기적으로 수집해 SSAGY 쪽에 보관하는 편이 안전하다.\n\n**커서 기반 페이징을 쓴다** — 다음 페이지는 마지막 웹훅의 실패 시각을 `after` 로 넘기거나, 응답의 `next` URL을 그대로 호출한다.\n\n**⚠️ `maxResults` 가 무시될 수 있다**: 같은 실패 시각의 레코드가 페이지 경계에서 나뉘게 되는 경우, 지시를 무시하고 동일 시각 레코드를 모두 한 페이지에 담는다.\n\n**⚠️ 파라미터 이름 주의**: 원문 설명은 `failedAfter` 를 언급하지만 실제 쿼리 파라미터 이름은 **`after`** 다.",
         "operationId": "getFailedWebhooks",
         "tags": ["Webhooks"],
         "x-priority": "medium",
-        "security": [
-          { "oauth2": ["read:jira-work", "manage:jira-webhook"] }
-        ],
+        "x-permissions": "**Connect 앱만 사용 가능.** OAuth 2.0 앱과 일반 사용자 계정은 403 — 이 그룹에서 가장 엄격하다.",
         "parameters": [
-          {
-            "name": "maxResults",
-            "in": "query",
-            "required": false,
-            "schema": { "type": "integer" },
-            "description": "페이지당 최대 반환 개수. 동일 실패 시각을 가진 레코드가 페이지 경계에서 분리되는 경우 해당 지시값을 무시하고 모두 포함",
-            "example": 100
-          },
-          {
-            "name": "after",
-            "in": "query",
-            "required": false,
-            "schema": { "type": "integer" },
-            "description": "이 시각(UNIX epoch ms) 이후 발생한 실패만 반환",
-            "example": 1573118132000
-          }
+          { "name": "maxResults", "in": "query", "required": false, "schema": { "type": "integer" }, "description": "페이지당 반환할 최대 웹훅 수. **동일한 실패 시각의 레코드가 페이지 경계에서 나뉘게 되면 이 지시는 무시되고 같은 시각 레코드가 모두 한 페이지에 포함된다.**" },
+          { "name": "after", "in": "query", "required": false, "schema": { "type": "integer", "format": "int64" }, "description": "이 시각(UNIX epoch 밀리초) 이후 발생한 실패만 반환한다. **커서 기반 페이징의 다음 페이지 요청에 마지막 항목의 실패 시각을 넣는다.** (원문 설명의 `failedAfter` 와 같은 것)" }
         ],
         "responses": {
           "200": {
-            "description": "요청이 성공한 경우, 실패한 웹훅 목록을 커서 기반 페이지네이션으로 반환",
+            "description": "요청이 성공한 경우 반환됨",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "values": {
-                      "type": "array",
-                      "description": "실패한 웹훅 목록",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": { "type": "string", "description": "실패 레코드 ID" },
-                          "body": { "type": "string", "description": "전송하려던 웹훅 본문" },
-                          "url": { "type": "string", "description": "전송 대상 URL" },
-                          "failureTime": { "type": "integer", "description": "실패 시각(UNIX epoch ms)" }
-                        }
-                      }
-                    },
-                    "maxResults": { "type": "integer", "description": "페이지당 최대 개수" },
-                    "next": { "type": "string", "description": "다음 페이지 조회 URL" }
+                    "values": { "type": "array", "items": { "$ref": "#/components/schemas/FailedWebhook" }, "description": "실패한 웹훅 목록. **가장 오래된 실패부터 정렬된다.**" },
+                    "maxResults": { "type": "integer", "description": "페이지당 최대 항목 수" },
+                    "next": { "type": "string", "description": "다음 페이지 URL. 커서 페이징에서 이 URL을 그대로 호출하면 된다." }
                   }
-                },
-                "example": {
-                  "values": [
-                    { "id": "1", "body": "{\"data\":\"webhook data\"}", "url": "https://example.com", "failureTime": 1573118132000 },
-                    { "id": "2", "url": "https://example.com", "failureTime": 1573540473480 }
-                  ],
-                  "maxResults": 100,
-                  "next": "https://your-domain.atlassian.net/rest/api/3/webhook/failed?failedAfter=1573540473480&maxResults=100"
                 }
               }
             }
           },
-          "400": {
-            "description": "잘못된 요청",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "errorMessages": { "type": "array", "items": { "type": "string" } },
-                    "errors": { "type": "object" },
-                    "status": { "type": "integer" }
-                  }
-                },
-                "example": {
-                  "errorMessages": ["input parameter 'key' must be provided"],
-                  "errors": {},
-                  "status": 400
-                }
-              }
-            }
-          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "403": {
-            "description": "호출자가 Connect 앱이 아닌 경우 (OAuth 2.0 앱은 이 API 사용 불가)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "errorMessages": { "type": "array", "items": { "type": "string" } },
-                    "errors": { "type": "object" },
-                    "status": { "type": "integer" }
-                  }
-                },
-                "example": {
-                  "errorMessages": ["input parameter 'key' must be provided"],
-                  "errors": {},
-                  "status": 403
-                }
-              }
-            }
+            "description": "**호출자가 Connect 앱이 아닌 경우 반환됨.** OAuth 2.0 앱도 여기에 해당한다.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorCollection" } } }
           }
         }
       }
@@ -616,11 +199,11 @@
       "basicAuth": {
         "type": "http",
         "scheme": "basic",
-        "description": "Jira Cloud API 토큰 인증. username=계정 이메일, password=API token (https://id.atlassian.com/manage-profile/security/api-tokens 에서 발급)"
+        "description": "**⚠️ 이 그룹에서는 사용할 수 없다.** Jira Cloud API 토큰 인증으로 웹훅 API를 호출하면 403이 반환된다 — Connect 또는 OAuth 2.0 앱 인증이 필요하다."
       },
       "oauth2": {
         "type": "oauth2",
-        "description": "Jira Cloud OAuth 2.0 (3LO) Bearer 토큰 인증",
+        "description": "Jira Cloud OAuth 2.0 (3LO) Bearer 토큰 인증. **이 그룹에서 유일하게 유효한 인증 방식**이며, 04번은 Connect 앱만 가능하다.",
         "flows": {
           "authorizationCode": {
             "authorizationUrl": "https://auth.atlassian.com/authorize",
@@ -631,6 +214,97 @@
               "manage:jira-webhook": "Jira 웹훅 관리"
             }
           }
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "요청이 유효하지 않은 경우 반환됨",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorCollection" } } }
+      },
+      "NotAnApp": {
+        "description": "**호출자가 앱이 아닌 경우 반환됨.** 계정 이메일 + API 토큰(basic auth)으로 호출하면 이 응답이 온다 — Connect 또는 OAuth 2.0 앱 인증이 필요하다.",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorCollection" } } }
+      }
+    },
+    "schemas": {
+      "ErrorCollection": {
+        "type": "object",
+        "description": "Jira 공통 오류 응답",
+        "properties": {
+          "errorMessages": { "type": "array", "items": { "type": "string" }, "description": "이 오퍼레이션이 생성한 오류 메시지 목록. 예: \"input parameter 'key' must be provided\"" },
+          "errors": { "type": "object", "additionalProperties": { "type": "string" }, "description": "파라미터별 오류 목록. 예: `\"projectKey\": \"Project keys must start with an uppercase letter...\"`" },
+          "status": { "type": "integer", "description": "HTTP 상태 코드" }
+        }
+      },
+      "WebhookRegistrationDetails": {
+        "type": "object",
+        "description": "등록할 웹훅 하나의 정의",
+        "required": ["events", "jqlFilter"],
+        "properties": {
+          "events": {
+            "type": "array",
+            "description": "웹훅을 발동시킬 Jira 이벤트 목록",
+            "items": {
+              "type": "string",
+              "enum": ["jira:issue_created", "jira:issue_updated", "jira:issue_deleted", "comment_created", "comment_updated", "comment_deleted", "issue_property_set", "issue_property_deleted", "sprint_created", "sprint_updated", "sprint_closed", "sprint_deleted", "sprint_started", "jira:version_released", "jira:version_unreleased", "jira:version_created", "jira:version_moved", "jira:version_updated", "jira:version_merged", "jira:version_deleted"]
+            }
+          },
+          "jqlFilter": { "type": "string", "description": "웹훅을 보낼 이슈를 지정하는 JQL 필터. **필수.** **JQL의 일부만 지원된다** — 필드는 `issueKey`, `project`, `issuetype`, `status`, `assignee`, `reporter`, `issue.property`, `cf[id]`(에픽 라벨 커스텀 필드만), 연산자는 `=`, `!=`, `IN`, `NOT IN` 뿐이다.", "example": "project = A502" },
+          "fieldIdsFilter": { "type": "array", "items": { "type": "string" }, "description": "필드 ID 목록. 이슈 변경 이력에 이 필드들이 포함될 때만 `jira:issue_updated` 가 전송된다. **지정하지 않으면 모든 필드 변경에 대해 알림이 오므로, 소음을 줄이려면 명시할 것.**" },
+          "issuePropertyKeysFilter": { "type": "array", "items": { "type": "string" }, "description": "이슈 속성 키 목록. 이 속성들의 변경이 `issue_property_set` / `issue_property_deleted` 를 발동시킨다. 지정하지 않으면 모든 이슈 속성 변경에 대해 알림이 온다." }
+        }
+      },
+      "Webhook": {
+        "type": "object",
+        "description": "등록된 웹훅",
+        "properties": {
+          "id": { "type": "integer", "format": "int64", "description": "웹훅의 ID. 03번 삭제와 05번 갱신에 쓴다." },
+          "events": { "type": "array", "items": { "type": "string" }, "description": "이 웹훅을 발동시키는 Jira 이벤트 목록" },
+          "jqlFilter": { "type": "string", "description": "이 웹훅에 적용된 JQL 필터" },
+          "fieldIdsFilter": { "type": "array", "items": { "type": "string" }, "description": "필드 ID 필터" },
+          "issuePropertyKeysFilter": { "type": "array", "items": { "type": "string" }, "description": "이슈 속성 키 필터" },
+          "expirationDate": { "type": "integer", "format": "int64", "description": "웹훅의 만료 시각. **등록 후 30일 뒤이며, 05번으로 연장하지 않으면 알림이 끊긴다** — 갱신 크론에서 이 값을 확인할 것." }
+        }
+      },
+      "PageBeanWebhook": {
+        "type": "object",
+        "description": "페이지 단위 웹훅 목록",
+        "properties": {
+          "values": { "type": "array", "items": { "$ref": "#/components/schemas/Webhook" }, "description": "이 페이지의 웹훅 목록" },
+          "startAt": { "type": "integer", "format": "int64", "description": "이 페이지가 시작되는 인덱스" },
+          "maxResults": { "type": "integer", "description": "페이지당 최대 항목 수" },
+          "total": { "type": "integer", "format": "int64", "description": "전체 웹훅 수" },
+          "isLast": { "type": "boolean", "description": "이 페이지가 마지막 페이지인지 여부" },
+          "self": { "type": "string", "description": "이 페이지의 URL" },
+          "nextPage": { "type": "string", "description": "다음 페이지의 URL" }
+        }
+      },
+      "ContainerForRegisteredWebhooks": {
+        "type": "object",
+        "description": "웹훅 등록 결과. **일부만 실패할 수 있으므로 `errors` 를 반드시 확인할 것.**",
+        "properties": {
+          "webhookRegistrationResult": {
+            "type": "array",
+            "description": "등록 결과 목록. 요청한 웹훅 순서와 대응된다.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "createdWebhookId": { "type": "integer", "format": "int64", "description": "생성된 웹훅의 ID. 실패 시 없을 수 있다." },
+                "errors": { "type": "array", "items": { "type": "string" }, "description": "이 웹훅 등록에서 발생한 오류 목록. **비어 있지 않으면 해당 웹훅은 등록되지 않은 것이다.**" }
+              }
+            }
+          }
+        }
+      },
+      "FailedWebhook": {
+        "type": "object",
+        "description": "전달에 실패한 웹훅 기록. **72시간 후 조회되지 않는다.**",
+        "properties": {
+          "id": { "type": "string", "description": "실패 기록의 ID" },
+          "body": { "type": "string", "description": "전달하려던 웹훅 페이로드 본문" },
+          "url": { "type": "string", "description": "전달 대상 URL" },
+          "failureTime": { "type": "integer", "format": "int64", "description": "실패가 발생한 시각(UNIX epoch 밀리초). **다음 페이지 요청 시 `after` 값으로 쓴다.**" }
         }
       }
     }

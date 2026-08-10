@@ -1,23 +1,80 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "Mattermost Playbook Autofollows API (권한 필터됨)",
-    "description": "Playbooks 플러그인 API. 플레이북 멤버 기반 접근, 별도 named permission 없음.",
-    "version": "1.0.0"
+    "title": "Mattermost API - _46-playbookautofollows",
+    "version": "1.0.0",
+    "description": "Mattermost Playbooks 플러그인의 Auto-follow API.\n\n**포함 기준**: 01 (총 1건 — 디렉토리 전체).\n\n**⚠️ base URL이 다르다**\n이 엔드포인트는 Mattermost 코어 API가 아니라 **Playbooks 플러그인** API다. 경로가 `/api/v4/...` 가 아니라 **`/plugins/playbooks/api/v0/...`** 이므로, 다른 문서와 같은 클라이언트 설정으로는 호출되지 않는다.\n\n**Playbooks 플러그인이 설치·실행 중이어야 한다.** `_30-plugins` 08번으로 `playbooks` 플러그인의 `state` 가 `Running` 인지 먼저 확인할 것 — 아니면 404가 반환된다.\n\n**auto-follow란**\n특정 플레이북을 auto-follow로 표시한 사용자는 그 플레이북으로 실행이 시작될 때마다 자동으로 해당 실행을 팔로우하게 된다. 이 API는 **그렇게 표시한 사용자 ID 목록**을 조회한다.\n\n**연동 활용**: SSAGY가 플레이북 실행 알림을 보낼 때, 여기서 얻은 사용자 목록을 알림 대상으로 삼으면 관심 없는 팀원에게 소음을 보내지 않는다.\n\n**⚠️ 원문에 권한 섹션이 없다** — 403 응답이 정의돼 있는 것으로 보아 권한 검사가 있으나 명시돼 있지 않다.\n\n**관련 문서**: `_42-playbooks`, `_43-playbookruns`, `_45-timeline`.\n\n**x-priority 의미**: SSAGY(통합 워크스페이스) 관점의 연동 우선순위."
   },
   "servers": [
-    { "url": "https://{host}/plugins/playbooks/api/v0", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+    {
+      "url": "https://{host}/plugins/playbooks/api/v0",
+      "variables": {
+        "host": {
+          "default": "meeting.ssafy.com",
+          "description": "self-hosted Mattermost 호스트"
+        }
+      }
+    }
   ],
-  "components": {
-    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } }
-  },
   "security": [{ "bearerAuth": [] }],
+  "tags": [{ "name": "Playbook Auto-follows", "description": "플레이북 자동 팔로우 사용자 조회" }],
   "paths": {
     "/playbooks/{id}/autofollows": {
       "get": {
-        "summary": "1. Get the list of followers' user IDs of a playbook (플레이북 멤버)",
-        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
-        "responses": { "200": { "description": "Follower id list", "content": { "application/json": { "schema": { "type": "object", "properties": { "total_count": { "type": "integer" }, "items": { "type": "array", "items": { "type": "string" } } } } } } } }
+        "summary": "01. Get the list of followers' user IDs of a playbook",
+        "description": "해당 플레이북을 auto-follow로 표시한 사용자들의 ID 목록을 조회한다. 이 사용자들은 플레이북 실행이 시작될 때 자동으로 팔로우된다.\n\n**연동 활용**: 실행 알림의 발송 대상을 이 목록으로 한정하면 불필요한 알림을 줄일 수 있다.\n\n**⚠️ 원문에 권한 섹션이 없다** — 403 응답이 정의돼 있어 권한 검사가 있으나 명시돼 있지 않다.",
+        "operationId": "getPlaybookAutoFollows",
+        "tags": ["Playbook Auto-follows"],
+        "x-priority": "low",
+        "x-permissions": "**원문에 권한 명시 없음.** 403 응답 정의로 보아 해당 플레이북 조회 권한이 필요한 것으로 추정 — 실호출 확인 필요.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "팔로워를 조회할 플레이북의 ID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "플레이북을 팔로우하는 사용자 ID 목록",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total_count": { "type": "integer", "description": "이 플레이북의 실행을 auto-follow로 표시한 사용자 총 수" },
+                    "items": { "type": "array", "items": { "type": "string" }, "description": "auto-follow로 표시한 사용자들의 ID 목록" }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "권한 부족",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+          },
+          "500": {
+            "description": "서버 내부 오류",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "`Authorization: Bearer <token>`. 세션 토큰 또는 개인 액세스 토큰을 사용한다."
+      }
+    },
+    "schemas": {
+      "AppError": {
+        "type": "object",
+        "description": "Mattermost 공통 오류 응답",
+        "properties": {
+          "status_code": { "type": "integer", "description": "HTTP 상태 코드" },
+          "id": { "type": "string", "description": "오류 식별자" },
+          "message": { "type": "string", "description": "사람이 읽을 수 있는 오류 메시지" },
+          "request_id": { "type": "string", "description": "요청 추적용 ID" }
+        }
       }
     }
   }

@@ -1,190 +1,443 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "Mattermost Webhooks API (권한 필터됨)",
-    "description": "AGENTS.md 실효 권한 지도 기준 포함: manage_own_incoming_webhooks, manage_own_outgoing_webhooks (본인 생성분 한정). bypass_incoming_webhook_channel_lock 권한도 있어 webhook 1개로 여러 채널 발송 가능. 타인 소유 webhook 관리(manage_others_*)는 제외.",
-    "version": "1.0.0"
+    "title": "Mattermost API - _17-webhooks",
+    "version": "1.0.0",
+    "description": "Mattermost Webhooks API. SSAGY 연동 계정(`system_user` + `team_user` + `channel_user`)으로 전 항목 호출 가능하다.\n\n**포함 기준**: 01~11 (총 11건 — 디렉토리 전체).\n\n**⚠️ 권한 표기와 실제의 차이 — 이 문서에서 가장 중요한 부분**\n원문은 모든 엔드포인트에 `manage_webhooks` 를 요구한다고 적고 있다. 그러나 AGENTS.md 실측(2026-07-25)에 따르면 `team_user` 역할이 가진 것은 **`manage_own_incoming_webhooks`** 와 **`manage_own_outgoing_webhooks`** 다. 즉 연동 계정은:\n- ✅ **자기가 만든 웹훅**의 생성·조회·수정·삭제·토큰 재발급이 가능하다\n- ❌ 타인이 만든 웹훅은 조작할 수 없다(`manage_others_*` 필요)\n- ❌ 01번의 `user_id`, 06번의 `creator_id` 로 소유자를 다른 사람으로 지정할 수 없다\n\n과거 `system_user` 권한 12개만 보고 웹훅을 \"불가\"로 오판한 사례가 있으므로, **웹훅 생성은 실제로 가능하다**는 점을 명확히 해 둔다.\n\n**왜 중요한가**\nIncoming webhook은 SSAGY가 **연동 계정 세션 없이도** 채널에 알림을 보낼 수 있게 해주는 경로다. 게다가 `team_user` 에 **`bypass_incoming_webhook_channel_lock`** 이 있어, **웹훅 1개로 payload의 `channel` 필드를 바꿔 여러 채널에 발송**할 수 있다 — 팀마다 웹훅을 새로 만들 필요가 없다. 단, 01/05번의 `channel_locked` 를 `true` 로 설정하면 이 우회가 막히므로 **자동화용 웹훅에는 `channel_locked` 를 켜지 말 것**.\n\n**⚠️ 발송 URL은 이 API에 없다**\n01번 응답에는 실제로 POST할 웹훅 URL이 포함되지 않는다. 발송 엔드포인트는 `https://{host}/hooks/{webhook_id}` 형태로, `/api/v4` 접두사가 없다. 응답의 `id` 로 직접 조립해야 한다.\n\n**⚠️ 10번(Update an outgoing webhook)의 요청 스키마 문제**\n원문 본문에 `id`, `channel_id`, `display_name`, `description` 네 필드만 있고, 설명문도 \"incoming webhook\"으로 잘못 적혀 있다. 응답에는 `trigger_words`, `callback_urls`, `trigger_when`, `content_type` 이 포함되므로 실제로는 이 필드들도 보낼 수 있을 가능성이 높다. **outgoing webhook의 트리거를 수정하려면 실호출로 확인할 것.**\n\n**공통 규칙**\n- 타임스탬프 계열 필드는 모두 Unix epoch **밀리초** 정수다.\n- 오류 응답 본문은 모두 `AppError` 스키마를 따른다.\n\n**x-priority 의미**: SSAGY(통합 워크스페이스) 관점의 연동 우선순위."
   },
   "servers": [
-    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+    {
+      "url": "https://{host}/api/v4",
+      "variables": {
+        "host": {
+          "default": "meeting.ssafy.com",
+          "description": "self-hosted Mattermost 호스트"
+        }
+      }
+    }
   ],
+  "security": [{ "bearerAuth": [] }],
+  "tags": [
+    { "name": "Incoming Webhooks", "description": "외부 → Mattermost 알림 발송용 웹훅" },
+    { "name": "Outgoing Webhooks", "description": "Mattermost → 외부 트리거용 웹훅" }
+  ],
+  "paths": {
+    "/hooks/incoming": {
+      "post": {
+        "summary": "01. Create an incoming webhook",
+        "description": "채널용 incoming webhook을 생성한다. **SSAGY 알림 인프라의 핵심 엔드포인트**다.\n\n생성 후 발송은 `POST https://{host}/hooks/{id}` 로 하며(**`/api/v4` 접두사 없음**), 이 응답에는 URL이 아니라 `id` 만 담기므로 직접 조립해야 한다.\n\n**`channel_locked` 를 켜지 말 것**: `team_user` 의 `bypass_incoming_webhook_channel_lock` 덕분에 payload의 `channel` 필드로 다른 채널에도 보낼 수 있는데, 이 값을 `true` 로 하면 그 우회가 막혀 웹훅 1개 다채널 전략을 쓸 수 없다.\n\n**`user_id` 는 쓰지 말 것**: 소유자를 요청자와 다르게 지정하려면 `manage_others_incoming_webhooks` 권한이 필요하며 연동 계정에는 없다.",
+        "operationId": "createIncomingWebhook",
+        "tags": ["Incoming Webhooks"],
+        "x-priority": "high",
+        "x-permissions": "원문 표기는 해당 팀의 `manage_webhooks`. 실측상 `team_user` 의 **`manage_own_incoming_webhooks`** 로 본인 명의 웹훅 생성이 가능하다. 소유자를 다르게 지정하려면 `manage_others_incoming_webhooks` 필요(연동 계정 불가).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["channel_id"],
+                "properties": {
+                  "channel_id": { "type": "string", "description": "웹훅 payload를 받을 공개 채널 또는 비공개 그룹의 ID" },
+                  "user_id": { "type": "string", "description": "요청자와 다른 소유자를 지정할 때의 사용자 ID. [local mode](https://docs.mattermost.com/administration/mmctl-cli-tool.html#local-mode)에서는 필수. **연동 계정에서는 사용 불가.**" },
+                  "display_name": { "type": "string", "description": "이 incoming webhook의 표시 이름" },
+                  "description": { "type": "string", "description": "이 incoming webhook의 설명" },
+                  "username": { "type": "string", "description": "이 웹훅이 메시지를 게시할 때 사용할 사용자명" },
+                  "icon_url": { "type": "string", "description": "이 웹훅이 메시지를 게시할 때 사용할 프로필 이미지 URL" },
+                  "channel_locked": { "type": "boolean", "description": "웹훅을 해당 채널에 고정할지 여부. **`true` 로 하면 payload의 `channel` 필드로 다른 채널에 보내는 우회가 막힌다.** 자동화용이라면 켜지 말 것." }
+                }
+              },
+              "example": { "channel_id": "4eb6axxw7fg3je5iyasnfudc5y", "display_name": "SSAGY Alerts", "description": "GitLab/Jira/Jenkins 통합 알림", "username": "SSAGY", "channel_locked": false }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "incoming webhook 생성 성공. **발송 URL은 포함되지 않으므로 `id` 로 `https://{host}/hooks/{id}` 를 조립할 것.**",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/IncomingWebhook" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      },
+      "get": {
+        "summary": "02. List incoming webhooks",
+        "description": "incoming webhook 목록을 페이지 단위로 조회한다. `team_id` 로 특정 팀만 필터링할 수 있다.\n\n**응답 형태가 파라미터에 따라 달라진다**: `include_total_count=true` 면 `{ incoming_webhooks, total_count }` 객체, 아니면 단순 배열이다.\n\n연동 계정은 자기가 만든 웹훅만 조회된다.",
+        "operationId": "getIncomingWebhooks",
+        "tags": ["Incoming Webhooks"],
+        "x-priority": "high",
+        "x-permissions": "원문 표기는 시스템 또는 해당 팀의 `manage_webhooks`. 실측상 `manage_own_incoming_webhooks` 로 본인 소유분 조회가 가능하다.",
+        "parameters": [
+          { "name": "page", "in": "query", "required": false, "schema": { "type": "integer", "default": 0 }, "description": "조회할 페이지 번호(0부터)" },
+          { "name": "per_page", "in": "query", "required": false, "schema": { "type": "integer", "default": 60 }, "description": "페이지당 웹훅 수" },
+          { "name": "team_id", "in": "query", "required": false, "schema": { "type": "string" }, "description": "조회할 팀의 ID" },
+          { "name": "include_total_count", "in": "query", "required": false, "schema": { "type": "boolean" }, "description": "true면 응답이 `{ \"incoming_webhooks\": [], \"total_count\": 0 }` 객체로 감싸진다." }
+        ],
+        "responses": {
+          "200": {
+            "description": "incoming webhook 목록 조회 성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    { "type": "array", "items": { "$ref": "#/components/schemas/IncomingWebhook" } },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "incoming_webhooks": { "type": "array", "items": { "$ref": "#/components/schemas/IncomingWebhook" } },
+                        "total_count": { "type": "integer", "description": "페이징과 무관한 전체 개수" }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/hooks/incoming/{hook_id}": {
+      "get": {
+        "summary": "03. Get an incoming webhook",
+        "description": "ID로 incoming webhook 하나를 조회한다. 저장해 둔 웹훅이 아직 유효한지, `last_used` 로 실제 발송이 되고 있는지 확인할 때 쓴다.",
+        "operationId": "getIncomingWebhook",
+        "tags": ["Incoming Webhooks"],
+        "x-priority": "medium",
+        "x-permissions": "원문 표기는 시스템/팀/채널 단위 `manage_webhooks`. 실측상 본인 소유분은 `manage_own_incoming_webhooks` 로 조회 가능.",
+        "parameters": [{ "$ref": "#/components/parameters/HookId" }],
+        "responses": {
+          "200": {
+            "description": "웹훅 조회 성공",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/IncomingWebhook" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "put": {
+        "summary": "05. Update an incoming webhook",
+        "description": "incoming webhook을 갱신한다. **부분 갱신이 아니다** — `id`, `channel_id`, `display_name`, `description` 이 모두 필수이므로, 하나만 바꾸려 해도 나머지를 03번으로 읽어 함께 보내야 한다.\n\n01번과 마찬가지로 `channel_locked` 를 켜면 다채널 발송 우회가 막힌다.",
+        "operationId": "updateIncomingWebhook",
+        "tags": ["Incoming Webhooks"],
+        "x-priority": "medium",
+        "x-permissions": "원문 표기는 시스템/팀/채널 단위 `manage_webhooks`. 실측상 본인 소유분은 `manage_own_incoming_webhooks` 로 수정 가능.",
+        "parameters": [{ "$ref": "#/components/parameters/HookId" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["id", "channel_id", "display_name", "description"],
+                "properties": {
+                  "id": { "type": "string", "description": "incoming webhook GUID. 경로 파라미터와 동일한 값." },
+                  "channel_id": { "type": "string", "description": "웹훅 payload를 받을 공개 채널 또는 비공개 그룹의 ID" },
+                  "display_name": { "type": "string", "description": "이 incoming webhook의 표시 이름" },
+                  "description": { "type": "string", "description": "이 incoming webhook의 설명" },
+                  "username": { "type": "string", "description": "이 웹훅이 메시지를 게시할 때 사용할 사용자명" },
+                  "icon_url": { "type": "string", "description": "이 웹훅이 메시지를 게시할 때 사용할 프로필 이미지 URL" },
+                  "channel_locked": { "type": "boolean", "description": "웹훅을 해당 채널에 고정할지 여부. `true` 면 다채널 발송 우회가 막힌다." }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "웹훅 갱신 성공",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/IncomingWebhook" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "delete": {
+        "summary": "04. Delete an incoming webhook",
+        "description": "incoming webhook을 삭제한다. 삭제 후 해당 발송 URL은 즉시 무효가 된다.\n\n**운영 주의**: 연동 계정을 교체하면 그 계정 명의로 만든 웹훅만 관리할 수 있으므로, AGENTS.md 지침대로 **생성자 계정을 DB에 기록**해 두어야 잔여 리소스를 정리할 수 있다.",
+        "operationId": "deleteIncomingWebhook",
+        "tags": ["Incoming Webhooks"],
+        "x-priority": "medium",
+        "x-permissions": "원문 표기는 시스템/팀/채널 단위 `manage_webhooks`. 실측상 본인 소유분은 `manage_own_incoming_webhooks` 로 삭제 가능.",
+        "parameters": [{ "$ref": "#/components/parameters/HookId" }],
+        "responses": {
+          "200": {
+            "description": "웹훅 삭제 성공",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOK" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/hooks/outgoing": {
+      "post": {
+        "summary": "06. Create an outgoing webhook",
+        "description": "팀용 outgoing webhook을 생성한다. 채널에 트리거 단어가 포함된 메시지가 올라오면 지정한 `callback_urls` 로 payload를 POST한다 — **Mattermost에서 SSAGY 쪽으로 이벤트를 흘려보내는 경로**다.\n\n**제약**: outgoing webhook은 **공개 채널만** 감시할 수 있다(`channel_id` 설명 참고). 비공개 채널 이벤트를 받으려면 슬래시 명령어(`_18-commands`)나 WebSocket을 쓴다.\n\n`trigger_when` 은 `0`(트리거 단어가 어디든 포함) 또는 `1`(메시지가 트리거 단어로 시작)이다.\n\n**`creator_id` 는 쓰지 말 것**: 소유자를 요청자와 다르게 지정하려면 `manage_others_outgoing_webhooks` 권한이 필요하며 연동 계정에는 없다.",
+        "operationId": "createOutgoingWebhook",
+        "tags": ["Outgoing Webhooks"],
+        "x-priority": "high",
+        "x-permissions": "원문 표기는 해당 팀의 `manage_webhooks`. 실측상 `team_user` 의 **`manage_own_outgoing_webhooks`** 로 본인 명의 생성이 가능하다. 소유자를 다르게 지정하려면 `manage_others_outgoing_webhooks` 필요(연동 계정 불가).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["team_id", "display_name", "trigger_words", "callback_urls"],
+                "properties": {
+                  "team_id": { "type": "string", "description": "이 웹훅이 감시할 팀의 ID" },
+                  "channel_id": { "type": "string", "description": "이 웹훅이 감시할 **공개 채널**의 ID. 생략하면 팀 전체를 감시한다." },
+                  "creator_id": { "type": "string", "description": "요청자와 다른 소유자를 지정할 때의 사용자 ID. local mode 에서는 필수. **연동 계정에서는 사용 불가.**" },
+                  "description": { "type": "string", "description": "이 outgoing webhook의 설명" },
+                  "display_name": { "type": "string", "description": "이 outgoing webhook의 표시 이름" },
+                  "trigger_words": { "type": "array", "items": { "type": "string" }, "description": "웹훅을 발동시킬 단어 목록" },
+                  "trigger_when": { "type": "integer", "enum": [0, 1], "description": "발동 조건. `0`=트리거 단어가 메시지 어디에든 있으면, `1`=메시지가 트리거 단어로 시작할 때만." },
+                  "callback_urls": { "type": "array", "items": { "type": "string" }, "description": "발동 시 payload를 POST할 URL 목록" },
+                  "content_type": { "type": "string", "enum": ["application/json", "application/x-www-form-urlencoded"], "description": "POST할 데이터 형식" }
+                }
+              },
+              "example": {
+                "team_id": "4eb6axxw7fg3je5iyasnfudc5y",
+                "display_name": "SSAGY Trigger",
+                "trigger_words": ["!ssagy"],
+                "trigger_when": 1,
+                "callback_urls": ["https://ssagy.example.com/api/mattermost/outgoing"],
+                "content_type": "application/json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "outgoing webhook 생성 성공",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OutgoingWebhook" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "get": {
+        "summary": "07. List outgoing webhooks",
+        "description": "outgoing webhook 목록을 페이지 단위로 조회한다. `team_id` 또는 `channel_id` 로 범위를 좁힐 수 있다.\n\n연동 계정은 자기가 만든 웹훅만 조회된다.",
+        "operationId": "getOutgoingWebhooks",
+        "tags": ["Outgoing Webhooks"],
+        "x-priority": "medium",
+        "x-permissions": "원문 표기는 시스템 또는 해당 팀/채널의 `manage_webhooks`. 실측상 `manage_own_outgoing_webhooks` 로 본인 소유분 조회 가능.",
+        "parameters": [
+          { "name": "page", "in": "query", "required": false, "schema": { "type": "integer", "default": 0 }, "description": "조회할 페이지 번호(0부터)" },
+          { "name": "per_page", "in": "query", "required": false, "schema": { "type": "integer", "default": 60 }, "description": "페이지당 웹훅 수" },
+          { "name": "team_id", "in": "query", "required": false, "schema": { "type": "string" }, "description": "조회할 팀의 ID" },
+          { "name": "channel_id", "in": "query", "required": false, "schema": { "type": "string" }, "description": "조회할 채널의 ID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "outgoing webhook 목록 조회 성공",
+            "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/OutgoingWebhook" } } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/hooks/outgoing/{hook_id}": {
+      "get": {
+        "summary": "08. Get an outgoing webhook",
+        "description": "ID로 outgoing webhook 하나를 조회한다.",
+        "operationId": "getOutgoingWebhook",
+        "tags": ["Outgoing Webhooks"],
+        "x-priority": "medium",
+        "x-permissions": "원문 표기는 시스템/팀/채널 단위 `manage_webhooks`. 실측상 본인 소유분은 `manage_own_outgoing_webhooks` 로 조회 가능.",
+        "parameters": [{ "$ref": "#/components/parameters/HookId" }],
+        "responses": {
+          "200": {
+            "description": "outgoing webhook 조회 성공",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OutgoingWebhook" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "put": {
+        "summary": "10. Update an outgoing webhook",
+        "description": "outgoing webhook을 갱신한다.\n\n**⚠️ 원문 스키마 문제**: 요청 본문에 `id`, `channel_id`, `display_name`, `description` 네 필드만 정의돼 있고, 각 필드 설명도 \"incoming webhook\"으로 잘못 적혀 있다. 그런데 응답에는 `trigger_words`, `callback_urls`, `trigger_when`, `content_type` 이 포함되므로, 실제로는 이 필드들도 수정 가능할 개연성이 높다.\n\n아래에서는 원문의 4개 필드를 required 로 유지하되, 트리거 관련 필드를 optional 로 함께 기술했다. **트리거 수정이 필요하면 반드시 실호출로 확인할 것.**",
+        "operationId": "updateOutgoingWebhook",
+        "tags": ["Outgoing Webhooks"],
+        "x-priority": "medium",
+        "x-permissions": "원문 표기는 시스템/팀/채널 단위 `manage_webhooks`. 실측상 본인 소유분은 `manage_own_outgoing_webhooks` 로 수정 가능.",
+        "parameters": [{ "$ref": "#/components/parameters/HookId" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["id", "channel_id", "display_name", "description"],
+                "properties": {
+                  "id": { "type": "string", "description": "outgoing webhook GUID. 경로 파라미터와 동일한 값." },
+                  "channel_id": { "type": "string", "description": "이 웹훅이 감시할 공개 채널의 ID" },
+                  "display_name": { "type": "string", "description": "이 outgoing webhook의 표시 이름" },
+                  "description": { "type": "string", "description": "이 outgoing webhook의 설명" },
+                  "trigger_words": { "type": "array", "items": { "type": "string" }, "description": "웹훅을 발동시킬 단어 목록. **원문 요청 스키마에는 없으나 응답에 포함되는 필드** — 실호출 확인 필요." },
+                  "trigger_when": { "type": "integer", "enum": [0, 1], "description": "발동 조건. **원문 요청 스키마에는 없는 필드** — 실호출 확인 필요." },
+                  "callback_urls": { "type": "array", "items": { "type": "string" }, "description": "발동 시 payload를 POST할 URL 목록. **원문 요청 스키마에는 없는 필드** — 실호출 확인 필요." },
+                  "content_type": { "type": "string", "enum": ["application/json", "application/x-www-form-urlencoded"], "description": "POST할 데이터 형식. **원문 요청 스키마에는 없는 필드** — 실호출 확인 필요." }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "웹훅 갱신 성공",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OutgoingWebhook" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "delete": {
+        "summary": "09. Delete an outgoing webhook",
+        "description": "outgoing webhook을 삭제한다.",
+        "operationId": "deleteOutgoingWebhook",
+        "tags": ["Outgoing Webhooks"],
+        "x-priority": "medium",
+        "x-permissions": "원문 표기는 시스템/팀/채널 단위 `manage_webhooks`. 실측상 본인 소유분은 `manage_own_outgoing_webhooks` 로 삭제 가능.",
+        "parameters": [{ "$ref": "#/components/parameters/HookId" }],
+        "responses": {
+          "200": {
+            "description": "웹훅 삭제 성공",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOK" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/hooks/outgoing/{hook_id}/regen_token": {
+      "post": {
+        "summary": "11. Regenerate the token for the outgoing webhook",
+        "description": "outgoing webhook의 토큰을 재발급한다. 콜백 수신 측은 이 토큰으로 요청의 진위를 검증하므로, **재발급하면 수신 서버에 저장된 토큰도 함께 갱신해야 한다** — 그러지 않으면 이후 콜백이 모두 거부된다.\n\n**주의**: 응답이 `{ status: \"ok\" }` 뿐이라 새 토큰이 포함되지 않는다. 재발급 후 08번으로 웹훅을 다시 조회해 토큰을 확인해야 한다.",
+        "operationId": "regenOutgoingHookToken",
+        "tags": ["Outgoing Webhooks"],
+        "x-priority": "low",
+        "x-permissions": "원문 표기는 시스템/팀/채널 단위 `manage_webhooks`. 실측상 본인 소유분은 `manage_own_outgoing_webhooks` 로 가능.",
+        "parameters": [{ "$ref": "#/components/parameters/HookId" }],
+        "responses": {
+          "200": {
+            "description": "토큰 재발급 성공. **새 토큰은 응답에 포함되지 않으므로 08번으로 재조회할 것.**",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOK" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    }
+  },
   "components": {
-    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "`Authorization: Bearer <token>`. 세션 토큰 또는 개인 액세스 토큰을 사용한다."
+      }
+    },
+    "parameters": {
+      "HookId": {
+        "name": "hook_id",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string" },
+        "description": "웹훅 GUID"
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "잘못된 요청",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      },
+      "Unauthorized": {
+        "description": "인증 실패 또는 세션 만료",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      },
+      "Forbidden": {
+        "description": "권한 부족. 타인이 만든 웹훅을 조작하려 할 때도 이 응답이 온다.",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      },
+      "NotFound": {
+        "description": "웹훅을 찾을 수 없음",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      }
+    },
     "schemas": {
-      "IncomingWebhook": {
+      "AppError": {
+        "type": "object",
+        "description": "Mattermost 공통 오류 응답",
+        "properties": {
+          "status_code": { "type": "integer", "description": "HTTP 상태 코드" },
+          "id": { "type": "string", "description": "오류 식별자" },
+          "message": { "type": "string", "description": "사람이 읽을 수 있는 오류 메시지" },
+          "request_id": { "type": "string", "description": "요청 추적용 ID" }
+        }
+      },
+      "StatusOK": {
         "type": "object",
         "properties": {
-          "id": { "type": "string" },
-          "create_at": { "type": "integer" },
-          "update_at": { "type": "integer" },
-          "delete_at": { "type": "integer" },
-          "last_used": { "type": "integer" },
-          "channel_id": { "type": "string" },
-          "description": { "type": "string" },
-          "display_name": { "type": "string" },
-          "username": { "type": "string" },
-          "icon_url": { "type": "string" },
-          "channel_locked": { "type": "boolean" }
+          "status": { "type": "string", "example": "ok", "description": "요청이 성공했고 반환할 다른 내용이 없으면 `\"ok\"` 가 담긴다." }
+        }
+      },
+      "IncomingWebhook": {
+        "type": "object",
+        "description": "발송 URL은 이 객체에 없다. `id` 로 `https://{host}/hooks/{id}` 를 조립해 사용한다(`/api/v4` 접두사 없음).",
+        "properties": {
+          "id": { "type": "string", "description": "이 incoming webhook의 고유 식별자. 발송 URL 조립에 쓴다." },
+          "create_at": { "type": "integer", "format": "int64", "description": "웹훅이 생성된 시각(밀리초)" },
+          "update_at": { "type": "integer", "format": "int64", "description": "웹훅이 마지막으로 갱신된 시각(밀리초)" },
+          "delete_at": { "type": "integer", "format": "int64", "description": "웹훅이 삭제된 시각(밀리초). 활성 웹훅은 0." },
+          "last_used": { "type": "integer", "format": "int64", "description": "이 웹훅이 마지막으로 메시지 발송에 사용된 시각(밀리초). 발송이 실제로 이뤄지는지 점검하는 데 쓴다." },
+          "channel_id": { "type": "string", "description": "웹훅 payload를 받는 공개 채널 또는 비공개 그룹의 ID" },
+          "description": { "type": "string", "description": "이 incoming webhook의 설명" },
+          "display_name": { "type": "string", "description": "이 incoming webhook의 표시 이름" }
         }
       },
       "OutgoingWebhook": {
         "type": "object",
         "properties": {
-          "id": { "type": "string" },
-          "create_at": { "type": "integer" },
-          "update_at": { "type": "integer" },
-          "delete_at": { "type": "integer" },
-          "creator_id": { "type": "string" },
-          "team_id": { "type": "string" },
-          "channel_id": { "type": "string" },
-          "description": { "type": "string" },
-          "display_name": { "type": "string" },
-          "trigger_words": { "type": "array", "items": { "type": "string" } },
-          "trigger_when": { "type": "integer", "enum": [0, 1] },
-          "callback_urls": { "type": "array", "items": { "type": "string" } },
-          "content_type": { "type": "string" }
+          "id": { "type": "string", "description": "이 outgoing webhook의 고유 식별자" },
+          "create_at": { "type": "integer", "format": "int64", "description": "웹훅이 생성된 시각(밀리초)" },
+          "update_at": { "type": "integer", "format": "int64", "description": "웹훅이 마지막으로 갱신된 시각(밀리초)" },
+          "delete_at": { "type": "integer", "format": "int64", "description": "웹훅이 삭제된 시각(밀리초). 활성 웹훅은 0." },
+          "creator_id": { "type": "string", "description": "웹훅을 만든 사용자 ID" },
+          "team_id": { "type": "string", "description": "이 웹훅이 감시하는 팀의 ID" },
+          "channel_id": { "type": "string", "description": "이 웹훅이 감시하는 공개 채널의 ID" },
+          "description": { "type": "string", "description": "이 outgoing webhook의 설명" },
+          "display_name": { "type": "string", "description": "이 outgoing webhook의 표시 이름" },
+          "trigger_words": { "type": "array", "items": { "type": "string" }, "description": "웹훅을 발동시키는 단어 목록" },
+          "trigger_when": { "type": "integer", "enum": [0, 1], "description": "발동 조건. `0`=트리거 단어가 메시지 어디에든 있으면, `1`=메시지가 트리거 단어로 시작할 때만." },
+          "callback_urls": { "type": "array", "items": { "type": "string" }, "description": "발동 시 payload를 POST할 URL 목록" },
+          "content_type": { "type": "string", "description": "POST할 데이터 형식. `application/json` 또는 `application/x-www-form-urlencoded`." }
         }
-      },
-      "StatusOk": { "type": "object", "properties": { "status": { "type": "string", "example": "ok" } } }
-    }
-  },
-  "security": [{ "bearerAuth": [] }],
-  "paths": {
-    "/hooks/incoming": {
-      "post": {
-        "summary": "1. Create an incoming webhook (manage_own_incoming_webhooks)",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "channel_id": { "type": "string" },
-                  "display_name": { "type": "string" },
-                  "description": { "type": "string" },
-                  "username": { "type": "string" },
-                  "icon_url": { "type": "string" },
-                  "channel_locked": { "type": "boolean" }
-                },
-                "required": ["channel_id"]
-              },
-              "example": { "channel_id": "{{channel_id}}", "display_name": "A502 알림봇", "description": "SSAGY 통합 알림용 incoming webhook" }
-            }
-          }
-        },
-        "responses": { "201": { "description": "Incoming webhook created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/IncomingWebhook" } } } } }
-      },
-      "get": {
-        "summary": "2. List incoming webhooks (본인 소유 범위)",
-        "parameters": [
-          { "name": "page", "in": "query", "schema": { "type": "integer" } },
-          { "name": "per_page", "in": "query", "schema": { "type": "integer" } },
-          { "name": "team_id", "in": "query", "schema": { "type": "string" } }
-        ],
-        "responses": { "200": { "description": "Webhook list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/IncomingWebhook" } } } } } }
-      }
-    },
-    "/hooks/incoming/{hook_id}": {
-      "get": {
-        "summary": "3. Get an incoming webhook (본인)",
-        "parameters": [{ "name": "hook_id", "in": "path", "required": true, "schema": { "type": "string" } }],
-        "responses": { "200": { "description": "Webhook", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/IncomingWebhook" } } } } }
-      },
-      "delete": {
-        "summary": "4. Delete an incoming webhook (본인)",
-        "parameters": [{ "name": "hook_id", "in": "path", "required": true, "schema": { "type": "string" } }],
-        "responses": { "200": { "description": "ok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOk" } } } } }
-      },
-      "put": {
-        "summary": "5. Update an incoming webhook (본인)",
-        "parameters": [{ "name": "hook_id", "in": "path", "required": true, "schema": { "type": "string" } }],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "id": { "type": "string" },
-                  "channel_id": { "type": "string" },
-                  "display_name": { "type": "string" },
-                  "description": { "type": "string" },
-                  "username": { "type": "string" },
-                  "icon_url": { "type": "string" },
-                  "channel_locked": { "type": "boolean" }
-                },
-                "required": ["id", "channel_id", "display_name", "description"]
-              }
-            }
-          }
-        },
-        "responses": { "200": { "description": "Updated webhook", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/IncomingWebhook" } } } } }
-      }
-    },
-    "/hooks/outgoing": {
-      "post": {
-        "summary": "6. Create an outgoing webhook (manage_own_outgoing_webhooks)",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "team_id": { "type": "string" },
-                  "channel_id": { "type": "string" },
-                  "display_name": { "type": "string" },
-                  "description": { "type": "string" },
-                  "trigger_words": { "type": "array", "items": { "type": "string" } },
-                  "trigger_when": { "type": "integer", "enum": [0, 1] },
-                  "callback_urls": { "type": "array", "items": { "type": "string" } },
-                  "content_type": { "type": "string", "enum": ["application/json", "application/x-www-form-urlencoded"] }
-                },
-                "required": ["team_id", "display_name", "trigger_words", "callback_urls"]
-              }
-            }
-          }
-        },
-        "responses": { "201": { "description": "Outgoing webhook created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OutgoingWebhook" } } } } }
-      },
-      "get": {
-        "summary": "7. List outgoing webhooks (본인 소유 범위)",
-        "parameters": [
-          { "name": "page", "in": "query", "schema": { "type": "integer" } },
-          { "name": "per_page", "in": "query", "schema": { "type": "integer" } },
-          { "name": "team_id", "in": "query", "schema": { "type": "string" } },
-          { "name": "channel_id", "in": "query", "schema": { "type": "string" } }
-        ],
-        "responses": { "200": { "description": "Webhook list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/OutgoingWebhook" } } } } } }
-      }
-    },
-    "/hooks/outgoing/{hook_id}": {
-      "get": {
-        "summary": "8. Get an outgoing webhook (본인)",
-        "parameters": [{ "name": "hook_id", "in": "path", "required": true, "schema": { "type": "string" } }],
-        "responses": { "200": { "description": "Webhook", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OutgoingWebhook" } } } } }
-      },
-      "delete": {
-        "summary": "9. Delete an outgoing webhook (본인)",
-        "parameters": [{ "name": "hook_id", "in": "path", "required": true, "schema": { "type": "string" } }],
-        "responses": { "200": { "description": "ok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOk" } } } } }
-      },
-      "put": {
-        "summary": "10. Update an outgoing webhook (본인)",
-        "parameters": [{ "name": "hook_id", "in": "path", "required": true, "schema": { "type": "string" } }],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": { "type": "object", "properties": { "id": { "type": "string" }, "channel_id": { "type": "string" }, "display_name": { "type": "string" }, "description": { "type": "string" } }, "required": ["id", "channel_id", "display_name", "description"] }
-            }
-          }
-        },
-        "responses": { "200": { "description": "Updated webhook", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OutgoingWebhook" } } } } }
-      }
-    },
-    "/hooks/outgoing/{hook_id}/regen_token": {
-      "post": {
-        "summary": "11. Regenerate the token for the outgoing webhook (본인)",
-        "parameters": [{ "name": "hook_id", "in": "path", "required": true, "schema": { "type": "string" } }],
-        "responses": { "200": { "description": "ok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOk" } } } } }
       }
     }
   }

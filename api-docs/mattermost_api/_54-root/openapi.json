@@ -1,22 +1,97 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "Mattermost Notifications Ack API (권한 필터됨)",
-    "description": "인증만 필요, 별도 named permission 없음. 모바일 푸시 알림 수신 확인용.",
-    "version": "1.0.0"
+    "title": "Mattermost API - _54-root",
+    "version": "1.0.0",
+    "description": "Mattermost Root API (알림 수신 확인).\n\n**포함 기준**: 01 (총 1건 — 디렉토리 전체).\n\n**이 API의 용도**\n모바일 클라이언트가 푸시 알림을 실제로 수신했음을 서버에 알리는 엔드포인트다. 푸시 프록시의 전달 성공 여부를 서버가 추적하도록 돕는다.\n\n**연동 관점에서는 사용할 일이 없다.** SSAGY는 모바일 클라이언트가 아니므로 푸시 알림을 받지 않는다. 이 문서는 목록 완결성을 위해 작성됐다.\n\n**⚠️ 원문 문서의 문제 두 가지**\n1. **요청 본문 정의가 없다.** 엔드포인트 이름과 응답 스키마로 보아 확인할 알림 정보(`ack_id`, `platform`, `post_id` 등)를 본문으로 보내야 하지만, 원문에 요청 스펙이 없다. 실호출 확인이 필요하다.\n2. 200 응답 설명이 \"Status of the system\"으로 잘못 적혀 있다. 실제로는 알림 정보 객체다.\n\n최소 서버 버전 3.10\n\n**x-priority 의미**: SSAGY(통합 워크스페이스) 관점의 연동 우선순위."
   },
   "servers": [
-    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+    {
+      "url": "https://{host}/api/v4",
+      "variables": {
+        "host": {
+          "default": "meeting.ssafy.com",
+          "description": "self-hosted Mattermost 호스트"
+        }
+      }
+    }
   ],
-  "components": {
-    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } }
-  },
   "security": [{ "bearerAuth": [] }],
+  "tags": [{ "name": "Notifications", "description": "푸시 알림 수신 확인" }],
   "paths": {
     "/notifications/ack": {
       "post": {
-        "summary": "1. Acknowledge receiving of a notification (인증만 필요, 서버 3.10+)",
-        "responses": { "200": { "description": "Notification ack details" } }
+        "summary": "01. Acknowledge receiving of a notification",
+        "description": "푸시 알림을 수신했음을 서버에 확인 통보한다. 모바일 클라이언트 전용 흐름이다.\n\n**⚠️ 원문에 요청 본문 정의가 없다.** 실제로는 확인할 알림 정보를 본문으로 보내야 할 것으로 보이나 스펙이 없으므로, 사용 전 실호출 확인이 필요하다.\n\n**⚠️ 200 응답 설명 오류**: 원문에 \"Status of the system\"으로 적혀 있으나 실제로는 알림 정보 객체가 반환된다.\n\n최소 서버 버전 3.10",
+        "operationId": "acknowledgeNotification",
+        "tags": ["Notifications"],
+        "x-priority": "low",
+        "x-permissions": "로그인 필요",
+        "responses": {
+          "200": {
+            "description": "알림 정보. **원문 응답 설명이 \"Status of the system\"으로 잘못 적혀 있다.**",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ack_id": { "type": "string", "description": "확인 통보 ID" },
+                    "platform": { "type": "string", "description": "클라이언트 플랫폼" },
+                    "server_id": { "type": "string", "description": "알림을 보낸 서버 ID" },
+                    "device_id": { "type": "string", "description": "디바이스 ID" },
+                    "post_id": { "type": "string", "description": "알림 대상 게시물 ID" },
+                    "category": { "type": "string", "description": "알림 카테고리" },
+                    "sound": { "type": "string", "description": "알림 소리" },
+                    "message": { "type": "string", "description": "알림 메시지" },
+                    "badge": { "type": "number", "description": "배지 숫자" },
+                    "cont_ava": { "type": "number", "description": "content-available 플래그" },
+                    "team_id": { "type": "string", "description": "팀 ID" },
+                    "channel_id": { "type": "string", "description": "채널 ID" },
+                    "root_id": { "type": "string", "description": "스레드 루트 게시물 ID" },
+                    "channel_name": { "type": "string", "description": "채널 이름" },
+                    "type": { "type": "string", "description": "알림 타입" },
+                    "sub_type": { "type": "string", "description": "모바일 클라이언트용 추가 메시지 타입 정보. Calls 플러그인 알림에는 `\"calls\"` 를 쓴다." },
+                    "transport": { "type": "string", "enum": ["", "voip"], "description": "푸시 프록시의 전달 경로. VoIP(CallKit) 알림에는 `\"voip\"` 를 쓰고, 일반 전달에는 생략한다." },
+                    "sender_id": { "type": "string", "description": "발신자 사용자 ID" },
+                    "sender_name": { "type": "string", "description": "발신자 표시 이름" },
+                    "override_username": { "type": "string", "description": "재정의된 사용자명(웹훅 발송 등)" },
+                    "override_icon_url": { "type": "string", "description": "재정의된 아이콘 URL" },
+                    "from_webhook": { "type": "string", "description": "웹훅에서 발송된 알림인지 여부" },
+                    "version": { "type": "string", "description": "알림 페이로드 버전" },
+                    "is_crt_enabled": { "type": "boolean", "description": "수신자에게 Collapsed Reply Threads가 활성화돼 있는지 여부" },
+                    "is_id_loaded": { "type": "boolean", "description": "ID-loaded 푸시 알림인지 여부" },
+                    "signature": { "type": "string", "description": "알림 서명" }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "리소스를 찾을 수 없음",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "`Authorization: Bearer <token>`. 세션 토큰 또는 개인 액세스 토큰을 사용한다."
+      }
+    },
+    "schemas": {
+      "AppError": {
+        "type": "object",
+        "description": "Mattermost 공통 오류 응답",
+        "properties": {
+          "status_code": { "type": "integer", "description": "HTTP 상태 코드" },
+          "id": { "type": "string", "description": "오류 식별자" },
+          "message": { "type": "string", "description": "사람이 읽을 수 있는 오류 메시지" },
+          "request_id": { "type": "string", "description": "요청 추적용 ID" }
+        }
       }
     }
   }

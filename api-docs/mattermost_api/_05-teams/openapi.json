@@ -1,162 +1,456 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "Mattermost Teams API (권한 필터됨)",
-    "description": "AGENTS.md 실효 권한 지도 기준, system_user/team_user 계정으로 호출 가능한 Teams API만 포함. 팀 생성(create_team), 타인 팀 추가/제거(add_user_to_team/remove_user_from_team), 비공개 팀 전체 조회(manage_system)는 제외.",
-    "version": "1.0.0"
+    "title": "Mattermost API - _05-teams",
+    "version": "1.0.0",
+    "description": "Mattermost Teams API 중 SSAGY 연동 계정(`system_user` + `team_user` + `channel_user`)으로 실제 호출 가능한 엔드포인트만 정리한 명세.\n\n**포함 기준**: 02, 10, 11, 12, 14, 15, 17, 19, 24, 29, 35 (총 11건).\n**제외 기준**: AGENTS.md 실효 권한 지도상 불가한 팀 생성(`create_team`), 팀 수정·삭제(`manage_team`), 타인 팀 추가(`add_user_to_team`), 비공개 팀 전체 조회(`manage_system`) 등.\n\n**연동 설계상 핵심 제약**\n- 팀 생성은 불가하다. SSAGY는 이미 존재하는 팀에 **가입**하고 그 안에 채널을 만드는 흐름만 자동화할 수 있다(`join_public_teams`, `list_public_teams`).\n- 14번(Add user to team)은 **open 팀에 자기 자신을 추가**하는 용도로만 쓸 수 있다. 타인을 추가하려면 `add_user_to_team` 권한이 필요하며 연동 계정에는 없다.\n- 일반 계정으로 02/10번을 호출하면 open 타입(`type: \"O\"`) 팀만 반환된다.\n\n**공통 규칙**\n- `user_id` 경로 파라미터에는 문자열 `me` 를 넣어 현재 로그인 사용자를 지칭할 수 있다.\n- 타임스탬프 계열 필드는 모두 Unix epoch **밀리초** 정수다.\n- 오류 응답 본문은 모두 `AppError` 스키마를 따른다.\n\n**x-priority 의미**: SSAGY(통합 워크스페이스) 관점의 연동 우선순위."
   },
   "servers": [
-    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
-  ],
-  "components": {
-    "securitySchemes": {
-      "bearerAuth": { "type": "http", "scheme": "bearer" }
-    },
-    "schemas": {
-      "Team": {
-        "type": "object",
-        "properties": {
-          "id": { "type": "string" },
-          "create_at": { "type": "integer" },
-          "update_at": { "type": "integer" },
-          "delete_at": { "type": "integer" },
-          "display_name": { "type": "string" },
-          "name": { "type": "string" },
-          "description": { "type": "string" },
-          "email": { "type": "string" },
-          "type": { "type": "string" },
-          "allowed_domains": { "type": "string" },
-          "invite_id": { "type": "string" },
-          "allow_open_invite": { "type": "boolean" },
-          "policy_id": { "type": "string" }
-        }
-      },
-      "TeamMember": {
-        "type": "object",
-        "properties": {
-          "team_id": { "type": "string" },
-          "user_id": { "type": "string" },
-          "roles": { "type": "string" },
-          "delete_at": { "type": "integer" },
-          "scheme_user": { "type": "boolean" },
-          "scheme_admin": { "type": "boolean" },
-          "explicit_roles": { "type": "string" }
+    {
+      "url": "https://{host}/api/v4",
+      "variables": {
+        "host": {
+          "default": "meeting.ssafy.com",
+          "description": "self-hosted Mattermost 호스트"
         }
       }
     }
-  },
+  ],
   "security": [{ "bearerAuth": [] }],
+  "tags": [
+    { "name": "Teams", "description": "팀 조회·검색·초대 정보" },
+    { "name": "Team Members", "description": "팀 멤버십 조회·가입·탈퇴" }
+  ],
   "paths": {
     "/teams": {
       "get": {
-        "summary": "2. Get teams (일반 계정은 open 팀만 조회됨)",
+        "summary": "02. Get teams",
+        "description": "팀 목록을 페이지 단위로 조회한다.\n\n**일반 사용자는 open 타입 팀만 반환된다.** `manage_system` 권한이 있어야 타입과 무관하게 전체 팀이 조회되는데, 연동 계정에는 해당 권한이 없다. 따라서 SSAGY가 이 API로 볼 수 있는 것은 공개 팀 목록뿐이며, 참여 중인 비공개 팀은 12번(Get a user's teams)으로 조회해야 한다.",
+        "operationId": "getAllTeams",
+        "tags": ["Teams"],
+        "x-priority": "high",
+        "x-permissions": "인증 필요. 전체 팀을 보려면 `manage_system` 권한 필요(연동 계정 불가).",
         "parameters": [
-          { "name": "page", "in": "query", "schema": { "type": "integer" } },
-          { "name": "per_page", "in": "query", "schema": { "type": "integer" } },
-          { "name": "include_total_count", "in": "query", "schema": { "type": "boolean" } }
+          { "name": "page", "in": "query", "required": false, "schema": { "type": "integer", "default": 0 }, "description": "조회할 페이지 번호(0부터)" },
+          { "name": "per_page", "in": "query", "required": false, "schema": { "type": "integer", "default": 60 }, "description": "페이지당 팀 수" },
+          { "name": "include_total_count", "in": "query", "required": false, "schema": { "type": "boolean" }, "description": "true면 응답이 배열 대신 `{ \"teams\": [], \"total_count\": 0 }` 객체로 감싸져 전체 개수가 함께 반환된다." },
+          { "name": "exclude_policy_constrained", "in": "query", "required": false, "schema": { "type": "boolean" }, "description": "true면 데이터 보존 정책이 적용된 팀을 제외한다. 이 파라미터를 쓰려면 `sysconsole_read_compliance` 권한이 필요하다. 최소 서버 버전 5.35" }
         ],
-        "responses": { "200": { "description": "Team list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Team" } } } } } }
+        "responses": {
+          "200": {
+            "description": "팀 목록 조회 성공. `include_total_count=true` 인 경우 `TeamListWithCount` 형태로 반환된다.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    { "type": "array", "items": { "$ref": "#/components/schemas/Team" } },
+                    { "$ref": "#/components/schemas/TeamListWithCount" }
+                  ]
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
       }
     },
     "/teams/search": {
       "post": {
-        "summary": "10. Search teams (일반 계정은 open 팀만 검색됨)",
+        "summary": "10. Search teams",
+        "description": "검색어와 옵션으로 팀을 검색한다. 이름(`name`) 또는 표시 이름(`display_name`)에 매칭한다.\n\n**응답 형태가 요청에 따라 달라진다**: 본문에 `page` 와 `per_page` 를 **둘 다** 넣으면 `{ teams, total_count }` 객체가, 하나라도 빠지면 페이징 없는 단순 배열이 반환된다.\n\n02번과 마찬가지로 일반 계정은 open 팀만 검색된다. 팀 이름으로 team_id 를 찾는 용도로 쓴다.",
+        "operationId": "searchTeams",
+        "tags": ["Teams"],
+        "x-priority": "high",
+        "x-permissions": "로그인 사용자는 open 팀만 조회. `manage_system` 권한 보유 시 전체 팀 조회.",
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
                 "properties": {
-                  "term": { "type": "string" },
-                  "page": { "type": "string" },
-                  "per_page": { "type": "string" },
-                  "allow_open_invite": { "type": "boolean" }
+                  "term": { "type": "string", "description": "팀의 name 또는 display_name 에 매칭할 검색어" },
+                  "page": { "type": "string", "description": "반환할 페이지 번호. `per_page` 와 함께 지정하지 않으면 페이징 없이 전체가 반환된다. (문자열 타입임에 주의)" },
+                  "per_page": { "type": "string", "description": "페이지당 항목 수. `page` 와 함께 지정하지 않으면 페이징 없이 전체가 반환된다. (문자열 타입임에 주의)" },
+                  "allow_open_invite": { "type": "boolean", "description": "`allow_open_invite` 값이 true/false 인 팀으로 결과를 필터링한다. 이 옵션을 쓰면 그룹 제약 채널은 제외된다. 미지정 시 질의는 변경되지 않는다. 최소 서버 버전 5.28" },
+                  "group_constrained": { "type": "boolean", "description": "`group_constrained` 값이 true/false 인 팀으로 필터링한다. `allow_open_invite` 와 함께 쓰면 두 결과의 합집합을 반환한다. 최소 서버 버전 5.28" },
+                  "exclude_policy_constrained": { "type": "boolean", "description": "true면 세분화된 보존 정책이 할당되지 않은 팀만 반환한다. `sysconsole_read_compliance_data_retention` 권한 필요. 최소 서버 버전 5.35" }
                 }
               },
               "example": { "term": "a502" }
             }
           }
         },
-        "responses": { "200": { "description": "Team list (page/per_page 없으면 배열, 있으면 {teams,total_count})" } }
+        "responses": {
+          "200": {
+            "description": "팀 검색 성공. 본문에 `page` 와 `per_page` 가 모두 있으면 페이징 객체, 아니면 단순 배열.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    { "$ref": "#/components/schemas/TeamListWithCount" },
+                    { "type": "array", "items": { "$ref": "#/components/schemas/Team" } }
+                  ]
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
       }
     },
     "/teams/name/{team_name}/exists": {
       "get": {
         "summary": "11. Check if team exists",
-        "parameters": [{ "name": "team_name", "in": "path", "required": true, "schema": { "type": "string" } }],
-        "responses": { "200": { "description": "exists boolean", "content": { "application/json": { "schema": { "type": "object", "properties": { "exists": { "type": "boolean" } } } } } } }
+        "description": "팀 이름으로 해당 팀의 존재 여부만 확인한다. 팀 세팅 전 이름 중복·오타를 빠르게 검증할 때 쓴다.",
+        "operationId": "teamExists",
+        "tags": ["Teams"],
+        "x-priority": "medium",
+        "x-permissions": "인증 필요",
+        "parameters": [
+          { "name": "team_name", "in": "path", "required": true, "schema": { "type": "string" }, "description": "팀 이름(URL slug 형태의 `name` 필드)", "example": "a502" }
+        ],
+        "responses": {
+          "200": {
+            "description": "조회 성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "exists": { "type": "boolean", "description": "해당 이름의 팀 존재 여부" } }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
       }
     },
     "/users/{user_id}/teams": {
       "get": {
-        "summary": "12. Get a user's teams (본인)",
-        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
-        "responses": { "200": { "description": "Team list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Team" } } } } } }
+        "summary": "12. Get a user's teams",
+        "description": "사용자가 속한 팀 목록을 조회한다. **연동 계정이 참여 중인 비공개 팀까지 볼 수 있는 유일한 경로**이므로, 02번보다 실사용 빈도가 높다. `user_id` 에 `me` 를 넣어 사용한다.",
+        "operationId": "getTeamsForUser",
+        "tags": ["Teams"],
+        "x-priority": "high",
+        "x-permissions": "본인이거나 `manage_system` 권한 필요. 연동 계정은 본인(`me`)만 가능.",
+        "parameters": [{ "$ref": "#/components/parameters/UserIdOrMe" }],
+        "responses": {
+          "200": {
+            "description": "팀 목록 조회 성공",
+            "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Team" } } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
       }
     },
     "/teams/{team_id}/members": {
       "post": {
-        "summary": "14. Add user to team (open 팀에 자기 자신 추가)",
-        "parameters": [{ "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "summary": "14. Add user to team",
+        "description": "user_id 로 사용자를 팀에 추가한다.\n\n**연동 계정 사용 범위**: open 팀에 **자기 자신**을 추가하는 것만 가능하다(`join_public_teams`). 타인을 추가하려면 `add_user_to_team` 권한이 필요한데 연동 계정에는 없으므로 403이 반환된다. 팀원 초대는 Mattermost UI나 관리자 계정으로 처리해야 한다.",
+        "operationId": "addTeamMember",
+        "tags": ["Team Members"],
+        "x-priority": "high",
+        "x-permissions": "자기 자신 추가는 인증 + 팀이 open 이면 가능. 타인 추가는 `add_user_to_team` 권한 필요(연동 계정 불가).",
+        "parameters": [{ "$ref": "#/components/parameters/TeamId" }],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
-              "schema": { "type": "object", "properties": { "team_id": { "type": "string" }, "user_id": { "type": "string" } }, "required": ["team_id", "user_id"] },
-              "example": { "team_id": "{{team_id}}", "user_id": "{{my_user_id}}" }
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "team_id": { "type": "string", "description": "팀 GUID. 경로 파라미터와 동일한 값을 넣는다." },
+                  "user_id": { "type": "string", "description": "추가할 사용자 GUID" }
+                }
+              },
+              "example": { "team_id": "4eb6axxw7fg3je5iyasnfudc5y", "user_id": "8xk2mnqp3bfytc9wjhr4vd6z1e" }
             }
           }
         },
-        "responses": { "201": { "description": "Team member created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TeamMember" } } } } }
+        "responses": {
+          "201": {
+            "description": "팀 멤버 생성 성공",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TeamMember" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
       }
     },
     "/teams/members/invite": {
       "post": {
         "summary": "15. Add user to team from invite",
-        "parameters": [{ "name": "token", "in": "query", "required": true, "schema": { "type": "string" } }],
-        "responses": { "201": { "description": "Team member created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TeamMember" } } } } }
+        "description": "초대 ID 또는 이메일 초대 링크의 hash/data 쌍을 사용해 현재 사용자를 팀에 추가한다.\n\n**14번의 권한 제약을 우회하는 실질적 경로**다. 팀 관리자가 만든 초대 링크의 토큰만 있으면 연동 계정이 스스로 팀에 가입할 수 있다.",
+        "operationId": "addTeamMemberFromInvite",
+        "tags": ["Team Members"],
+        "x-priority": "high",
+        "x-permissions": "인증 필요",
+        "parameters": [
+          { "name": "token", "in": "query", "required": true, "schema": { "type": "string" }, "description": "초대장의 토큰 ID" }
+        ],
+        "responses": {
+          "201": {
+            "description": "팀 멤버 생성 성공",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TeamMember" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
       }
     },
     "/users/{user_id}/teams/members": {
       "get": {
-        "summary": "17. Get team members for a user (본인)",
-        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
-        "responses": { "200": { "description": "Team member list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/TeamMember" } } } } } }
+        "summary": "17. Get team members for a user",
+        "description": "사용자의 팀 멤버십 목록을 조회한다. 소속 팀의 ID와 그 팀에서의 역할을 함께 얻을 수 있어, 12번(팀 객체 목록)과 달리 **권한 판정에 필요한 `roles` 를 확인**할 수 있다.",
+        "operationId": "getTeamMembersForUser",
+        "tags": ["Team Members"],
+        "x-priority": "high",
+        "x-permissions": "본인이거나 `edit_other_users` 권한 필요. 연동 계정은 본인(`me`)만 가능.",
+        "parameters": [{ "$ref": "#/components/parameters/UserIdOrMe" }],
+        "responses": {
+          "200": {
+            "description": "팀 멤버십 목록 조회 성공",
+            "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/TeamMember" } } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
       }
     },
     "/teams/{team_id}/members/{user_id}": {
       "delete": {
-        "summary": "19. Remove user from team (본인 탈퇴)",
+        "summary": "19. Remove user from team",
+        "description": "팀 멤버 객체를 삭제해 사용자를 팀에서 제외한다.\n\n**연동 계정 사용 범위**: 본인 탈퇴만 가능하다. 타인 제거는 `remove_user_from_team` 권한이 필요하며 연동 계정에는 없다.",
+        "operationId": "removeTeamMember",
+        "tags": ["Team Members"],
+        "x-priority": "medium",
+        "x-permissions": "본인이거나 `remove_user_from_team` 권한 필요. 연동 계정은 본인 탈퇴만 가능.",
         "parameters": [
-          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }
+          { "$ref": "#/components/parameters/TeamId" },
+          { "$ref": "#/components/parameters/UserIdOrMe" }
         ],
-        "responses": { "200": { "description": "ok" } }
+        "responses": {
+          "200": {
+            "description": "팀 멤버 삭제 성공",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOK" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
       }
     },
     "/teams/{team_id}/image": {
       "get": {
-        "summary": "24. Get the team icon (open 팀이면 인증만으로 조회 가능)",
-        "parameters": [{ "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } }],
-        "responses": { "200": { "description": "Image binary" } }
+        "summary": "24. Get the team icon",
+        "description": "팀 아이콘 이미지 바이너리를 반환한다. 응답은 JSON이 아니라 이미지다. 아이콘이 설정되지 않았거나 서버에서 기능이 꺼져 있으면 501이 반환된다.\n\n최소 서버 버전 4.9",
+        "operationId": "getTeamIcon",
+        "tags": ["Teams"],
+        "x-priority": "low",
+        "x-permissions": "인증 필요. 추가로 팀이 open 이거나 `view_team` 권한이 있어야 한다.",
+        "parameters": [{ "$ref": "#/components/parameters/TeamId" }],
+        "responses": {
+          "200": {
+            "description": "팀 아이콘",
+            "content": { "image/png": { "schema": { "type": "string", "format": "binary" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "501": { "$ref": "#/components/responses/NotImplemented" }
+        }
       }
     },
     "/users/{user_id}/teams/unread": {
       "get": {
-        "summary": "29. Get team unreads for a user (본인)",
+        "summary": "29. Get team unreads for a user",
+        "description": "사용자가 속한 팀들의 읽지 않은 메시지·멘션 개수를 조회한다. SSAGY 통합 대시보드에서 팀별 미확인 배지를 그리는 데 직접 쓰인다.\n\n**주의**: 원문 명세상 `exclude_team` 이 required 로 표기돼 있으나 설명은 \"Optional team id to be excluded\"다. 제외할 팀이 없으면 빈 문자열을 넘긴다.",
+        "operationId": "getTeamsUnreadForUser",
+        "tags": ["Teams"],
+        "x-priority": "high",
+        "x-permissions": "로그인 필요",
         "parameters": [
-          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
-          { "name": "exclude_team", "in": "query", "required": true, "schema": { "type": "string" } },
-          { "name": "include_collapsed_threads", "in": "query", "schema": { "type": "boolean" } }
+          { "$ref": "#/components/parameters/UserIdOrMe" },
+          { "name": "exclude_team", "in": "query", "required": true, "schema": { "type": "string" }, "description": "결과에서 제외할 팀 ID. 제외 대상이 없으면 빈 문자열." },
+          { "name": "include_collapsed_threads", "in": "query", "required": false, "schema": { "type": "boolean" }, "description": "접힌 스레드(collapsed threads)의 미확인 수를 포함할지 여부" }
         ],
-        "responses": { "200": { "description": "team unread list", "content": { "application/json": { "schema": { "type": "array", "items": { "type": "object", "properties": { "team_id": { "type": "string" }, "msg_count": { "type": "integer" }, "mention_count": { "type": "integer" } } } } } } } }
+        "responses": {
+          "200": {
+            "description": "팀별 미확인 수 조회 성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "team_id": { "type": "string", "description": "팀 ID" },
+                      "msg_count": { "type": "integer", "description": "읽지 않은 메시지 수" },
+                      "mention_count": { "type": "integer", "description": "읽지 않은 멘션 수" }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
       }
     },
     "/teams/invite/{invite_id}": {
       "get": {
-        "summary": "35. Get invite info for a team (인증 불필요)",
+        "summary": "35. Get invite info for a team",
+        "description": "초대 ID로부터 팀의 `id`, `name`, `display_name`, `description` 을 조회한다. 15번으로 가입하기 전에 어떤 팀인지 확인하는 용도.\n\n**인증이 필요 없는 엔드포인트**다.\n\n최소 서버 버전 4.0",
+        "operationId": "getTeamInviteInfo",
+        "tags": ["Teams"],
+        "x-priority": "medium",
+        "x-permissions": "인증 불필요",
         "security": [],
-        "parameters": [{ "name": "invite_id", "in": "path", "required": true, "schema": { "type": "string" } }],
-        "responses": { "200": { "description": "Team invite info", "content": { "application/json": { "schema": { "type": "object", "properties": { "id": { "type": "string" }, "name": { "type": "string" }, "display_name": { "type": "string" }, "description": { "type": "string" } } } } } } }
+        "parameters": [
+          { "name": "invite_id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "팀의 초대 ID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "초대 정보 조회 성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string", "description": "팀 GUID" },
+                    "name": { "type": "string", "description": "팀 이름(URL slug)" },
+                    "display_name": { "type": "string", "description": "팀 표시 이름" },
+                    "description": { "type": "string", "description": "팀 설명" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "`Authorization: Bearer <token>`. 세션 토큰 또는 개인 액세스 토큰을 사용한다."
+      }
+    },
+    "parameters": {
+      "UserIdOrMe": {
+        "name": "user_id",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string" },
+        "description": "사용자 GUID. 문자열 `me` 를 넣으면 현재 로그인 사용자를 가리킨다.",
+        "example": "me"
+      },
+      "TeamId": {
+        "name": "team_id",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string" },
+        "description": "팀 GUID"
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "잘못된 요청",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      },
+      "Unauthorized": {
+        "description": "인증 실패 또는 세션 만료",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      },
+      "Forbidden": {
+        "description": "권한 부족",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      },
+      "NotFound": {
+        "description": "리소스를 찾을 수 없음",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      },
+      "NotImplemented": {
+        "description": "서버 설정상 해당 기능이 비활성화됨",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      }
+    },
+    "schemas": {
+      "AppError": {
+        "type": "object",
+        "description": "Mattermost 공통 오류 응답",
+        "properties": {
+          "status_code": { "type": "integer", "description": "HTTP 상태 코드" },
+          "id": { "type": "string", "description": "오류 식별자" },
+          "message": { "type": "string", "description": "사람이 읽을 수 있는 오류 메시지" },
+          "request_id": { "type": "string", "description": "요청 추적용 ID" }
+        }
+      },
+      "StatusOK": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string", "example": "ok", "description": "요청이 성공했고 반환할 다른 내용이 없으면 `\"ok\"` 가 담긴다." }
+        }
+      },
+      "Team": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "팀 GUID" },
+          "create_at": { "type": "integer", "format": "int64", "description": "팀이 생성된 시각(밀리초)" },
+          "update_at": { "type": "integer", "format": "int64", "description": "팀이 마지막으로 갱신된 시각(밀리초)" },
+          "delete_at": { "type": "integer", "format": "int64", "description": "팀이 삭제된 시각(밀리초). 활성 팀은 0." },
+          "display_name": { "type": "string", "description": "팀 표시 이름" },
+          "name": { "type": "string", "description": "팀 이름(URL slug)" },
+          "description": { "type": "string", "description": "팀 설명" },
+          "email": { "type": "string", "description": "팀 대표 이메일" },
+          "type": { "type": "string", "description": "팀 타입. `O`=open(공개), `I`=invite only(초대 전용)." },
+          "allowed_domains": { "type": "string", "description": "가입 허용 이메일 도메인 목록" },
+          "invite_id": { "type": "string", "description": "팀 초대 ID. 35번 조회 및 초대 링크 생성에 사용된다." },
+          "allow_open_invite": { "type": "boolean", "description": "링크를 통한 자유 가입 허용 여부" },
+          "policy_id": { "type": "string", "nullable": true, "description": "이 팀에 할당된 데이터 보존 정책 ID. 정책이 없거나 호출자에게 `sysconsole_read_compliance_data_retention` 권한이 없으면 null." }
+        }
+      },
+      "TeamListWithCount": {
+        "type": "object",
+        "description": "페이징 요청 시 반환되는 팀 목록 래퍼",
+        "properties": {
+          "teams": { "type": "array", "items": { "$ref": "#/components/schemas/Team" }, "description": "질의에 매칭된 팀 목록" },
+          "total_count": { "type": "number", "description": "page/per_page 와 무관한 전체 결과 개수" }
+        }
+      },
+      "TeamMember": {
+        "type": "object",
+        "properties": {
+          "team_id": { "type": "string", "description": "이 멤버가 속한 팀의 ID" },
+          "user_id": { "type": "string", "description": "이 멤버에 해당하는 사용자 ID" },
+          "roles": { "type": "string", "description": "이 팀 멤버에게 부여된 전체 역할 목록(공백 구분). 권한 스킴을 통해 암묵적으로 부여된 역할도 포함한다." },
+          "delete_at": { "type": "integer", "format": "int64", "description": "이 팀 멤버가 삭제된 시각(밀리초)" },
+          "scheme_user": { "type": "boolean", "description": "팀 권한 스킴이 정의한 기본 user 역할 보유 여부" },
+          "scheme_admin": { "type": "boolean", "description": "팀 권한 스킴이 정의한 기본 admin 역할 보유 여부" },
+          "explicit_roles": { "type": "string", "description": "명시적으로 부여된 역할 목록(공백 구분). 권한 스킴을 통해 암묵적으로 부여된 역할은 포함하지 *않는다*." }
+        }
       }
     }
   }

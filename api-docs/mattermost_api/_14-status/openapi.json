@@ -1,126 +1,258 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "Mattermost Status API (권한 필터됨)",
-    "description": "인증만 필요한 조회 API + 본인(user_id=me) 상태/커스텀 상태 CRUD. 타인 상태 변경은 edit_other_users 필요해 제외.",
-    "version": "1.0.0"
+    "title": "Mattermost API - _14-status",
+    "version": "1.0.0",
+    "description": "Mattermost Status API. SSAGY 연동 계정(`system_user` + `team_user` + `channel_user`)으로 호출 가능한 항목을 정리한 명세.\n\n**포함 기준**: 01~07 (총 7건 — 디렉토리 전체).\n\n**연동 활용**\n대시보드에서 팀원의 온·오프라인 상태를 표시할 때 03번(일괄 조회)을 쓴다. 사용자 목록을 그릴 때 01번을 N회 호출하지 말 것.\n\n**⚠️ 02번(Update user status)의 권한 표기 문제**\n원문에 \"Must have `edit_other_users` permission for the team\"으로만 적혀 있으나, 실제로는 **본인 상태 변경은 추가 권한 없이 가능**하다(Mattermost 클라이언트가 매일 하는 동작). 타인 상태 변경에만 `edit_other_users` 가 필요하며, 이는 연동 계정 권한 밖이다. 원문 표기를 그대로 옮기되 이 차이를 명시해 둔다.\n\n**⚠️ 06번과 07번은 기능이 동일하다**\n둘 다 \"최근 커스텀 상태 삭제\"이고 요청 본문도 같다. 메서드/경로만 다르다(`DELETE .../recent` vs `POST .../recent/delete`). 프록시나 클라이언트가 본문 있는 DELETE를 막는 환경을 위해 POST 대안이 제공된 것으로 보인다 — **본문 있는 DELETE가 불안하면 07번을 쓸 것**.\n\n**공통 규칙**\n- `user_id` 경로 파라미터에는 문자열 `me` 를 넣어 현재 로그인 사용자를 지칭할 수 있다.\n- **시간 단위 주의**: `last_activity_at` 은 **밀리초**, `dnd_end_time` 은 **초(epoch seconds)**, `expires_at` 은 **ISO 8601 문자열**이다.\n- 오류 응답 본문은 모두 `AppError` 스키마를 따른다.\n\n**x-priority 의미**: SSAGY(통합 워크스페이스) 관점의 연동 우선순위."
   },
   "servers": [
-    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
-  ],
-  "components": {
-    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } },
-    "schemas": {
-      "Status": {
-        "type": "object",
-        "properties": {
-          "user_id": { "type": "string" },
-          "status": { "type": "string", "enum": ["online", "away", "offline", "dnd"] },
-          "manual": { "type": "boolean" },
-          "last_activity_at": { "type": "integer" }
+    {
+      "url": "https://{host}/api/v4",
+      "variables": {
+        "host": {
+          "default": "meeting.ssafy.com",
+          "description": "self-hosted Mattermost 호스트"
         }
       }
     }
-  },
+  ],
   "security": [{ "bearerAuth": [] }],
+  "tags": [
+    { "name": "Status", "description": "온라인/오프라인 상태" },
+    { "name": "Custom Status", "description": "이모지·텍스트 커스텀 상태" }
+  ],
   "paths": {
     "/users/{user_id}/status": {
       "get": {
-        "summary": "1. Get user status (인증만 필요)",
-        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
-        "responses": { "200": { "description": "Status", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Status" } } } } }
+        "summary": "01. Get user status",
+        "description": "사용자의 상태를 조회한다. 여러 명을 조회할 때는 이 API를 반복 호출하지 말고 03번을 쓸 것.",
+        "operationId": "getUserStatus",
+        "tags": ["Status"],
+        "x-priority": "medium",
+        "x-permissions": "인증 필요",
+        "parameters": [{ "$ref": "#/components/parameters/UserIdOrMe" }],
+        "responses": {
+          "200": {
+            "description": "상태 조회 성공",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Status" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
       },
       "put": {
-        "summary": "2. Update user status (본인)",
-        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
+        "summary": "02. Update user status",
+        "description": "사용자 상태를 수동으로 설정한다. 한 번 수동 설정하면 다시 `online` 으로 설정할 때까지 그 값이 유지되며, `online` 으로 되돌리면 사용자 활동 기반 자동 갱신으로 복귀한다.\n\n**권한 주의**: 원문에는 `edit_other_users` 권한이 필요하다고만 적혀 있으나, 실제로는 **본인 상태 변경에는 추가 권한이 필요 없다.** 타인 상태 변경에만 해당 권한이 필요하며 연동 계정에는 없다.\n\n**단위 주의**: `dnd_end_time` 은 밀리초가 아니라 **epoch 초**다.",
+        "operationId": "updateUserStatus",
+        "tags": ["Status"],
+        "x-priority": "medium",
+        "x-permissions": "원문 표기는 `edit_other_users` 권한. 실질적으로 본인(`me`) 상태 변경은 추가 권한 없이 가능하고, 타인 변경만 해당 권한이 필요하다.",
+        "parameters": [{ "$ref": "#/components/parameters/UserIdOrMe" }],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
+                "required": ["user_id", "status"],
                 "properties": {
-                  "user_id": { "type": "string" },
-                  "status": { "type": "string", "enum": ["online", "away", "offline", "dnd"] },
-                  "dnd_end_time": { "type": "integer" }
-                },
-                "required": ["user_id", "status"]
-              }
+                  "user_id": { "type": "string", "description": "사용자 ID. 경로 파라미터와 동일한 값." },
+                  "status": { "type": "string", "enum": ["online", "away", "offline", "dnd"], "description": "설정할 상태" },
+                  "dnd_end_time": { "type": "integer", "format": "int64", "description": "`dnd` 상태가 해제될 시각. **epoch 초** 단위(밀리초 아님)." }
+                }
+              },
+              "example": { "user_id": "4eb6axxw7fg3je5iyasnfudc5y", "status": "dnd", "dnd_end_time": 1786060800 }
             }
           }
         },
-        "responses": { "200": { "description": "Updated status", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Status" } } } } }
+        "responses": {
+          "200": {
+            "description": "상태 변경 성공",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Status" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
       }
     },
     "/users/status/ids": {
       "post": {
-        "summary": "3. Get user statuses by id (인증만 필요)",
-        "requestBody": { "content": { "application/json": { "schema": { "type": "array", "items": { "type": "string" } } } } },
-        "responses": { "200": { "description": "Status list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Status" } } } } } }
+        "summary": "03. Get user statuses by id",
+        "description": "사용자 ID 배열로 상태를 일괄 조회한다. **대시보드에서 팀원 온·오프라인 배지를 그릴 때 쓰는 기본 호출**이다.",
+        "operationId": "getUsersStatusesByIds",
+        "tags": ["Status"],
+        "x-priority": "high",
+        "x-permissions": "인증 필요",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "array", "items": { "type": "string" }, "description": "상태를 조회할 사용자 ID 목록" },
+              "example": ["4eb6axxw7fg3je5iyasnfudc5y", "8xk2mnqp3bfytc9wjhr4vd6z1e"]
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "상태 목록 조회 성공",
+            "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Status" } } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
       }
     },
     "/users/{user_id}/status/custom": {
       "put": {
-        "summary": "4. Update user custom status (본인)",
-        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
+        "summary": "04. Update user custom status",
+        "description": "커스텀 상태(이모지 + 텍스트)를 설정한다. 사용자 props에 값을 저장하고, 동시에 최근 커스텀 상태 목록(`recentCustomStatuses`)에도 추가한다.\n\n`duration` 을 `date_and_time` 으로 지정할 때는 `expires_at` 을 함께 보내야 한다.\n\n**단위 주의**: `expires_at` 은 타임스탬프가 아니라 **ISO 8601 문자열**이다.\n\n**주의**: 원문에 200 응답의 본문 스키마가 명시돼 있지 않다.",
+        "operationId": "updateUserCustomStatus",
+        "tags": ["Custom Status"],
+        "x-priority": "low",
+        "x-permissions": "커스텀 상태를 변경할 사용자 본인으로 로그인해야 함. 연동 계정은 본인(`me`)만 가능.",
+        "parameters": [{ "$ref": "#/components/parameters/UserIdOrMe" }],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
+                "required": ["emoji", "text"],
                 "properties": {
-                  "emoji": { "type": "string" },
-                  "text": { "type": "string" },
-                  "duration": { "type": "string", "enum": ["thirty_minutes", "one_hour", "four_hours", "today", "this_week", "date_and_time"] },
-                  "expires_at": { "type": "string" }
-                },
-                "required": ["emoji", "text"]
+                  "emoji": { "type": "string", "description": "임의의 이모지 이름" },
+                  "text": { "type": "string", "description": "커스텀 상태 텍스트" },
+                  "duration": { "type": "string", "enum": ["thirty_minutes", "one_hour", "four_hours", "today", "this_week", "date_and_time"], "description": "커스텀 상태의 지속 시간. `date_and_time` 이면 `expires_at` 을 함께 보낸다." },
+                  "expires_at": { "type": "string", "format": "date-time", "description": "커스텀 상태가 만료될 시각. **ISO 8601 형식 문자열**." }
+                }
               },
-              "example": { "emoji": "spiral_calendar_pad", "text": "회의중", "duration": "today" }
+              "example": { "emoji": "robot_face", "text": "SSAGY 자동화 실행 중", "duration": "one_hour" }
             }
           }
         },
-        "responses": { "200": { "description": "ok" } }
+        "responses": {
+          "200": { "description": "커스텀 상태 설정 성공. 원문에 응답 본문 스키마가 명시돼 있지 않다." },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
       },
       "delete": {
-        "summary": "5. Unsets user custom status (본인)",
-        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
-        "responses": { "200": { "description": "ok" } }
+        "summary": "05. Unsets user custom status",
+        "description": "커스텀 상태를 해제한다. 사용자 props를 갱신해 값을 제거한다.\n\n**주의**: 원문에 200 응답의 본문 스키마가 명시돼 있지 않다.",
+        "operationId": "unsetUserCustomStatus",
+        "tags": ["Custom Status"],
+        "x-priority": "low",
+        "x-permissions": "커스텀 상태를 제거할 사용자 본인으로 로그인해야 함. 연동 계정은 본인(`me`)만 가능.",
+        "parameters": [{ "$ref": "#/components/parameters/UserIdOrMe" }],
+        "responses": {
+          "200": { "description": "커스텀 상태 해제 성공. 원문에 응답 본문 스키마가 명시돼 있지 않다." },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
       }
     },
     "/users/{user_id}/status/custom/recent": {
       "delete": {
-        "summary": "6. Delete user's recent custom status (본인)",
-        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
+        "summary": "06. Delete user's recent custom status",
+        "description": "사용자 props의 `recentCustomStatuses` 목록에서 특정 항목을 제거한다.\n\n**07번과 기능이 완전히 동일하다.** 본문이 있는 DELETE 요청을 막는 프록시·클라이언트 환경에서는 07번(POST)을 쓸 것.\n\n**주의**: 원문에 200 응답의 본문 스키마가 명시돼 있지 않다.",
+        "operationId": "removeRecentCustomStatus",
+        "tags": ["Custom Status"],
+        "x-priority": "low",
+        "x-permissions": "해당 사용자 본인으로 로그인해야 함. 연동 계정은 본인(`me`)만 가능.",
+        "parameters": [{ "$ref": "#/components/parameters/UserIdOrMe" }],
         "requestBody": {
+          "required": true,
           "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": { "emoji": { "type": "string" }, "text": { "type": "string" }, "duration": { "type": "string" }, "expires_at": { "type": "string" } },
-                "required": ["emoji", "text", "duration", "expires_at"]
-              }
-            }
+            "application/json": { "schema": { "$ref": "#/components/schemas/RecentCustomStatus" } }
           }
         },
-        "responses": { "200": { "description": "ok" } }
+        "responses": {
+          "200": { "description": "최근 커스텀 상태 삭제 성공. 원문에 응답 본문 스키마가 명시돼 있지 않다." },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
       }
     },
     "/users/{user_id}/status/custom/recent/delete": {
       "post": {
-        "summary": "7. Delete user's recent custom status - POST 방식 (본인)",
-        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
+        "summary": "07. Delete user's recent custom status (POST 대안)",
+        "description": "06번과 **기능이 동일한** 엔드포인트로, 메서드와 경로만 다르다. 사용자 props의 `recentCustomStatuses` 목록에서 특정 항목을 제거한다.\n\n본문이 있는 DELETE 요청이 차단되는 환경에서 06번 대신 사용한다.\n\n**주의**: 원문에 200 응답의 본문 스키마가 명시돼 있지 않다.",
+        "operationId": "postRemoveRecentCustomStatus",
+        "tags": ["Custom Status"],
+        "x-priority": "low",
+        "x-permissions": "해당 사용자 본인으로 로그인해야 함. 연동 계정은 본인(`me`)만 가능.",
+        "parameters": [{ "$ref": "#/components/parameters/UserIdOrMe" }],
         "requestBody": {
+          "required": true,
           "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": { "emoji": { "type": "string" }, "text": { "type": "string" }, "duration": { "type": "string" }, "expires_at": { "type": "string" } },
-                "required": ["emoji", "text", "duration", "expires_at"]
-              }
-            }
+            "application/json": { "schema": { "$ref": "#/components/schemas/RecentCustomStatus" } }
           }
         },
-        "responses": { "200": { "description": "ok" } }
+        "responses": {
+          "200": { "description": "최근 커스텀 상태 삭제 성공. 원문에 응답 본문 스키마가 명시돼 있지 않다." },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "`Authorization: Bearer <token>`. 세션 토큰 또는 개인 액세스 토큰을 사용한다."
+      }
+    },
+    "parameters": {
+      "UserIdOrMe": {
+        "name": "user_id",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string" },
+        "description": "사용자 ID. 문자열 `me` 를 넣으면 현재 로그인 사용자를 가리킨다.",
+        "example": "me"
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "잘못된 요청",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      },
+      "Unauthorized": {
+        "description": "인증 실패 또는 세션 만료",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      }
+    },
+    "schemas": {
+      "AppError": {
+        "type": "object",
+        "description": "Mattermost 공통 오류 응답",
+        "properties": {
+          "status_code": { "type": "integer", "description": "HTTP 상태 코드" },
+          "id": { "type": "string", "description": "오류 식별자" },
+          "message": { "type": "string", "description": "사람이 읽을 수 있는 오류 메시지" },
+          "request_id": { "type": "string", "description": "요청 추적용 ID" }
+        }
+      },
+      "Status": {
+        "type": "object",
+        "properties": {
+          "user_id": { "type": "string", "description": "사용자 ID" },
+          "status": { "type": "string", "enum": ["online", "away", "offline", "dnd"], "description": "현재 상태" },
+          "manual": { "type": "boolean", "description": "사용자가 수동으로 설정한 상태인지 여부. false면 활동 기반 자동 갱신 중." },
+          "last_activity_at": { "type": "integer", "format": "int64", "description": "마지막 활동 시각(**밀리초**)" }
+        }
+      },
+      "RecentCustomStatus": {
+        "type": "object",
+        "description": "최근 커스텀 상태 항목. 06/07번에서 삭제 대상을 지정할 때 사용하며, 04번과 달리 네 필드가 모두 필수다.",
+        "required": ["emoji", "text", "duration", "expires_at"],
+        "properties": {
+          "emoji": { "type": "string", "description": "임의의 이모지 이름" },
+          "text": { "type": "string", "description": "커스텀 상태 텍스트" },
+          "duration": { "type": "string", "enum": ["thirty_minutes", "one_hour", "four_hours", "today", "this_week", "date_and_time"], "description": "커스텀 상태의 지속 시간" },
+          "expires_at": { "type": "string", "format": "date-time", "description": "커스텀 상태가 만료될 시각. **ISO 8601 형식 문자열**." }
+        }
       }
     }
   }

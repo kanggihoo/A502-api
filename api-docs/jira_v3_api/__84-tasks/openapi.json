@@ -3,7 +3,7 @@
   "info": {
     "title": "Jira API - __84-tasks",
     "version": "1.0.0",
-    "description": "Jira의 장기 실행 비동기 작업(long-running asynchronous task)의 진행 상태를 조회하거나 취소하는 API. 대량 작업(bulk operation) 등이 비동기로 처리될 때 그 결과를 폴링하거나 중단시키는 용도로 쓰인다."
+    "description": "Jira Cloud 비동기 작업(task) API. 장시간 실행되는 작업의 진행 상태를 조회하고 취소한다.\n\n**포함 기준**: 01, 02 (총 2건 — 디렉토리 전체).\n\n**이 API가 왜 중요한가 — 여러 그룹의 공통 후속 처리**\nJira에서 오래 걸리는 작업은 **즉시 결과를 주지 않고 taskId를 반환**한다. 그 작업이 끝났는지 확인하려면 이 API를 써야 한다. 다음 그룹들이 여기로 연결된다.\n\n- `_76-projects`: 프로젝트 비동기 삭제, 아카이브, 복원\n- `__17-issue-bulk-operations`: 이슈 일괄 삭제·수정·이동·전환 (단, 이쪽은 전용 조회 엔드포인트 `GET /rest/api/3/bulk/queue/{taskId}` 를 따로 갖는다)\n- `_98-workflows`: 워크플로 일괄 생성·수정\n\n**표준 흐름**\n1. 비동기 오퍼레이션 호출 → **303 See Other** 또는 응답 본문으로 taskId 획득\n2. **01번**으로 폴링 → `status` 가 `COMPLETE` / `FAILED` / `CANCELLED` 가 될 때까지 확인\n3. 완료되면 `result` 에 해당 작업의 결과 JSON이 담긴다\n\n**⚠️ 작업 상세는 영구 보존되지 않는다**\n2019년 9월 기준 **14일간만 보관**되며, 이 기간은 예고 없이 바뀔 수 있다. 감사 기록이 필요하면 SSAGY 쪽에 별도로 저장할 것.\n\n**⚠️ 권한 — 작업 생성자만 조회할 수 있다**\n*Administer Jira* 글로벌 권한이 없다면 **본인이 만든 작업만** 조회·취소할 수 있다. SSAGY 연동 계정이 시작한 작업은 같은 계정으로 폴링해야 한다 — 사용자 OAuth 토큰으로 시작한 작업을 서비스 계정으로 확인하려 하면 403이다.\n\n**⚠️ 02번 취소는 요청 접수일 뿐 완료가 아니다**\n성공 응답이 200이 아니라 **202 Accepted** 다. 실제로 취소됐는지는 01번으로 다시 확인해야 한다. 이미 진행이 끝나가는 작업은 취소가 불가능해 400이 반환된다.\n\n**⚠️ 02번의 오류 응답 형식이 특이하다**\n400/401/403/404 응답 본문이 Jira 표준 `ErrorCollection` 객체가 아니라 **문자열 배열**(`[\"...\"]`)로 정의돼 있다. 공통 오류 파서를 쓴다면 이 엔드포인트는 예외 처리가 필요하다.\n\n**Deprecation 안내**: 01번은 2024년 6월 15일부로 필요한 OAuth 2.0 스코프가 `read:jira-work` 로 갱신됐다.\n\n**x-priority 의미**: SSAGY(통합 워크스페이스) 관점의 연동 우선순위."
   },
   "servers": [
     {
@@ -20,198 +20,63 @@
     { "basicAuth": [] },
     { "oauth2": ["read:jira-work", "write:jira-work"] }
   ],
-  "tags": [
-    {
-      "name": "Tasks",
-      "description": "장기 실행 비동기 작업(long-running asynchronous task)의 진행 상태 조회 및 취소"
-    }
-  ],
+  "tags": [{ "name": "Tasks", "description": "비동기 작업 상태 조회·취소" }],
   "paths": {
     "/rest/api/3/task/{taskId}": {
       "get": {
-        "summary": "Get task",
-        "description": "비동기로 실행되는 장기 작업의 상태(진행률, 시작/종료 시각, 결과 등)를 조회한다. 작업이 완료되면 해당 작업을 생성한 오퍼레이션에 따라 정의된 JSON 결과가 result 필드에 담겨 반환된다. 작업 상세 정보는 영구 보관되지 않으며 (2019년 9월 기준) 약 14일간만 유지된다. 필요 OAuth 2.0 스코프는 2024년 6월 15일부로 read:jira-work로 변경될 예정이다.",
+        "summary": "01. Get task — 비동기 작업 상태 조회",
+        "description": "장시간 실행 비동기 작업의 상태를 조회한다. **비동기 오퍼레이션을 호출한 뒤 완료를 확인하는 표준 폴링 경로**다.\n\n작업이 끝나면 해당 작업에 맞는 결과 JSON이 `result` 에 담긴다 — 구조는 그 작업을 만든 오퍼레이션의 문서를 봐야 한다.\n\n**진행률 계산**: `progress` 와 `elapsedRuntime` 으로 남은 시간을 가늠할 수 있다. 폴링 간격은 지수 백오프를 권장한다.\n\n**⚠️ 작업 상세는 14일간만 보관된다**(2019년 9월 기준, 변경될 수 있음).\n\n**⚠️ *Administer Jira* 권한이 없으면 본인이 만든 작업만 조회할 수 있다.**\n\n**Deprecation 안내**: 2024년 6월 15일부로 필요한 OAuth 2.0 스코프가 `read:jira-work` 로 갱신됐다.",
         "operationId": "getTask",
         "tags": ["Tasks"],
-        "x-priority": "medium",
-        "parameters": [
-          {
-            "name": "taskId",
-            "in": "path",
-            "required": true,
-            "schema": { "type": "string" },
-            "description": "작업(task)의 ID",
-            "example": "1"
-          }
-        ],
+        "x-priority": "high",
+        "x-permissions": "다음 중 하나 — *Administer Jira* 글로벌 권한, 또는 **해당 작업의 생성자**. 연동 계정이 시작한 작업은 같은 계정으로 조회해야 한다.",
+        "parameters": [{ "$ref": "#/components/parameters/TaskId" }],
         "responses": {
           "200": {
-            "description": "요청이 성공한 경우 반환됨. 장기 실행 작업의 상태 및 결과를 포함한다.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "self": {
-                      "type": "string",
-                      "description": "이 작업의 API 링크"
-                    },
-                    "id": {
-                      "type": "string",
-                      "description": "작업 ID"
-                    },
-                    "description": {
-                      "type": "string",
-                      "description": "작업 설명"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "작업 상태",
-                      "enum": ["ENQUEUED", "RUNNING", "COMPLETE", "FAILED", "CANCEL_REQUESTED", "CANCELLED", "DEAD"]
-                    },
-                    "result": {
-                      "description": "작업 완료 시 결과 (작업 종류에 따라 임의의 JSON)"
-                    },
-                    "submittedBy": {
-                      "type": "integer",
-                      "description": "작업을 제출한 사용자 ID"
-                    },
-                    "progress": {
-                      "type": "integer",
-                      "description": "진행률(%)"
-                    },
-                    "elapsedRuntime": {
-                      "type": "integer",
-                      "description": "경과 실행 시간(ms)"
-                    },
-                    "submitted": {
-                      "type": "integer",
-                      "description": "제출 시각(epoch ms)"
-                    },
-                    "started": {
-                      "type": "integer",
-                      "description": "시작 시각(epoch ms)"
-                    },
-                    "finished": {
-                      "type": "integer",
-                      "description": "종료 시각(epoch ms)"
-                    },
-                    "lastUpdate": {
-                      "type": "integer",
-                      "description": "마지막 업데이트 시각(epoch ms)"
-                    }
-                  }
-                },
-                "example": {
-                  "self": "https://your-domain.atlassian.net/rest/api/3/task/1",
-                  "id": "1",
-                  "description": "Task description",
-                  "status": "COMPLETE",
-                  "result": "the task result, this may be any JSON",
-                  "submittedBy": 10000,
-                  "progress": 100,
-                  "elapsedRuntime": 156,
-                  "submitted": 1501708132800,
-                  "started": 1501708132900,
-                  "finished": 1501708133000,
-                  "lastUpdate": 1501708133000
-                }
-              }
-            }
+            "description": "요청이 성공한 경우 반환됨",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TaskProgressBeanObject" } } }
           },
           "401": {
-            "description": "인증 정보가 올바르지 않거나 누락됨"
+            "description": "인증 정보가 잘못됐거나 누락된 경우 반환됨",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorCollection" } } }
           },
           "403": {
-            "description": "조회 권한 없음 (Administer Jira 권한도 없고 작업 생성자도 아님)"
+            "description": "사용자에게 필요한 권한이 없는 경우 반환됨. **작업 생성자가 아닌 계정으로 조회할 때 발생한다.**",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorCollection" } } }
           },
           "404": {
-            "description": "해당 taskId의 작업을 찾을 수 없음 (14일 경과로 만료되었을 수 있음)"
+            "description": "작업을 찾을 수 없는 경우 반환됨. **보관 기간(약 14일)이 지난 작업도 여기에 해당한다.**",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorCollection" } } }
           }
         }
       }
     },
     "/rest/api/3/task/{taskId}/cancel": {
       "post": {
-        "summary": "Cancel task",
-        "description": "지정한 taskId의 비동기 작업을 취소한다. 이미 완료되었거나 취소 불가능한 상태의 작업에 대해서는 400 에러가 반환된다.",
+        "summary": "02. Cancel task — 비동기 작업 취소",
+        "description": "실행 중인 비동기 작업의 취소를 요청한다. 요청 본문이 없다.\n\n**⚠️ 202 Accepted 는 '취소 요청이 접수됨'이지 '취소 완료'가 아니다.** 실제 결과는 01번으로 다시 확인해야 한다.\n\n**이미 완료됐거나 취소할 수 없는 단계의 작업은 400**이 반환된다.\n\n**⚠️ 오류 응답 형식이 Jira 표준과 다르다**: 400/401/403/404 본문이 `ErrorCollection` 객체가 아니라 **문자열 배열**이다. 공통 오류 파서를 쓴다면 예외 처리가 필요하다.",
         "operationId": "cancelTask",
         "tags": ["Tasks"],
         "x-priority": "medium",
-        "parameters": [
-          {
-            "name": "taskId",
-            "in": "path",
-            "required": true,
-            "schema": { "type": "string" },
-            "description": "작업(task)의 ID",
-            "example": "1"
-          }
-        ],
+        "x-permissions": "다음 중 하나 — *Administer Jira* 글로벌 권한, 또는 **해당 작업의 생성자**.",
+        "parameters": [{ "$ref": "#/components/parameters/TaskId" }],
         "responses": {
-          "202": {
-            "description": "취소 요청이 접수되었음을 나타내며, 응답 스키마는 정형화되어 있지 않다(any).",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "description": "응답 스키마는 any(내용 없음/비정형)"
-                },
-                "example": {}
-              }
-            }
-          },
+          "202": { "description": "요청이 성공한 경우 반환됨. **취소 '요청'이 접수된 것이며 취소 완료를 뜻하지 않는다** — 01번으로 실제 상태를 확인할 것." },
           "400": {
-            "description": "작업 취소가 불가능한 상태 (예: 이미 완료됨)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": { "type": "string" },
-                  "description": "에러 메시지 배열"
-                },
-                "example": ["Cancellation of the task is not possible."]
-              }
-            }
+            "description": "작업을 취소할 수 없는 경우 반환됨(이미 완료됐거나 취소 불가 단계). **본문이 문자열 배열이다.**",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StringArrayError" } } }
           },
           "401": {
-            "description": "인증 정보가 올바르지 않거나 누락됨",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": { "type": "string" },
-                  "description": "에러 메시지 배열"
-                },
-                "example": ["The authentication credentials are incorrect or missing."]
-              }
-            }
+            "description": "인증 정보가 잘못됐거나 누락된 경우 반환됨. **본문이 문자열 배열이다.**",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StringArrayError" } } }
           },
           "403": {
-            "description": "취소 권한 없음 (Administer Jira 권한도 없고 작업 생성자도 아님)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": { "type": "string" },
-                  "description": "에러 메시지 배열"
-                },
-                "example": ["The user does not have the necessary permission."]
-              }
-            }
+            "description": "사용자에게 필요한 권한이 없는 경우 반환됨. **본문이 문자열 배열이다.**",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StringArrayError" } } }
           },
           "404": {
-            "description": "해당 taskId의 작업을 찾을 수 없음",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": { "type": "string" },
-                  "description": "에러 메시지 배열"
-                },
-                "example": ["The task is not found."]
-              }
-            }
+            "description": "작업을 찾을 수 없는 경우 반환됨. **본문이 문자열 배열이다.**",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StringArrayError" } } }
           }
         }
       }
@@ -237,6 +102,50 @@
               "manage:jira-webhook": "Jira 웹훅 관리"
             }
           }
+        }
+      }
+    },
+    "parameters": {
+      "TaskId": {
+        "name": "taskId",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string" },
+        "description": "작업의 ID. 비동기 오퍼레이션의 응답에서 얻는다."
+      }
+    },
+    "schemas": {
+      "ErrorCollection": {
+        "type": "object",
+        "description": "Jira 공통 오류 응답",
+        "properties": {
+          "errorMessages": { "type": "array", "items": { "type": "string" }, "description": "필드에 연결되지 않은 오류 메시지 목록" },
+          "errors": { "type": "object", "additionalProperties": { "type": "string" }, "description": "필드명을 키로, 해당 필드의 오류 메시지를 값으로 갖는 맵" },
+          "status": { "type": "integer", "description": "HTTP 상태 코드" }
+        }
+      },
+      "StringArrayError": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "**02번(Cancel task) 전용 오류 형식.** Jira 표준 `ErrorCollection` 객체가 아니라 오류 메시지 문자열의 배열이다."
+      },
+      "TaskProgressBeanObject": {
+        "type": "object",
+        "description": "비동기 작업의 진행 상태",
+        "properties": {
+          "id": { "type": "string", "description": "작업의 ID" },
+          "self": { "type": "string", "description": "이 작업 리소스의 URL" },
+          "status": { "type": "string", "enum": ["ENQUEUED", "RUNNING", "COMPLETE", "FAILED", "CANCEL_REQUESTED", "CANCELLED", "DEAD"], "description": "작업의 현재 상태. **폴링 종료 조건은 `COMPLETE`, `FAILED`, `CANCELLED`, `DEAD` 다.**" },
+          "description": { "type": "string", "description": "작업에 대한 설명" },
+          "message": { "type": "string", "description": "작업의 현재 진행 상황 메시지" },
+          "progress": { "type": "integer", "format": "int64", "description": "작업의 진행률" },
+          "result": { "description": "작업이 완료된 경우의 결과. **구조는 이 작업을 만든 오퍼레이션마다 다르므로 해당 문서를 확인할 것.**" },
+          "submittedBy": { "type": "integer", "format": "int64", "description": "작업을 제출한 사용자의 ID" },
+          "submitted": { "type": "integer", "format": "int64", "description": "작업이 제출된 시각(밀리초)" },
+          "started": { "type": "integer", "format": "int64", "description": "작업이 시작된 시각(밀리초)" },
+          "finished": { "type": "integer", "format": "int64", "description": "작업이 종료된 시각(밀리초)" },
+          "lastUpdate": { "type": "integer", "format": "int64", "description": "작업 상태가 마지막으로 갱신된 시각(밀리초)" },
+          "elapsedRuntime": { "type": "integer", "format": "int64", "description": "작업이 실행된 누적 시간(밀리초). `progress` 와 함께 남은 시간 추정에 쓴다." }
         }
       }
     }

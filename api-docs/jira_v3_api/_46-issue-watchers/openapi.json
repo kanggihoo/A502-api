@@ -3,7 +3,7 @@
   "info": {
     "title": "Jira API - _46-issue-watchers",
     "version": "1.0.0",
-    "description": "Jira 이슈를 워칭(watching)하는 사용자를 다루는 API 모음. 이슈의 워처 목록 조회, 워처 추가/삭제, 여러 이슈에 대한 현재 사용자의 워칭 여부 일괄 조회 기능을 제공한다. 이 그룹의 모든 API는 프로젝트 단위 권한(Browse projects, Manage watcher list, View voters and watchers)만 요구한다."
+    "description": "Jira Cloud 이슈 왓처(watcher) API. 이슈를 지켜보는 사용자를 조회·추가·제거하고, 여러 이슈에 대한 본인의 관찰 여부를 일괄 확인한다.\n\n**포함 기준**: 01~04 (총 4건 — 디렉토리 전체).\n\n**⚠️ 전 항목 공통 전제 — 사이트 설정에 의존한다**\n네 엔드포인트 모두 Jira 일반 설정의 **\"Allow users to watch issues\" 옵션이 ON** 이어야 동작한다. 꺼져 있으면 404가 반환되므로, 연동 구현 시 404를 \"이슈 없음\"으로만 해석하면 안 된다.\n\n**연동 활용 — 알림 대상 선별의 핵심**\nAGENTS.md는 \"알림은 많이 보내는 것보다 행동 가능한 정보만 정확히 전달하는 것을 우선한다\"고 정한다. 왓처 목록은 그 선별의 근거다 — 이슈가 바뀌었을 때 **팀 전체가 아니라 그 이슈를 지켜보는 사람에게만** Mattermost DM을 보내면 알림 소음을 크게 줄일 수 있다.\n\n03번으로 SSAGY가 관련자를 자동 등록해 두는 것도 가능하다.\n\n**⚠️ 03번 요청 본문이 JSON 객체가 아니다**\n\"Add watcher\"의 요청 본문은 `{ \"accountId\": \"...\" }` 가 아니라 **문자열 하나**다 — 따옴표를 포함한 `\"5b10ac8d82e05b22cc7d4ef5\"` 를 그대로 보낸다. 객체로 감싸면 실패한다. 본문을 생략하면 호출자 본인이 왓처로 추가된다.\n\n**⚠️ 04번은 본문이 아니라 쿼리 파라미터로 대상을 지정한다**\n삭제는 `accountId` **쿼리 파라미터**를 쓴다. 원문 표에 `required: No` 로 적혀 있으나 설명에는 \"Required\"라고 명시돼 있고, 누락 시 **400**이 반환된다 — 실질적으로 필수다.\n\n**권한 구조의 3단계**\n1. 이슈 조회: *Browse projects*\n2. **타인의 왓처 상세를 보기**: *View voters and watchers* — 없으면 목록은 오되 사용자 상세가 비어 온다\n3. **타인을 왓처로 추가·제거**: *Manage watcher list* — 없으면 403\n\n**공통 규칙**\n- 사용자 식별자는 `accountId` 다. `username`/`key` 는 GDPR 대응으로 폐기됐다.\n- `issueIdOrKey` 에는 숫자 ID와 이슈 키(`A502-42`) 모두 사용 가능하다.\n\n**x-priority 의미**: SSAGY(통합 워크스페이스) 관점의 연동 우선순위."
   },
   "servers": [
     {
@@ -20,202 +20,89 @@
     { "basicAuth": [] },
     { "oauth2": ["read:jira-work", "write:jira-work"] }
   ],
-  "tags": [
-    { "name": "Issue watchers", "description": "이슈 워처(watcher) 관련 API" }
-  ],
+  "tags": [{ "name": "Issue Watchers", "description": "이슈 왓처 조회·추가·제거" }],
   "paths": {
     "/rest/api/3/issue/{issueIdOrKey}/watchers": {
       "get": {
-        "summary": "Get issue watchers",
-        "description": "이슈에 대해 현재 워칭 중인 사용자 목록과 총 워치 수를 반환한다. Jira 관리 화면의 \"Allow users to watch issues\" 옵션이 켜져 있어야 동작한다. 통합 대시보드에서 이슈별 관심 인원(워처)을 표시하거나 알림 대상을 파악하는 데 사용할 수 있다. 이 엔드포인트 자체는 익명 접근도 가능하다.",
+        "summary": "02. Get issue watchers — 이슈의 왓처 조회",
+        "description": "이슈를 지켜보는 사용자 목록을 조회한다. **알림 대상을 선별하는 기본 호출**이다.\n\n**권한에 따라 응답 내용이 달라진다**: *View voters and watchers* 프로젝트 권한이 없으면 본인 외 사용자의 상세 정보는 반환되지 않는다. `watchCount` 는 보이지만 `watchers` 배열이 비거나 축약될 수 있다.\n\n**전제 조건**: Jira 일반 설정의 \"Allow users to watch issues\" 가 ON 이어야 한다.\n\n익명 호출이 가능하다.",
         "operationId": "getIssueWatchers",
-        "tags": ["Issue watchers"],
+        "tags": ["Issue Watchers"],
         "x-priority": "high",
-        "parameters": [
-          {
-            "name": "issueIdOrKey",
-            "in": "path",
-            "required": true,
-            "schema": { "type": "string" },
-            "description": "이슈의 ID 또는 키",
-            "example": "EX-1"
-          }
-        ],
+        "x-permissions": "이슈가 속한 프로젝트에 대한 *Browse projects* 프로젝트 권한. 이슈 수준 보안 설정 시 해당 이슈 조회 권한. **본인 외 왓처의 상세를 보려면 추가로 *View voters and watchers* 권한 필요.** 익명 호출 가능.",
+        "parameters": [{ "$ref": "#/components/parameters/IssueIdOrKey" }],
         "responses": {
           "200": {
-            "description": "요청이 성공한 경우 반환된다.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "isWatching": {
-                      "type": "boolean",
-                      "description": "현재 요청 사용자가 해당 이슈를 워칭 중인지 여부"
-                    },
-                    "self": {
-                      "type": "string",
-                      "description": "이 리소스의 API 링크"
-                    },
-                    "watchCount": {
-                      "type": "integer",
-                      "description": "워처 총 수"
-                    },
-                    "watchers": {
-                      "type": "array",
-                      "description": "워처 사용자 목록",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "accountId": {
-                            "type": "string",
-                            "description": "사용자의 계정 ID"
-                          },
-                          "active": {
-                            "type": "boolean",
-                            "description": "사용자 활성화 여부"
-                          },
-                          "displayName": {
-                            "type": "string",
-                            "description": "사용자 표시 이름"
-                          },
-                          "self": {
-                            "type": "string",
-                            "description": "사용자 리소스 API 링크"
-                          }
-                        }
-                      }
-                    }
-                  }
-                },
-                "example": {
-                  "isWatching": false,
-                  "self": "https://your-domain.atlassian.net/rest/api/3/issue/EX-1/watchers",
-                  "watchCount": 1,
-                  "watchers": [
-                    {
-                      "accountId": "5b10a2844c20165700ede21g",
-                      "active": false,
-                      "displayName": "Mia Krystof",
-                      "self": "https://your-domain.atlassian.net/rest/api/3/user?accountId=5b10a2844c20165700ede21g"
-                    }
-                  ]
-                }
-              }
-            }
+            "description": "요청이 성공한 경우 반환됨",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Watchers" } } }
           },
-          "401": {
-            "description": "인증 정보가 올바르지 않거나 없음"
-          },
-          "404": {
-            "description": "이슈를 찾을 수 없거나 열람 권한이 없음"
-          }
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/IssueNotFoundOrDisabled" }
         }
       },
       "post": {
-        "summary": "Add watcher",
-        "description": "계정 ID(accountId)를 전달하여 해당 사용자를 이슈의 워처로 등록한다. 사용자를 지정하지 않으면 호출한 사용자 자신이 워처로 추가된다. \"Allow users to watch issues\" 옵션이 켜져 있어야 동작한다. 팀 생성/온보딩 자동화 시 팀원을 관련 이슈의 워처로 자동 등록하는 데 활용 가능하다.",
+        "summary": "03. Add watcher — 왓처 추가",
+        "description": "사용자를 이슈의 왓처로 추가한다. **SSAGY가 관련자를 자동 등록해 두면**, 이후 이슈 변경 알림 대상을 02번으로 정확히 뽑아낼 수 있다.\n\n**⚠️ 요청 본문이 JSON 객체가 아니라 문자열 하나다.** `accountId` 값을 따옴표째로 보낸다 — 예: `\"5b10ac8d82e05b22cc7d4ef5\"`. 객체로 감싸면 실패한다.\n\n**본문을 생략하면 호출자 본인이 왓처로 추가된다.**\n\n**타인을 추가하려면 *Manage watcher list* 권한이 필요**하며, 없으면 403이다. 연동 계정이 팀원을 대신 등록하려면 이 권한 보유 여부를 먼저 확인할 것.\n\n**주의**: 성공 응답이 200이 아니라 **204 No Content** 다.\n\n**전제 조건**: \"Allow users to watch issues\" 가 ON 이어야 한다.",
         "operationId": "addWatcher",
-        "tags": ["Issue watchers"],
-        "x-priority": "high",
-        "parameters": [
-          {
-            "name": "issueIdOrKey",
-            "in": "path",
-            "required": true,
-            "schema": { "type": "string" },
-            "description": "이슈의 ID 또는 키",
-            "example": "EX-1"
-          }
-        ],
+        "tags": ["Issue Watchers"],
+        "x-priority": "medium",
+        "x-permissions": "이슈가 속한 프로젝트에 대한 *Browse projects* 프로젝트 권한. 이슈 수준 보안 설정 시 해당 이슈 조회 권한. **본인 외 사용자를 추가하려면 *Manage watcher list* 권한 필요.**",
+        "parameters": [{ "$ref": "#/components/parameters/IssueIdOrKey" }],
         "requestBody": {
-          "required": true,
-          "description": "워처로 추가할 사용자의 accountId 문자열 (JSON 문자열 그대로 전달)",
+          "required": false,
           "content": {
             "application/json": {
-              "schema": {
-                "type": "string",
-                "description": "워처로 추가할 사용자의 accountId"
-              },
+              "schema": { "type": "string", "description": "왓처로 추가할 사용자의 `accountId`. **JSON 객체가 아니라 문자열 값 자체를 본문으로 보낸다.** 생략하면 호출자 본인이 추가된다." },
               "example": "5b10ac8d82e05b22cc7d4ef5"
             }
           }
         },
         "responses": {
-          "204": {
-            "description": "요청이 성공한 경우 반환된다. 본문 없음."
-          },
-          "400": {
-            "description": "요청이 유효하지 않음"
-          },
-          "401": {
-            "description": "인증 정보가 올바르지 않거나 없음"
-          },
+          "204": { "description": "요청이 성공한 경우 반환됨. 응답 본문 없음." },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": {
-            "description": "워처 목록을 관리할 권한이 없음"
+            "description": "왓처 목록을 관리할 권한(*Manage watcher list*)이 없는 경우 반환됨",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorCollection" } } }
           },
-          "404": {
-            "description": "이슈나 사용자를 찾을 수 없거나 이슈를 열람할 권한이 없음"
-          }
+          "404": { "$ref": "#/components/responses/IssueOrUserNotFound" }
         }
       },
       "delete": {
-        "summary": "Delete watcher",
-        "description": "계정 ID로 지정한 사용자를 이슈 워처 목록에서 제거한다. `username` 쿼리 파라미터는 더 이상 사용되지 않으며(deprecated), `accountId`가 필수적으로 요구된다.",
-        "operationId": "deleteWatcher",
-        "tags": ["Issue watchers"],
-        "x-priority": "medium",
+        "summary": "04. Delete watcher — 왓처 제거",
+        "description": "사용자를 이슈의 왓처에서 제거한다.\n\n**⚠️ 대상을 요청 본문이 아니라 `accountId` 쿼리 파라미터로 지정한다.** 원문 파라미터 표에는 `required: No` 로 적혀 있으나 설명에 \"Required\"라고 명시돼 있고 **누락 시 400**이 반환되므로 실질적으로 필수다.\n\n`username` 파라미터는 GDPR 대응으로 **더 이상 사용할 수 없다** — `accountId` 를 쓸 것.\n\n**주의**: 성공 응답이 **204 No Content** 다.\n\n**전제 조건**: \"Allow users to watch issues\" 가 ON 이어야 한다.",
+        "operationId": "removeWatcher",
+        "tags": ["Issue Watchers"],
+        "x-priority": "low",
+        "x-permissions": "이슈가 속한 프로젝트에 대한 *Browse projects* 프로젝트 권한. 이슈 수준 보안 설정 시 해당 이슈 조회 권한. **본인 외 사용자를 제거하려면 *Manage watcher list* 권한 필요.**",
         "parameters": [
-          {
-            "name": "issueIdOrKey",
-            "in": "path",
-            "required": true,
-            "schema": { "type": "string" },
-            "description": "이슈의 ID 또는 키",
-            "example": "EX-1"
-          },
-          {
-            "name": "username",
-            "in": "query",
-            "required": false,
-            "schema": { "type": "string" },
-            "description": "더 이상 사용되지 않는 파라미터(사용자 프라이버시 API 마이그레이션으로 폐기됨). 사용하지 말 것."
-          },
-          {
-            "name": "accountId",
-            "in": "query",
-            "required": true,
-            "schema": { "type": "string" },
-            "description": "워처에서 제거할 사용자의 계정 ID. 사실상 필수 파라미터.",
-            "example": "5b10ac8d82e05b22cc7d4ef5"
-          }
+          { "$ref": "#/components/parameters/IssueIdOrKey" },
+          { "name": "accountId", "in": "query", "required": false, "schema": { "type": "string" }, "description": "사용자의 계정 ID. 모든 Atlassian 제품에서 사용자를 고유하게 식별한다. 예: `5b10ac8d82e05b22cc7d4ef5`. **원문 표에는 선택으로 표기돼 있으나 실질적으로 필수이며, 누락하면 400이다.**", "example": "5b10ac8d82e05b22cc7d4ef5" },
+          { "name": "username", "in": "query", "required": false, "schema": { "type": "string" }, "description": "**더 이상 사용할 수 없는 파라미터.** GDPR 대응 사용자 개인정보 API 마이그레이션으로 폐기됐다 — `accountId` 를 쓸 것.", "deprecated": true }
         ],
         "responses": {
-          "204": {
-            "description": "요청이 성공한 경우 반환된다. 본문 없음."
-          },
+          "204": { "description": "요청이 성공한 경우 반환됨. 응답 본문 없음." },
           "400": {
-            "description": "accountId가 제공되지 않음"
+            "description": "`accountId` 가 제공되지 않은 경우 반환됨",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorCollection" } } }
           },
-          "401": {
-            "description": "인증 정보가 올바르지 않거나 없음"
-          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": {
-            "description": "워처 목록을 관리할 권한이 없음"
+            "description": "왓처 목록을 관리할 권한(*Manage watcher list*)이 없는 경우 반환됨",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorCollection" } } }
           },
-          "404": {
-            "description": "이슈나 사용자를 찾을 수 없거나 이슈를 열람할 권한이 없음"
-          }
+          "404": { "$ref": "#/components/responses/IssueOrUserNotFound" }
         }
       }
     },
     "/rest/api/3/issue/watching": {
       "post": {
-        "summary": "Get is watching issue bulk",
-        "description": "이슈 ID 목록을 받아 각 이슈에 대한 현재 사용자의 워칭 여부(true/false)를 한 번에 반환한다. 유효하지 않은 이슈 ID는 `false`로 처리된다. \"Allow users to watch issues\" 옵션이 켜져 있어야 동작한다.",
+        "summary": "01. Get is watching issue bulk — 여러 이슈의 관찰 여부 일괄 확인",
+        "description": "이슈 ID 목록에 대해 **호출자 본인**이 각 이슈를 지켜보고 있는지 일괄 확인한다.\n\n**유효하지 않은 이슈 ID는 오류가 아니라 `isWatching: false` 로 반환된다** — 잘못된 ID를 섞어 보내도 요청 전체가 실패하지 않으므로, 응답만으로는 \"안 보고 있음\"과 \"존재하지 않음\"을 구분할 수 없다.\n\n대시보드에서 \"내가 지켜보는 이슈\" 배지를 그릴 때 02번을 이슈마다 호출하는 대신 쓴다.\n\n**전제 조건**: \"Allow users to watch issues\" 가 ON 이어야 한다.",
         "operationId": "getIsWatchingIssueBulk",
-        "tags": ["Issue watchers"],
+        "tags": ["Issue Watchers"],
         "x-priority": "medium",
+        "x-permissions": "이슈가 속한 프로젝트에 대한 *Browse projects* 프로젝트 권한. 이슈 수준 보안 설정 시 해당 이슈 조회 권한.",
         "requestBody": {
           "required": true,
           "content": {
@@ -224,47 +111,39 @@
                 "type": "object",
                 "required": ["issueIds"],
                 "properties": {
-                  "issueIds": {
-                    "type": "array",
-                    "description": "조회할 이슈 ID 목록",
-                    "items": { "type": "string" }
-                  }
+                  "issueIds": { "type": "array", "items": { "type": "string" }, "description": "이슈 ID 목록" }
                 }
               },
-              "example": {
-                "issueIds": ["10001", "10002", "10005"]
-              }
+              "example": { "issueIds": ["10001", "10002"] }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "요청이 성공한 경우 반환된다.",
+            "description": "요청이 성공한 경우 반환됨",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
                     "issuesIsWatching": {
-                      "type": "object",
-                      "description": "이슈 ID를 키로, 워칭 여부(boolean)를 값으로 하는 맵",
-                      "additionalProperties": { "type": "boolean" }
+                      "type": "array",
+                      "description": "각 이슈의 관찰 여부 목록",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "issueId": { "type": "string", "description": "이슈 ID" },
+                          "isWatching": { "type": "boolean", "description": "호출자가 이 이슈를 지켜보고 있는지 여부. **유효하지 않은 ID도 `false` 로 반환된다.**" },
+                          "watchCount": { "type": "integer", "format": "int64", "description": "이 이슈의 왓처 수" }
+                        }
+                      }
                     }
-                  }
-                },
-                "example": {
-                  "issuesIsWatching": {
-                    "10001": true,
-                    "10002": false,
-                    "10005": true
                   }
                 }
               }
             }
           },
-          "401": {
-            "description": "인증 정보가 올바르지 않거나 없음"
-          }
+          "401": { "$ref": "#/components/responses/Unauthorized" }
         }
       }
     }
@@ -289,6 +168,67 @@
               "manage:jira-webhook": "Jira 웹훅 관리"
             }
           }
+        }
+      }
+    },
+    "parameters": {
+      "IssueIdOrKey": {
+        "name": "issueIdOrKey",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string" },
+        "description": "이슈의 ID 또는 키. 숫자 ID(`10010`)와 이슈 키(`A502-42`) 모두 사용 가능하다.",
+        "example": "A502-42"
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "요청이 유효하지 않은 경우 반환됨",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorCollection" } } }
+      },
+      "Unauthorized": {
+        "description": "인증 정보가 잘못됐거나 누락된 경우 반환됨",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorCollection" } } }
+      },
+      "IssueNotFoundOrDisabled": {
+        "description": "이슈를 찾을 수 없거나 사용자에게 조회 권한이 없는 경우 반환됨. **\"Allow users to watch issues\" 옵션이 꺼져 있을 때도 이 응답이 올 수 있다** — 404를 이슈 부재로만 해석하지 말 것.",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorCollection" } } }
+      },
+      "IssueOrUserNotFound": {
+        "description": "이슈 또는 사용자를 찾을 수 없거나, 사용자에게 이슈 조회 권한이 없는 경우 반환됨",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorCollection" } } }
+      }
+    },
+    "schemas": {
+      "ErrorCollection": {
+        "type": "object",
+        "description": "Jira 공통 오류 응답",
+        "properties": {
+          "errorMessages": { "type": "array", "items": { "type": "string" }, "description": "필드에 연결되지 않은 오류 메시지 목록" },
+          "errors": { "type": "object", "additionalProperties": { "type": "string" }, "description": "필드명을 키로, 해당 필드의 오류 메시지를 값으로 갖는 맵" },
+          "status": { "type": "integer", "description": "HTTP 상태 코드" }
+        }
+      },
+      "UserDetails": {
+        "type": "object",
+        "description": "축약된 사용자 정보. Jira Cloud는 GDPR 대응으로 `accountId` 를 사용자 식별자로 쓴다.",
+        "properties": {
+          "accountId": { "type": "string", "description": "사용자의 계정 ID" },
+          "active": { "type": "boolean", "description": "활성 사용자 여부" },
+          "displayName": { "type": "string", "description": "표시 이름" },
+          "emailAddress": { "type": "string", "description": "이메일 주소. 사이트 개인정보 설정에 따라 반환되지 않을 수 있다." },
+          "avatarUrls": { "type": "object", "additionalProperties": { "type": "string" }, "description": "크기별 아바타 URL 맵" },
+          "self": { "type": "string", "description": "이 사용자 리소스의 URL" }
+        }
+      },
+      "Watchers": {
+        "type": "object",
+        "description": "이슈의 왓처 정보",
+        "properties": {
+          "self": { "type": "string", "description": "이 왓처 목록 리소스의 URL" },
+          "isWatching": { "type": "boolean", "description": "호출자가 이 이슈를 지켜보고 있는지 여부" },
+          "watchCount": { "type": "integer", "description": "이 이슈의 왓처 수. **권한이 없어도 이 값은 보인다.**" },
+          "watchers": { "type": "array", "items": { "$ref": "#/components/schemas/UserDetails" }, "description": "왓처 사용자 목록. **본인 외 사용자의 상세를 보려면 *View voters and watchers* 권한이 필요**하며, 없으면 비거나 축약된다." }
         }
       }
     }

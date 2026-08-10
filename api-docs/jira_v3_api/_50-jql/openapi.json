@@ -3,7 +3,7 @@
   "info": {
     "title": "Jira API - _50-jql",
     "version": "1.0.0",
-    "description": "JQL 검색을 위한 필드 참조 데이터/자동완성 제안 조회, JQL 쿼리 파싱·검증, 사용자 식별자 변환 등 JQL 쿼리를 프로그래밍 방식으로 생성·검증하는 기능을 제공하는 API 모음."
+    "description": "Jira Cloud JQL 지원 API. JQL 쿼리를 검증·파싱하고, 필드 참조 데이터와 자동완성 제안을 조회하며, 레거시 사용자 식별자를 accountId로 변환한다.\n\n**포함 기준**: 01~05 (총 5건 — 디렉토리 전체).\n\n**이 그룹의 역할 — 실제 검색은 `_38-issue-search` 가 한다**\n여기 있는 것은 **JQL을 다루는 보조 도구**다. 검색 실행은 `_38-issue-search` 의 `/search/jql` 이 담당한다.\n\n**연동 활용 — 04번이 가장 실용적이다**\nSSAGY가 사용자에게 JQL 입력을 받거나, 저장된 JQL로 대시보드를 구성한다면, **실행 전에 04번으로 검증**하는 것이 안전하다. 잘못된 JQL로 검색을 때리면 오류 메시지가 불친절하지만, 04번은 문법 오류를 구조적으로 알려준다.\n\n`validation` 모드 선택이 핵심이다.\n- **`strict`**: 모든 오류를 반환하고, 검증 실패 시 쿼리 구조를 반환하지 않는다 — **저장 전 검증에 적합**\n- **`warn`**: 모든 오류를 반환하되, JQL 형식이 올바르면 구조도 함께 반환한다 — **입력 중 실시간 피드백에 적합**\n- **`none`**: 검증하지 않고 형식만 맞으면 구조를 반환한다 — 파싱만 필요할 때\n\n**⚠️ `validation` 은 필수 쿼리 파라미터다.**\n\n**01·02번 — 커스텀 쿼리 빌더를 만들 때만 필요**\nJQL 필드·함수 참조 데이터와 예약어 목록을 통째로 내려준다. 응답이 크므로 **매 요청마다 호출하지 말고 캐시할 것.** 02번은 01번의 확장판으로, `projectIds` 로 커스텀 필드를 프로젝트별로 걸러내고 `includeCollapsedFields` 로 동명 필드를 묶을 수 있다.\n\n**collapsed field 개념**: 이름과 타입이 같은 커스텀 필드들을 하나로 묶어 동시에 검색하게 해 준다. 예를 들어 `Component - Component[Dropdown]` 하나로 `cf[10061]` 과 `cf[10062]` 를 함께 검색할 수 있다. 여러 팀 프로젝트가 같은 이름의 커스텀 필드를 각자 가진 SSAFY 환경에서 특히 유용하다.\n\n**⚠️ 05번은 일회성 마이그레이션 도구다**\n저장된 JQL에 남아 있는 레거시 `username`/`user key` 를 GDPR 대응 `accountId` 로 변환한다. **한 번에 최대 100개.** 새로 만드는 JQL에는 처음부터 accountId를 쓰면 되므로, 기존 자산을 옮길 때만 쓴다.\n\n**⚠️ 05번의 오류 응답 형식이 다르다**: 400·401 본문이 `ErrorCollection` 객체가 아니라 **문자열**이다.\n\n**권한이 거의 없다**: 01~04번은 \"Permissions required: **None**\"이며 익명 호출도 가능하다. 05번만 Jira 접근 권한이 필요하다.\n\n**x-priority 의미**: SSAGY(통합 워크스페이스) 관점의 연동 우선순위."
   },
   "servers": [
     {
@@ -21,28 +21,21 @@
     { "oauth2": ["read:jira-work", "write:jira-work"] }
   ],
   "tags": [
-    { "name": "JQL" }
+    { "name": "JQL Validation", "description": "JQL 파싱·검증" },
+    { "name": "JQL Reference", "description": "JQL 필드 참조 데이터·자동완성" },
+    { "name": "JQL Migration", "description": "레거시 사용자 식별자 변환" }
   ],
   "paths": {
     "/rest/api/3/jql/parse": {
       "post": {
-        "summary": "Parse JQL query",
-        "description": "JQL 쿼리 문자열들을 서버 측에서 파싱하여 문법 오류, 필드/연산자 사용 오류, 존재하지 않는 값 등을 검증하고, 검증에 성공하면 쿼리의 구조(structure)를 반환한다. 통합 알림/대시보드에서 사용자가 입력한 검색 조건이나 자동 생성된 JQL을 실제 검색에 사용하기 전에 유효성을 검증하는 용도로 활용할 수 있다. 검증 결과 처리 방식(strict/warn/none)에 따라 오류 발생 시 구조 반환 여부가 달라진다. 이 API는 익명 접근이 가능하며 별도 권한이 필요하지 않다.",
+        "summary": "04. Parse JQL query — JQL 파싱·검증",
+        "description": "JQL 쿼리를 파싱하고 검증한다. 검증은 **현재 사용자 컨텍스트**에서 수행되므로, 같은 JQL이라도 사용자 권한에 따라 결과가 달라질 수 있다.\n\n**SSAGY가 사용자 입력 JQL이나 저장된 JQL을 실행하기 전에 호출할 것.** 실행 시 나오는 오류보다 훨씬 구조적인 진단을 얻는다.\n\n**⚠️ `validation` 은 필수 쿼리 파라미터**이며, 모드에 따라 응답이 달라진다.\n- **`strict`**: 모든 오류 반환. 검증 실패 시 **쿼리 구조는 반환되지 않는다.** 저장 전 최종 검증에 적합.\n- **`warn`**: 모든 오류 반환. 다만 JQL 형식이 올바르면 **구조도 함께 반환된다.** 입력 중 실시간 피드백에 적합.\n- **`none`**: 검증하지 않음. 형식만 맞으면 구조 반환.\n\n여러 쿼리를 배열로 한 번에 검증할 수 있다.\n\n**권한이 필요 없고 익명 호출이 가능하다.**",
         "operationId": "parseJqlQueries",
-        "tags": ["JQL"],
+        "tags": ["JQL Validation"],
         "x-priority": "high",
+        "x-permissions": "**권한 불필요(None).** 다만 검증은 현재 사용자 컨텍스트에서 수행된다. 익명 호출 가능.",
         "parameters": [
-          {
-            "name": "validation",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "enum": ["strict", "warn", "none"]
-            },
-            "description": "JQL 쿼리 검증 방식과 결과 처리 방법. strict: 오류 전체 반환, 실패 시 쿼리 구조 미반환. warn: 오류 전체 반환, 쿼리 형식이 올바르면 구조도 반환. none: 검증 없이 형식이 올바르면 구조 반환.",
-            "example": "strict"
-          }
+          { "name": "validation", "in": "query", "required": true, "schema": { "type": "string", "enum": ["strict", "warn", "none"] }, "description": "JQL 검증 방식과 결과 처리 방법.\n- `strict`: 모든 오류 반환. **실패 시 쿼리 구조 미반환.**\n- `warn`: 모든 오류 반환. 형식이 올바르면 구조도 반환.\n- `none`: 검증 없음. 형식이 올바르면 구조 반환.", "example": "strict" }
         ],
         "requestBody": {
           "required": true,
@@ -52,345 +45,94 @@
                 "type": "object",
                 "required": ["queries"],
                 "properties": {
-                  "queries": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "description": "파싱할 쿼리 목록"
-                  }
+                  "queries": { "type": "array", "items": { "type": "string" }, "description": "파싱할 JQL 쿼리 목록" }
                 }
               },
-              "example": {
-                "queries": [
-                  "summary ~ test AND (labels in (urgent, blocker) OR lastCommentedBy = currentUser()) AND status CHANGED AFTER -5d ORDER BY updated DESC"
-                ]
-              }
+              "example": { "queries": ["project = A502 AND status = \"In Progress\" ORDER BY created DESC"] }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "요청이 성공적으로 처리됨. 각 쿼리의 파싱 결과(구조, 오류, 경고 등)를 요청 순서대로 포함한다.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "queries": {
-                      "type": "array",
-                      "description": "각 쿼리의 파싱 결과(구조, 오류, 경고 등)를 순서대로 포함",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "query": { "type": "string", "description": "원본 쿼리 문자열" },
-                          "structure": {
-                            "type": "object",
-                            "description": "파싱에 성공한 쿼리의 구조(orderBy/where 등)"
-                          },
-                          "errors": {
-                            "type": "array",
-                            "items": { "type": "string" },
-                            "description": "쿼리 파싱/검증 오류 메시지 목록"
-                          },
-                          "warnings": {
-                            "type": "array",
-                            "items": { "type": "string" },
-                            "description": "쿼리 검증 경고 메시지 목록"
-                          }
-                        }
-                      }
-                    }
-                  }
-                },
-                "example": {
-                  "queries": [
-                    {
-                      "query": "summary ~ test AND (labels in (urgent, blocker) OR lastCommentedBy = currentUser()) AND status CHANGED AFTER -5d ORDER BY updated DESC",
-                      "structure": {
-                        "orderBy": {
-                          "fields": [
-                            { "direction": "desc", "field": { "encodedName": "updated", "name": "updated" } }
-                          ]
-                        },
-                        "where": {
-                          "clauses": [
-                            {
-                              "field": { "encodedName": "summary", "name": "summary" },
-                              "operand": { "encodedValue": "test", "value": "test" },
-                              "operator": "~"
-                            }
-                          ],
-                          "operator": "and"
-                        }
-                      }
-                    },
-                    {
-                      "errors": ["Error in the JQL Query: Expecting operator but got 'query'. The valid operators are '=', '!=', '<', '>', '<=', '>=', '~', '!~', 'IN', 'NOT IN', 'IS' and 'IS NOT'. (line 1, character 9)"],
-                      "query": "invalid query"
-                    },
-                    {
-                      "query": "project = INVALID",
-                      "warnings": ["The value 'INVALID' does not exist for the field 'project'."]
-                    }
-                  ]
-                }
-              }
-            }
+            "description": "요청이 성공한 경우 반환됨. **검증 오류가 있어도 200이 반환될 수 있으므로, 각 쿼리의 `errors` 를 확인해야 한다.**",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ParsedJqlQueries" } } }
           },
           "400": {
-            "description": "요청이 유효하지 않음 (예: queries 누락).",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "errorMessages": {
-                      "type": "array",
-                      "items": { "type": "string" },
-                      "description": "이 작업에서 발생한 오류 메시지 목록"
-                    },
-                    "errors": {
-                      "type": "object",
-                      "description": "파라미터별 오류 목록"
-                    },
-                    "status": { "type": "integer", "description": "HTTP 상태 코드" }
-                  }
-                },
-                "example": {
-                  "errorMessages": ["input parameter 'key' must be provided"],
-                  "errors": {
-                    "projectKey": "Project keys must start with an uppercase letter, followed by one or more uppercase alphanumeric characters."
-                  },
-                  "status": 400
-                }
-              }
-            }
+            "description": "요청이 유효하지 않은 경우 반환됨",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorCollection" } } }
           },
-          "401": {
-            "description": "인증 자격 증명이 올바르지 않음."
-          }
+          "401": { "$ref": "#/components/responses/Unauthorized" }
         }
       }
     },
     "/rest/api/3/jql/autocompletedata": {
       "get": {
-        "summary": "Get field reference data (GET)",
-        "description": "JQL 쿼리를 프로그래밍 방식으로 생성하거나 커스텀 쿼리 빌더에서 입력을 검증할 때 참고할 수 있도록, 검색 가능한 필드 목록, 함수 목록, JQL 예약어 목록을 다운로드 형태로 제공한다. 프로젝트별 필터링이나 동일 이름 필드의 축약이 필요하면 POST 버전(Get field reference data (POST))을 사용해야 한다. 이 API는 익명 접근이 가능하며 별도 권한이 필요하지 않다.",
-        "operationId": "getFieldReferenceData",
-        "tags": ["JQL"],
+        "summary": "01. Get field reference data (GET) — JQL 참조 데이터 조회",
+        "description": "JQL 검색용 참조 데이터를 반환한다. Atlassian 문서의 \"Advanced searching - fields reference\"와 \"functions reference\" 내용을 기계가 읽을 수 있는 형태로 내려주며, **JQL 예약어 목록**도 포함된다.\n\n**용도**: JQL을 프로그래밍 방식으로 생성하거나, 커스텀 쿼리 빌더에서 입력을 검증할 때 쓴다.\n\n**⚠️ 응답이 크므로 캐시할 것.** 필드 구성이 자주 바뀌지 않으므로 매 요청마다 호출할 이유가 없다.\n\n**프로젝트별 필터링이나 동명 필드 묶기가 필요하면 02번(POST)을 쓴다.**\n\n**권한이 필요 없고 익명 호출이 가능하다.**",
+        "operationId": "getAutoComplete",
+        "tags": ["JQL Reference"],
         "x-priority": "medium",
+        "x-permissions": "**권한 불필요(None).** 익명 호출 가능.",
         "responses": {
           "200": {
-            "description": "요청이 성공적으로 처리됨.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "jqlReservedWords": {
-                      "type": "array",
-                      "items": { "type": "string" },
-                      "description": "JQL 예약어 목록"
-                    },
-                    "visibleFieldNames": {
-                      "type": "array",
-                      "description": "검색 가능한 필드 목록(연산자, 타입 등 포함)",
-                      "items": { "type": "object" }
-                    },
-                    "visibleFunctionNames": {
-                      "type": "array",
-                      "description": "사용 가능한 함수 목록",
-                      "items": { "type": "object" }
-                    }
-                  }
-                },
-                "example": {
-                  "jqlReservedWords": ["empty", "and", "or", "in", "distinct"],
-                  "visibleFieldNames": [
-                    {
-                      "displayName": "summary",
-                      "operators": ["~", "!~", "is", "is not"],
-                      "orderable": "true",
-                      "searchable": "true",
-                      "types": ["java.lang.String"],
-                      "value": "summary"
-                    },
-                    {
-                      "auto": "true",
-                      "cfid": "cf[10880]",
-                      "displayName": "Sprint - cf[10880]",
-                      "operators": ["=", "!=", "in", "not in", "is", "is not"],
-                      "orderable": "true",
-                      "searchable": "true",
-                      "types": ["com.atlassian.greenhopper.service.sprint.Sprint"],
-                      "value": "Sprint"
-                    }
-                  ],
-                  "visibleFunctionNames": [
-                    {
-                      "displayName": "standardIssueTypes()",
-                      "isList": "true",
-                      "types": ["com.atlassian.jira.issue.issuetype.IssueType"],
-                      "value": "standardIssueTypes()"
-                    }
-                  ]
-                }
-              }
-            }
+            "description": "요청이 성공한 경우 반환됨",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/JQLReferenceData" } } }
           },
-          "401": {
-            "description": "인증 자격 증명이 올바르지 않음."
-          }
+          "401": { "$ref": "#/components/responses/Unauthorized" }
         }
       },
       "post": {
-        "summary": "Get field reference data (POST)",
-        "description": "GET 버전과 동일한 참조 데이터를 반환하되, projectIds로 특정 프로젝트에 보이는 커스텀 필드만 필터링하거나, includeCollapsedFields로 이름이 같은 커스텀 필드를 하나의 축약된 필드로 묶어 반환할 수 있다. 시스템 필드는 필터링과 무관하게 항상 반환된다. 유효하지 않은 프로젝트 ID는 무시된다.",
-        "operationId": "getFieldReferenceDataPost",
-        "tags": ["JQL"],
+        "summary": "02. Get field reference data (POST) — 필터링 가능한 참조 데이터 조회",
+        "description": "01번과 같은 참조 데이터를 반환하되, **필터링과 필드 묶기를 지원**한다.\n\n**`projectIds` — 커스텀 필드 범위 축소**\n지정한 프로젝트들에 보이는 필드만 반환한다. **유효하지 않은 프로젝트 ID는 오류가 아니라 무시**되며, **시스템 필드는 항상 반환**된다. SSAFY처럼 여러 팀 프로젝트가 각자 커스텀 필드를 갖는 환경에서 응답 크기를 줄이는 데 효과적이다.\n\n**`includeCollapsedFields` — 동명 필드 묶기**\n이름이 같고 타입도 같은 커스텀 필드들을 하나의 \"collapsed field\"로 묶어 준다. 예: `Component - Component[Dropdown]` 하나로 `Component - cf[10061]` 과 `Component - cf[10062]` 를 **동시에 검색**할 수 있다.\n\n팀마다 같은 이름의 커스텀 필드를 따로 만든 상황에서, 전체를 아우르는 JQL을 짜려면 이 기능이 사실상 필수다.\n\n**권한이 필요 없다.**",
+        "operationId": "getAutoCompletePost",
+        "tags": ["JQL Reference"],
         "x-priority": "medium",
+        "x-permissions": "**권한 불필요(None).**",
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
                 "properties": {
-                  "includeCollapsedFields": {
-                    "type": "boolean",
-                    "description": "이름이 겹치는 필드에 대한 축약 필드 포함 여부"
-                  },
-                  "projectIds": {
-                    "type": "array",
-                    "items": { "type": "integer" },
-                    "description": "반환할 필드 상세 정보를 필터링할 프로젝트 ID 목록"
-                  }
+                  "projectIds": { "type": "array", "items": { "type": "integer", "format": "int64" }, "description": "반환할 필드를 필터링할 프로젝트 ID 목록. **유효하지 않은 ID는 조용히 무시되고, 시스템 필드는 항상 반환된다.**" },
+                  "includeCollapsedFields": { "type": "boolean", "description": "이름이 고유하지 않은 필드에 대해 collapsed field를 포함할지 여부. **여러 프로젝트의 동명 커스텀 필드를 한 번에 검색하려면 필요하다.**" }
                 }
               },
-              "example": {
-                "includeCollapsedFields": true,
-                "projectIds": [10000]
-              }
+              "example": { "projectIds": [10000], "includeCollapsedFields": true }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "요청이 성공적으로 처리됨.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "jqlReservedWords": {
-                      "type": "array",
-                      "items": { "type": "string" },
-                      "description": "JQL 예약어 목록"
-                    },
-                    "visibleFieldNames": {
-                      "type": "array",
-                      "description": "검색 가능한 필드 목록(축약 필드 포함 가능)",
-                      "items": { "type": "object" }
-                    },
-                    "visibleFunctionNames": {
-                      "type": "array",
-                      "description": "사용 가능한 함수 목록",
-                      "items": { "type": "object" }
-                    }
-                  }
-                },
-                "example": {
-                  "jqlReservedWords": ["empty", "and", "or", "in", "distinct"],
-                  "visibleFieldNames": [
-                    {
-                      "displayName": "summary",
-                      "operators": ["~", "!~", "is", "is not"],
-                      "orderable": "true",
-                      "searchable": "true",
-                      "types": ["java.lang.String"],
-                      "value": "summary"
-                    },
-                    {
-                      "auto": "true",
-                      "cfid": "cf[10061]",
-                      "displayName": "Component - cf[10061]",
-                      "operators": ["=", "!=", "in", "not in", "is", "is not"],
-                      "orderable": "true",
-                      "types": ["com.atlassian.jira.issue.customfields.option.Option"],
-                      "value": "cf[10061]"
-                    },
-                    {
-                      "auto": "true",
-                      "displayName": "Component - Component[Dropdown]",
-                      "operators": ["=", "!=", "in", "not in", "is", "is not"],
-                      "searchable": "true",
-                      "types": ["com.atlassian.jira.issue.customfields.option.Option"],
-                      "value": "\"Component[Dropdown]\""
-                    }
-                  ],
-                  "visibleFunctionNames": [
-                    {
-                      "displayName": "standardIssueTypes()",
-                      "isList": "true",
-                      "types": ["com.atlassian.jira.issue.issuetype.IssueType"],
-                      "value": "standardIssueTypes()"
-                    }
-                  ]
-                }
-              }
-            }
+            "description": "요청이 성공한 경우 반환됨",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/JQLReferenceData" } } }
           },
           "400": {
-            "description": "요청이 유효하지 않음."
+            "description": "요청이 유효하지 않은 경우 반환됨",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorCollection" } } }
           },
-          "401": {
-            "description": "인증 자격 증명이 올바르지 않음."
-          }
+          "401": { "$ref": "#/components/responses/Unauthorized" }
         }
       }
     },
     "/rest/api/3/jql/autocompletedata/suggestions": {
       "get": {
-        "summary": "Get field auto complete suggestions",
-        "description": "fieldName만 전달하면 해당 필드의 전체 값 목록을, fieldValue를 함께 전달하면 입력 중인 텍스트를 포함하는 값 목록을 반환한다. predicateName/predicateValue를 사용하면 CHANGED 연산자의 프레디케이트(by/from/to)에 대한 제안도 받을 수 있다. 커스텀 쿼리 빌더나 검색 UI에서 사용자가 입력하는 동안 실시간 자동완성을 제공하는 데 사용된다. 이 API는 익명 접근이 가능하며 별도 권한이 필요하지 않다.",
-        "operationId": "getFieldAutoCompleteSuggestions",
-        "tags": ["JQL"],
-        "x-priority": "medium",
+        "summary": "03. Get field auto complete suggestions — 필드 값 자동완성 제안",
+        "description": "특정 필드에 대한 JQL 자동완성 제안을 반환한다. 커스텀 쿼리 빌더 UI에서 값 드롭다운을 채울 때 쓴다.\n\n**파라미터 조합에 따라 결과가 달라진다**\n- `fieldName` 만: 그 필드의 **모든 값** 목록\n- `fieldName` + `fieldValue`: `fieldValue` 를 **포함하는** 값만\n- `fieldName` + `predicateName`: 그 필드의 **모든 predicate 값** 목록\n- `fieldName` + `predicateName` + `predicateValue`: `predicateValue` 를 포함하는 predicate 값만\n\n**`predicateName` 은 `CHANGED` 연산자용**이며 유효한 값은 **`by`, `from`, `to`** 뿐이다. 예: `status CHANGED BY <user> FROM <status> TO <status>`.\n\n**⚠️ 모든 파라미터가 원문상 선택(optional)이지만, 조합이 잘못되면 400이다.** 최소 `fieldName` 은 지정해야 의미가 있다.\n\n**권한이 필요 없고 익명 호출이 가능하다.**",
+        "operationId": "getFieldAutoCompleteForQueryString",
+        "tags": ["JQL Reference"],
+        "x-priority": "low",
+        "x-permissions": "**권한 불필요(None).** 익명 호출 가능.",
         "parameters": [
-          {
-            "name": "fieldName",
-            "in": "query",
-            "required": false,
-            "schema": { "type": "string" },
-            "description": "필드 이름",
-            "example": "component"
-          },
-          {
-            "name": "fieldValue",
-            "in": "query",
-            "required": false,
-            "schema": { "type": "string" },
-            "description": "사용자가 입력 중인 부분 필드 값",
-            "example": "Ac"
-          },
-          {
-            "name": "predicateName",
-            "in": "query",
-            "required": false,
-            "schema": { "type": "string" },
-            "description": "CHANGED 연산자 프레디케이트 이름 (by, from, to)",
-            "example": "by"
-          },
-          {
-            "name": "predicateValue",
-            "in": "query",
-            "required": false,
-            "schema": { "type": "string" },
-            "description": "사용자가 입력 중인 부분 프레디케이트 값"
-          }
+          { "name": "fieldName", "in": "query", "required": false, "schema": { "type": "string" }, "description": "필드의 이름. **실질적으로 필요하다** — 없으면 의미 있는 제안을 얻을 수 없다." },
+          { "name": "fieldValue", "in": "query", "required": false, "schema": { "type": "string" }, "description": "사용자가 입력 중인 필드 항목 이름의 일부. 이 문자열을 포함하는 값만 반환된다." },
+          { "name": "predicateName", "in": "query", "required": false, "schema": { "type": "string", "enum": ["by", "from", "to"] }, "description": "제안을 생성할 `CHANGED` 연산자 predicate의 이름. **유효한 값은 `by`, `from`, `to` 뿐이다.**" },
+          { "name": "predicateValue", "in": "query", "required": false, "schema": { "type": "string" }, "description": "사용자가 입력 중인 predicate 항목 이름의 일부" }
         ],
         "responses": {
           "200": {
-            "description": "요청이 성공적으로 처리됨.",
+            "description": "요청이 성공한 경우 반환됨",
             "content": {
               "application/json": {
                 "schema": {
@@ -398,108 +140,71 @@
                   "properties": {
                     "results": {
                       "type": "array",
-                      "description": "제안 값 목록(표시명/실제값)",
+                      "description": "자동완성 제안 목록",
                       "items": {
                         "type": "object",
                         "properties": {
-                          "displayName": { "type": "string", "description": "강조 태그(<b>)가 포함된 표시명" },
-                          "value": { "type": "string", "description": "실제 값" }
+                          "value": { "type": "string", "description": "JQL에 삽입할 값" },
+                          "displayName": { "type": "string", "description": "사용자에게 표시할 이름. 일치 부분이 강조 마크업으로 감싸질 수 있다." }
                         }
                       }
                     }
                   }
-                },
-                "example": {
-                  "results": [
-                    { "displayName": "<b>Ac</b>tiveObjects (AO)", "value": "ActiveObjects" },
-                    { "displayName": "Atlassian Connect (<b>AC</b>)", "value": "Atlassian Connect" },
-                    { "displayName": "Atlassian Connect in Jira (<b>AC</b>JIRA)", "value": "Atlassian Connect in Jira" }
-                  ]
                 }
               }
             }
           },
           "400": {
-            "description": "파라미터 조합이 유효하지 않음."
+            "description": "**유효하지 않은 파라미터 조합**이 전달된 경우 반환됨",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorCollection" } } }
           },
-          "401": {
-            "description": "인증 자격 증명이 올바르지 않음."
-          }
+          "401": { "$ref": "#/components/responses/Unauthorized" }
         }
       }
     },
     "/rest/api/3/jql/pdcleaner": {
       "post": {
-        "summary": "Convert user identifiers to account IDs in JQL queries",
-        "description": "저장된 JQL 쿼리를 GDPR 준수 형태로 마이그레이션하고자 할 때 사용한다. 쿼리 내 사용자명/사용자 키를 동등한 accountId 기반 쿼리로 변환하며, 최대 100개의 쿼리를 한 번에 처리할 수 있다. 변환할 수 없는 사용자(알 수 없는 사용자)는 별도로 결과에 표시된다.",
-        "operationId": "convertUserIdentifiersToAccountIdsInJqlQueries",
-        "tags": ["JQL"],
-        "x-priority": "medium",
+        "summary": "05. Convert user identifiers to account IDs in JQL queries — 레거시 식별자 변환",
+        "description": "JQL에 남아 있는 레거시 사용자 식별자(`username` 또는 `user key`)를 **GDPR 대응 `accountId`** 로 변환한 동등한 JQL을 반환한다.\n\n**용도**: 시스템이 JQL을 저장하고 있고 그것을 GDPR 규정에 맞게 바꿔야 할 때 쓰는 **일회성 마이그레이션 도구**다. 새로 만드는 JQL은 처음부터 `accountId` 를 쓰면 되므로 이 API가 필요 없다.\n\n**⚠️ 한 번에 최대 100개** 쿼리까지 변환할 수 있다.\n\n**응답 순서가 보장된다** — 전달한 순서 그대로 반환되므로 인덱스로 매칭하면 된다.\n\n**⚠️ 부분 실패가 아니라 전체 실패다**: 쿼리 중 **하나라도** 변환할 수 없으면(잘못된 연산자·키워드, 사용자를 찾을 수 없음 등) **400**이 반환된다.\n\n**⚠️ 오류 응답 형식이 이 그룹에서 유일하게 다르다**: 400·401 본문이 `ErrorCollection` 객체가 아니라 **문자열**이다. 공통 오류 파서를 쓴다면 예외 처리가 필요하다.",
+        "operationId": "migrateQueries",
+        "tags": ["JQL Migration"],
+        "x-priority": "low",
+        "x-permissions": "Jira 접근 권한. **이 그룹에서 유일하게 권한이 필요한 오퍼레이션.**",
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
                 "properties": {
-                  "queryStrings": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "maxItems": 100,
-                    "description": "사용자 식별자를 포함한 쿼리 목록 (최대 100개)"
-                  }
+                  "queryStrings": { "type": "array", "items": { "type": "string" }, "maxItems": 100, "description": "사용자 식별자가 포함된 쿼리 목록. **최대 100개.**" }
                 }
               },
-              "example": {
-                "queryStrings": [
-                  "issuetype = Bug AND assignee = mia order by lastViewed DESC"
-                ]
-              }
+              "example": { "queryStrings": ["assignee = mia ORDER BY created DESC"] }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "요청이 성공적으로 처리됨.",
+            "description": "요청이 성공한 경우 반환됨. **JQL 쿼리는 전달한 순서 그대로 반환된다.**",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "queryStrings": {
-                      "type": "array",
-                      "items": { "type": "string" },
-                      "description": "변환된 쿼리 목록(요청 순서 유지)"
-                    },
-                    "queriesWithUnknownUsers": {
-                      "type": "array",
-                      "description": "알 수 없는 사용자가 포함되어 변환된 쿼리 목록",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "convertedQuery": { "type": "string", "description": "변환된 쿼리" },
-                          "originalQuery": { "type": "string", "description": "원본 쿼리" }
-                        }
-                      }
-                    }
+                    "queryStrings": { "type": "array", "items": { "type": "string" }, "description": "accountId로 변환된 JQL 쿼리 목록. 입력과 같은 순서." }
                   }
-                },
-                "example": {
-                  "queriesWithUnknownUsers": [
-                    { "convertedQuery": "assignee = unknown", "originalQuery": "assignee = mia" }
-                  ],
-                  "queryStrings": [
-                    "issuetype = Bug AND assignee in (abcde-12345) AND reporter in (abc551-c4e99) order by lastViewed DESC"
-                  ]
                 }
               }
             }
           },
           "400": {
-            "description": "하나 이상의 쿼리를 변환할 수 없음 (잘못된 연산자/키워드, 사용자를 찾을 수 없음 등)."
+            "description": "**쿼리 중 하나라도 변환할 수 없는 경우 반환됨.** 예: JQL에 잘못된 연산자·키워드가 있거나, 쿼리의 사용자를 찾을 수 없는 경우. **본문이 객체가 아니라 문자열이다.**",
+            "content": { "application/json": { "schema": { "type": "string" } } }
           },
           "401": {
-            "description": "인증 자격 증명이 올바르지 않거나 없음."
+            "description": "인증 정보가 잘못됐거나 누락된 경우 반환됨. **본문이 객체가 아니라 문자열이다.**",
+            "content": { "application/json": { "schema": { "type": "string" } } }
           }
         }
       }
@@ -525,6 +230,76 @@
               "manage:jira-webhook": "Jira 웹훅 관리"
             }
           }
+        }
+      }
+    },
+    "responses": {
+      "Unauthorized": {
+        "description": "인증 정보가 잘못된 경우 반환됨",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorCollection" } } }
+      }
+    },
+    "schemas": {
+      "ErrorCollection": {
+        "type": "object",
+        "description": "Jira 공통 오류 응답",
+        "properties": {
+          "errorMessages": { "type": "array", "items": { "type": "string" }, "description": "이 오퍼레이션이 생성한 오류 메시지 목록" },
+          "errors": { "type": "object", "additionalProperties": { "type": "string" }, "description": "파라미터별 오류 목록" },
+          "status": { "type": "integer", "description": "HTTP 상태 코드" }
+        }
+      },
+      "ParsedJqlQuery": {
+        "type": "object",
+        "description": "파싱된 JQL 쿼리 하나의 결과",
+        "properties": {
+          "query": { "type": "string", "description": "파싱한 원본 JQL 쿼리 문자열" },
+          "structure": { "type": "object", "additionalProperties": true, "description": "파싱된 쿼리 구조. **`validation=strict` 로 검증에 실패하면 반환되지 않는다.**" },
+          "errors": { "type": "array", "items": { "type": "string" }, "description": "이 쿼리에서 발견된 오류 목록. **200 응답에서도 채워질 수 있으므로 반드시 확인할 것.**" }
+        }
+      },
+      "ParsedJqlQueries": {
+        "type": "object",
+        "description": "04번의 응답",
+        "properties": {
+          "queries": { "type": "array", "items": { "$ref": "#/components/schemas/ParsedJqlQuery" }, "description": "파싱 결과 목록. 요청한 순서와 대응된다." }
+        }
+      },
+      "JQLReferenceData": {
+        "type": "object",
+        "description": "JQL 참조 데이터. **응답이 크므로 캐시할 것.**",
+        "properties": {
+          "visibleFieldNames": {
+            "type": "array",
+            "description": "JQL에서 사용할 수 있는 필드 목록",
+            "items": {
+              "type": "object",
+              "properties": {
+                "value": { "type": "string", "description": "JQL에 쓰는 필드 식별자" },
+                "displayName": { "type": "string", "description": "필드의 표시 이름" },
+                "orderable": { "type": "string", "description": "`ORDER BY` 에 쓸 수 있는지 여부(`true`/`false` 문자열)" },
+                "searchable": { "type": "string", "description": "검색에 쓸 수 있는지 여부(`true`/`false` 문자열)" },
+                "auto": { "type": "string", "description": "자동완성을 지원하는지 여부(`true`/`false` 문자열)" },
+                "cfid": { "type": "string", "description": "커스텀 필드인 경우의 식별자(예: `cf[10061]`)" },
+                "operators": { "type": "array", "items": { "type": "string" }, "description": "이 필드에 쓸 수 있는 연산자 목록" },
+                "types": { "type": "array", "items": { "type": "string" }, "description": "이 필드의 타입 목록" }
+              }
+            }
+          },
+          "visibleFunctionNames": {
+            "type": "array",
+            "description": "JQL에서 사용할 수 있는 함수 목록",
+            "items": {
+              "type": "object",
+              "properties": {
+                "value": { "type": "string", "description": "함수 식별자" },
+                "displayName": { "type": "string", "description": "함수의 표시 이름" },
+                "isList": { "type": "string", "description": "목록을 반환하는 함수인지 여부" },
+                "types": { "type": "array", "items": { "type": "string" }, "description": "이 함수를 쓸 수 있는 필드 타입 목록" }
+              }
+            }
+          },
+          "jqlReservedWords": { "type": "array", "items": { "type": "string" }, "description": "JQL 예약어 목록. **필드명이나 값에 이 단어가 들어가면 따옴표로 감싸야 한다.**" }
         }
       }
     }

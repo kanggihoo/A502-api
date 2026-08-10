@@ -1,26 +1,68 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "Mattermost Playbooks Timeline API (권한 필터됨)",
-    "description": "Playbooks 플러그인 API. 플레이북 런 멤버 기반 접근, 별도 named permission 없음.",
-    "version": "1.0.0"
+    "title": "Mattermost API - _45-timeline",
+    "version": "1.0.0",
+    "description": "Mattermost Playbooks 플러그인의 Timeline API.\n\n**포함 기준**: 01 (총 1건 — 디렉토리 전체).\n\n**⚠️ base URL이 다르다**\n이 엔드포인트는 Mattermost 코어 API가 아니라 **Playbooks 플러그인** API다. 경로가 `/api/v4/...` 가 아니라 **`/plugins/playbooks/api/v0/...`** 이므로, 다른 문서와 같은 클라이언트 설정으로는 호출되지 않는다.\n\n**Playbooks 플러그인이 설치·실행 중이어야 한다.** `_30-plugins` 08번으로 `playbooks` 플러그인의 `state` 가 `Running` 인지 먼저 확인할 것 — 아니면 404가 반환된다.\n\n**관련 문서**: `_42-playbooks`(플레이북 정의), `_43-playbookruns`(실행), `_46-playbookautofollows`(자동 팔로우).\n\n**⚠️ 원문에 권한 섹션이 없다.** 실질적으로는 해당 플레이북 실행에 대한 편집 권한이 필요할 것으로 보이나 명시돼 있지 않다 — 실호출 확인이 필요하다.\n\n**x-priority 의미**: SSAGY(통합 워크스페이스) 관점의 연동 우선순위."
   },
   "servers": [
-    { "url": "https://{host}/plugins/playbooks/api/v0", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+    {
+      "url": "https://{host}/plugins/playbooks/api/v0",
+      "variables": {
+        "host": {
+          "default": "meeting.ssafy.com",
+          "description": "self-hosted Mattermost 호스트"
+        }
+      }
+    }
   ],
-  "components": {
-    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } }
-  },
   "security": [{ "bearerAuth": [] }],
+  "tags": [{ "name": "Timeline", "description": "플레이북 실행 타임라인 이벤트" }],
   "paths": {
     "/runs/{id}/timeline/{event_id}": {
       "delete": {
-        "summary": "1. Remove a timeline event from the playbook run (런 멤버)",
+        "summary": "01. Remove a timeline event from the playbook run",
+        "description": "플레이북 실행의 타임라인에서 이벤트 하나를 제거한다.\n\n**주의**: 성공 응답이 200이 아니라 **204 No Content** 다 — 응답 본문이 없다.\n\n**⚠️ 원문에 권한 섹션이 없다** — 실질적으로 해당 실행에 대한 편집 권한이 필요할 것으로 보이나 명시돼 있지 않다.",
+        "operationId": "removeTimelineEvent",
+        "tags": ["Timeline"],
+        "x-priority": "low",
+        "x-permissions": "**원문에 권한 명시 없음.** 해당 플레이북 실행에 대한 편집 권한이 필요할 것으로 추정 — 실호출 확인 필요.",
         "parameters": [
-          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "event_id", "in": "path", "required": true, "schema": { "type": "string" } }
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "타임라인 이벤트를 수정할 플레이북 실행의 ID" },
+          { "name": "event_id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "삭제할 타임라인 이벤트의 ID" }
         ],
-        "responses": { "204": { "description": "Deleted" } }
+        "responses": {
+          "204": { "description": "이벤트 삭제 성공. 응답 본문 없음." },
+          "400": {
+            "description": "잘못된 요청",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+          },
+          "500": {
+            "description": "서버 내부 오류",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "`Authorization: Bearer <token>`. 세션 토큰 또는 개인 액세스 토큰을 사용한다."
+      }
+    },
+    "schemas": {
+      "AppError": {
+        "type": "object",
+        "description": "Mattermost 공통 오류 응답",
+        "properties": {
+          "status_code": { "type": "integer", "description": "HTTP 상태 코드" },
+          "id": { "type": "string", "description": "오류 식별자" },
+          "message": { "type": "string", "description": "사람이 읽을 수 있는 오류 메시지" },
+          "request_id": { "type": "string", "description": "요청 추적용 ID" }
+        }
       }
     }
   }

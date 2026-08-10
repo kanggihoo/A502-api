@@ -3,7 +3,7 @@
   "info": {
     "title": "Jira API - _96-workflow-statuses",
     "version": "1.0.0",
-    "description": "Jira 이슈 워크플로우 상태(status) 조회 API. 활성 워크플로우에 연결된 전체 상태 목록을 가져오거나, 특정 상태 하나를 ID/이름으로 조회할 수 있다."
+    "description": "Jira Cloud 워크플로 상태(status) 조회 API. 활성 워크플로에 연결된 상태를 조회한다.\n\n**포함 기준**: 01, 02 (총 2건 — 디렉토리 전체).\n\n**⚠️ `_83-status` 와 혼동하지 말 것 — 서로 다른 API다**\n\n| | 이 문서(`_96`) | `_83-status` |\n|---|---|---|\n| 경로 | `/rest/api/3/status` | `/rest/api/3/statuses` (복수형) |\n| 성격 | **레거시 조회 전용** | 신형, 일괄 생성·수정·삭제까지 지원 |\n| 권한 | *Browse projects* 만 | 대부분 관리자 권한 |\n| 범위 | **활성 워크플로에 연결된 상태만** | 전체 |\n\n**단순 조회에는 이 문서가 훨씬 실용적이다** — 프로젝트 권한만으로 호출되므로 교육생 계정에서 바로 쓸 수 있다.\n\n**연동 활용**\n이슈의 `status` 필드를 사람이 읽는 이름과 색상으로 표시하거나, JQL에서 쓸 상태 이름을 검증할 때 쓴다. `statusCategory` 로 상태를 **미착수(`new`) / 진행중(`indeterminate`) / 완료(`done`)** 3분류로 묶을 수 있어, SSAGY 대시보드에서 진행률 집계에 유용하다.\n\n**⚠️ 02번의 이름 조회는 모호할 수 있다**\n같은 이름의 상태가 둘 이상이면 **먼저 발견된 하나만** 반환된다. 정확성이 필요하면 **ID로 조회할 것**.\n\n**⚠️ 활성 워크플로에 연결되지 않은 상태는 조회되지 않는다** — 02번에서 404가 나는 원인 중 하나다.\n\n두 엔드포인트 모두 익명 호출이 가능하다.\n\n**x-priority 의미**: SSAGY(통합 워크스페이스) 관점의 연동 우선순위."
   },
   "servers": [
     {
@@ -20,160 +20,59 @@
     { "basicAuth": [] },
     { "oauth2": ["read:jira-work", "write:jira-work"] }
   ],
-  "tags": [
-    { "name": "Workflow statuses", "description": "Jira 이슈 워크플로우 상태(status) 조회 API" }
-  ],
+  "tags": [{ "name": "Workflow Statuses", "description": "활성 워크플로 상태 조회 (레거시 경로)" }],
   "paths": {
     "/rest/api/3/status": {
       "get": {
-        "summary": "Get all statuses",
-        "description": "이 API는 Jira 사이트 내 활성 워크플로우에 포함된 모든 상태의 목록을 반환한다. 각 상태는 이름, 설명, 아이콘 URL, 그리고 상태 카테고리(진행 전/진행 중/완료) 정보를 포함한다. 통합 대시보드에서 이슈 상태 값을 사람이 읽을 수 있는 이름이나 색상(카테고리)으로 매핑해 보여줄 때 기준 데이터로 활용할 수 있다. 익명 접근이 가능하며, *Browse projects* 프로젝트 권한이 필요하다.",
+        "summary": "01. Get all statuses — 전체 상태 조회",
+        "description": "**활성 워크플로에 연결된** 모든 상태 목록을 조회한다.\n\n**`_83-status` 의 신형 API와 달리 프로젝트 권한(*Browse projects*)만으로 호출된다** — 교육생 계정에서 상태 목록이 필요할 때 가장 현실적인 경로다.\n\n응답의 `statusCategory` 를 이용하면 상태를 3분류로 묶을 수 있다 — SSAGY 대시보드에서 \"할 일 / 진행 중 / 완료\" 집계를 만들 때 개별 상태 이름을 하드코딩하지 않아도 된다.\n\n**주의**: 페이징이 없어 사이트의 상태가 많으면 응답이 커진다. 페이징이 필요하면 `_83-status` 의 검색 API를 쓴다(권한 요구가 다름).\n\n익명 호출이 가능하다.",
         "operationId": "getAllStatuses",
-        "tags": ["Workflow statuses"],
+        "tags": ["Workflow Statuses"],
         "x-priority": "high",
-        "security": [
-          { "basicAuth": [] },
-          { "oauth2": ["read:jira-work"] },
-          {}
-        ],
-        "parameters": [],
+        "x-permissions": "프로젝트에 대한 *Browse projects* 프로젝트 권한. 익명 호출 가능.",
         "responses": {
           "200": {
-            "description": "요청이 성공한 경우 반환된다.",
+            "description": "요청이 성공한 경우 반환됨",
             "content": {
               "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "id": { "type": "string", "description": "상태 ID" },
-                      "name": { "type": "string", "description": "상태 이름" },
-                      "description": { "type": "string", "description": "상태 설명" },
-                      "iconUrl": { "type": "string", "description": "상태 아이콘 URL" },
-                      "self": { "type": "string", "description": "상태 리소스 URL" },
-                      "statusCategory": {
-                        "type": "object",
-                        "description": "상태 카테고리 정보 (색상, 이름, key 등)",
-                        "properties": {
-                          "id": { "type": "integer", "description": "상태 카테고리 ID" },
-                          "key": { "type": "string", "description": "상태 카테고리 key" },
-                          "colorName": { "type": "string", "description": "상태 카테고리 색상 이름" },
-                          "name": { "type": "string", "description": "상태 카테고리 이름" },
-                          "self": { "type": "string", "description": "상태 카테고리 리소스 URL" }
-                        }
-                      }
-                    }
-                  }
-                },
+                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/StatusDetails" } },
                 "example": [
                   {
-                    "description": "The issue is currently being worked on.",
-                    "iconUrl": "https://your-domain.atlassian.net/images/icons/progress.gif",
                     "id": "10000",
                     "name": "In Progress",
+                    "description": "The issue is currently being worked on.",
+                    "iconUrl": "https://your-domain.atlassian.net/images/icons/progress.gif",
                     "self": "https://your-domain.atlassian.net/rest/api/3/status/10000",
-                    "statusCategory": {
-                      "colorName": "yellow",
-                      "id": 1,
-                      "key": "in-flight",
-                      "name": "In Progress",
-                      "self": "https://your-domain.atlassian.net/rest/api/3/statuscategory/1"
-                    }
-                  },
-                  {
-                    "description": "The issue is closed.",
-                    "iconUrl": "https://your-domain.atlassian.net/images/icons/closed.gif",
-                    "id": "5",
-                    "name": "Closed",
-                    "self": "https://your-domain.atlassian.net/rest/api/3/status/5",
-                    "statusCategory": {
-                      "colorName": "green",
-                      "id": 9,
-                      "key": "completed",
-                      "self": "https://your-domain.atlassian.net/rest/api/3/statuscategory/9"
-                    }
+                    "statusCategory": { "id": 4, "key": "indeterminate", "colorName": "yellow", "name": "In Progress", "self": "https://your-domain.atlassian.net/rest/api/3/statuscategory/4" }
                   }
                 ]
               }
             }
           },
-          "401": {
-            "description": "인증 정보가 없거나 올바르지 않은 경우 반환된다."
-          }
+          "401": { "$ref": "#/components/responses/Unauthorized" }
         }
       }
     },
     "/rest/api/3/status/{idOrName}": {
       "get": {
-        "summary": "Get status",
-        "description": "지정한 ID 또는 이름에 해당하는 상태 하나를 반환한다. 해당 상태는 활성 워크플로우에 연결되어 있어야 조회된다. 이름이 여러 상태에서 중복 사용되는 경우 가장 먼저 찾은 상태만 반환되므로, 이름보다는 ID로 조회하는 것이 더 정확하다. 익명 접근이 가능하며, *Browse projects* 프로젝트 권한이 필요하다.",
+        "summary": "02. Get status — 상태 단건 조회",
+        "description": "상태 하나를 조회한다. **활성 워크플로에 연결된 상태만** 반환된다.\n\n**⚠️ 이름으로 조회하면 모호할 수 있다**: 같은 이름의 상태가 둘 이상이면 **먼저 발견된 하나만** 반환된다. 원문도 \"ID로 식별하는 편이 낫다\"고 권고한다 — 자동화에서는 ID를 쓸 것.\n\n**404가 세 가지 의미를 갖는다** — 상태 없음, **활성 워크플로에 연결되지 않음**, 권한 부족. 특히 두 번째 경우는 상태 자체는 존재하는데도 404가 나므로 진단 시 혼동하기 쉽다.\n\n익명 호출이 가능하다.",
         "operationId": "getStatus",
-        "tags": ["Workflow statuses"],
+        "tags": ["Workflow Statuses"],
         "x-priority": "medium",
-        "security": [
-          { "basicAuth": [] },
-          { "oauth2": ["read:jira-work"] },
-          {}
-        ],
+        "x-permissions": "프로젝트에 대한 *Browse projects* 프로젝트 권한. 익명 호출 가능.",
         "parameters": [
-          {
-            "name": "idOrName",
-            "in": "path",
-            "required": true,
-            "schema": { "type": "string" },
-            "description": "조회할 상태의 ID 또는 이름",
-            "example": "10000"
-          }
+          { "name": "idOrName", "in": "path", "required": true, "schema": { "type": "string" }, "description": "상태의 ID 또는 이름. **이름은 중복 시 먼저 발견된 것만 반환되므로 ID 사용을 권장한다.**", "example": "10000" }
         ],
         "responses": {
           "200": {
-            "description": "요청이 성공한 경우 반환된다.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "id": { "type": "string", "description": "상태 ID" },
-                    "name": { "type": "string", "description": "상태 이름" },
-                    "description": { "type": "string", "description": "상태 설명" },
-                    "iconUrl": { "type": "string", "description": "상태 아이콘 URL" },
-                    "self": { "type": "string", "description": "상태 리소스 URL" },
-                    "statusCategory": {
-                      "type": "object",
-                      "description": "상태 카테고리 정보 (색상, 이름, key 등)",
-                      "properties": {
-                        "id": { "type": "integer", "description": "상태 카테고리 ID" },
-                        "key": { "type": "string", "description": "상태 카테고리 key" },
-                        "colorName": { "type": "string", "description": "상태 카테고리 색상 이름" },
-                        "name": { "type": "string", "description": "상태 카테고리 이름" },
-                        "self": { "type": "string", "description": "상태 카테고리 리소스 URL" }
-                      }
-                    }
-                  }
-                },
-                "example": {
-                  "description": "The issue is currently being worked on.",
-                  "iconUrl": "https://your-domain.atlassian.net/images/icons/progress.gif",
-                  "id": "10000",
-                  "name": "In Progress",
-                  "self": "https://your-domain.atlassian.net/rest/api/3/status/10000",
-                  "statusCategory": {
-                    "colorName": "yellow",
-                    "id": 1,
-                    "key": "in-flight",
-                    "name": "In Progress",
-                    "self": "https://your-domain.atlassian.net/rest/api/3/statuscategory/1"
-                  }
-                }
-              }
-            }
+            "description": "요청이 성공한 경우 반환됨",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusDetails" } } }
           },
-          "401": {
-            "description": "인증 정보가 없거나 올바르지 않은 경우 반환된다."
-          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
           "404": {
-            "description": "상태를 찾을 수 없거나, 상태가 워크플로우에 연결되지 않았거나, 사용자가 필요한 권한을 가지고 있지 않은 경우 반환된다."
+            "description": "다음 중 하나인 경우 반환됨 — 상태를 찾을 수 없음, **상태가 활성 워크플로에 연결되어 있지 않음**, 사용자에게 필요한 권한이 없음",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorCollection" } } }
           }
         }
       }
@@ -199,6 +98,47 @@
               "manage:jira-webhook": "Jira 웹훅 관리"
             }
           }
+        }
+      }
+    },
+    "responses": {
+      "Unauthorized": {
+        "description": "인증 정보가 잘못됐거나 누락된 경우 반환됨",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorCollection" } } }
+      }
+    },
+    "schemas": {
+      "ErrorCollection": {
+        "type": "object",
+        "description": "Jira 공통 오류 응답",
+        "properties": {
+          "errorMessages": { "type": "array", "items": { "type": "string" }, "description": "필드에 연결되지 않은 오류 메시지 목록" },
+          "errors": { "type": "object", "additionalProperties": { "type": "string" }, "description": "필드명을 키로, 해당 필드의 오류 메시지를 값으로 갖는 맵" },
+          "status": { "type": "integer", "description": "HTTP 상태 코드" }
+        }
+      },
+      "StatusCategory": {
+        "type": "object",
+        "description": "상태의 대분류. 개별 상태 이름을 하드코딩하지 않고 진행 단계를 판정할 때 쓴다.",
+        "properties": {
+          "id": { "type": "integer", "format": "int64", "description": "상태 카테고리의 ID" },
+          "key": { "type": "string", "enum": ["new", "indeterminate", "done"], "description": "상태 카테고리의 키. `new`=미착수, `indeterminate`=진행 중, `done`=완료. **집계에는 이름 대신 이 값을 쓸 것.**" },
+          "colorName": { "type": "string", "description": "UI에서 사용하는 색상 이름(예: `blue-gray`, `yellow`, `green`)" },
+          "name": { "type": "string", "description": "상태 카테고리의 표시 이름" },
+          "self": { "type": "string", "description": "이 상태 카테고리 리소스의 URL" }
+        }
+      },
+      "StatusDetails": {
+        "type": "object",
+        "description": "워크플로 상태",
+        "properties": {
+          "id": { "type": "string", "description": "상태의 ID. **이름보다 이 값으로 식별할 것.**" },
+          "name": { "type": "string", "description": "상태의 이름. 사이트에서 중복될 수 있다." },
+          "description": { "type": "string", "description": "상태의 설명" },
+          "iconUrl": { "type": "string", "description": "상태 아이콘의 URL" },
+          "self": { "type": "string", "description": "이 상태 리소스의 URL" },
+          "scope": { "type": "object", "additionalProperties": true, "description": "상태의 범위(전역 또는 특정 프로젝트)" },
+          "statusCategory": { "$ref": "#/components/schemas/StatusCategory" }
         }
       }
     }

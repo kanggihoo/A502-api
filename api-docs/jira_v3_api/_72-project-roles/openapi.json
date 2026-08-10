@@ -3,7 +3,7 @@
   "info": {
     "title": "Jira API - _72-project-roles",
     "version": "1.0.0",
-    "description": "프로젝트에서 사용자가 맡을 수 있는 \"역할(Project Role)\"을 조회·생성·수정·삭제하는 Jira REST API 엔드포인트 모음. 프로젝트 단위로 역할에 소속된 사용자/그룹(액터)을 확인할 수 있어 통합 대시보드에서 담당자·구성원 정보를 보여주는 데 활용할 수 있다."
+    "description": "Jira Cloud 프로젝트 역할 조회 API. 프로젝트의 역할 목록과 각 역할에 배정된 액터(사용자·그룹)를 조회한다.\n\n**포함 기준**: 01, 02, 03 (총 3건 — 조회 3건).\n**제외 기준**: 역할 생성·수정·삭제 및 기본 액터 관리는 *Administer Jira* 글로벌 권한이 필요해 교육생 계정 범위 밖이다.\n\n**⚠️ 프로젝트 역할은 사이트 전역으로 공유된다**\nJira Cloud에서 **역할 정의 자체는 모든 프로젝트가 공유**한다. 프로젝트마다 다른 것은 \"그 역할에 누가 배정됐는가\"(액터)뿐이다. 따라서 01번을 프로젝트별로 호출해도 반환되는 역할 이름 집합은 같다 — 역할 목록 캐시는 사이트 단위로 한 번만 만들면 된다.\n\n**연동 활용 — 팀원 명단의 출처**\nAGENTS.md의 \"팀 생성 자동화\"에서 Jira 프로젝트의 팀원 명단이 필요할 때 02번이 그 출처다. 응답의 `actors` 에서 `accountId` 를 뽑아 `_90-users` 나 `_89-user-search` 로 상세를 보강하고, Mattermost 계정과 매칭하면 도구 간 사용자 매핑이 만들어진다.\n\n**⚠️ 권한 장벽이 높다 — 이 그룹의 핵심 제약**\n세 엔드포인트 모두 ***Administer Projects* 프로젝트 권한 또는 *Administer Jira* 글로벌 권한**을 요구한다. 즉 **일반 팀원 계정으로는 호출할 수 없고, 프로젝트 관리자여야 한다.** SSAFY 교육생이 자기 팀 프로젝트의 관리자라면 동작하지만, 다른 팀 프로젝트에는 접근할 수 없다.\n\n권한이 없으면 **403이 아니라 401 또는 404**가 반환되는 점도 주의할 것 — 인증 문제로 오진하기 쉽다.\n\n**그룹 기반 멤버십 확인 방법**\n사용자가 그룹 소속을 통해 역할에 속하는지 확인하려면, `_90-users` 의 Get user를 `expand=groups` 로 호출해 그 사용자의 그룹과 여기서 얻은 액터 목록을 대조해야 한다. 역할 API만으로는 간접 멤버십이 드러나지 않는다.\n\n**x-priority 의미**: SSAGY(통합 워크스페이스) 관점의 연동 우선순위."
   },
   "servers": [
     {
@@ -20,275 +20,86 @@
     { "basicAuth": [] },
     { "oauth2": ["read:jira-work", "write:jira-work"] }
   ],
-  "tags": [
-    { "name": "Project roles" }
-  ],
+  "tags": [{ "name": "Project Roles", "description": "프로젝트 역할 및 액터 조회" }],
   "paths": {
     "/rest/api/3/project/{projectIdOrKey}/role": {
       "get": {
-        "summary": "프로젝트의 역할 목록 조회",
-        "description": "프로젝트에 정의된 역할(Administrators, Developers, Users 등)의 이름과 상세 조회용 self URL을 반환한다. Jira Cloud에서는 역할 자체가 전체 프로젝트에 공유되므로, 이 API는 특정 프로젝트에서 어떤 역할이 활성화되어 있는지 확인하는 용도로 쓰인다. 역할별 실제 구성원(액터) 목록은 반환하지 않으며, 이는 역할 상세 조회 API에서 개별 조회해야 한다.",
+        "summary": "01. Get project roles for project — 프로젝트의 역할 목록 조회",
+        "description": "프로젝트의 역할 목록을 조회한다. 각 역할의 **이름과 self URL만** 반환되며, 액터(배정된 사용자·그룹)는 포함되지 않는다 — 액터가 필요하면 02번 또는 03번을 쓴다.\n\n**응답 형태가 배열이 아니라 맵이다**: 역할 이름을 키로, 해당 역할 리소스의 URL을 값으로 갖는다. URL 끝의 숫자가 역할 ID이므로 02번을 호출하려면 여기서 파싱해야 한다.\n\n**역할 정의는 사이트 전역 공유**이므로 프로젝트마다 호출해도 같은 이름 집합이 나온다.\n\n**⚠️ *Administer Projects* 이상의 권한이 필요하다.** 일반 팀원 계정으로는 호출할 수 없다.\n\n익명 호출이 가능하다(권한이 있는 경우에 한함).",
         "operationId": "getProjectRoles",
-        "tags": ["Project roles"],
-        "x-priority": "high",
-        "parameters": [
-          {
-            "name": "projectIdOrKey",
-            "in": "path",
-            "required": true,
-            "schema": { "type": "string" },
-            "description": "프로젝트 ID 또는 프로젝트 키 (대소문자 구분)",
-            "example": "MKY"
-          }
-        ],
+        "tags": ["Project Roles"],
+        "x-priority": "medium",
+        "x-permissions": "**사이트 내 임의 프로젝트에 대한 *Administer Projects* 프로젝트 권한 또는 *Administer Jira* 글로벌 권한.** 일반 팀원 권한으로는 불가.",
+        "parameters": [{ "$ref": "#/components/parameters/ProjectIdOrKey" }],
         "responses": {
           "200": {
-            "description": "OK - 역할명을 키로, self URL을 값으로 하는 객체 반환",
+            "description": "요청이 성공한 경우 반환됨. **역할 이름을 키로, 역할 리소스 URL을 값으로 갖는 맵이다.**",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": { "type": "string" },
-                  "description": "역할 이름을 키로 하고 값은 해당 역할의 self URL"
-                },
-                "example": {
-                  "Administrators": "https://your-domain.atlassian.net/rest/api/3/project/MKY/role/10002",
-                  "Developers": "https://your-domain.atlassian.net/rest/api/3/project/MKY/role/10000",
-                  "Users": "https://your-domain.atlassian.net/rest/api/3/project/MKY/role/10001"
+                  "additionalProperties": { "type": "string", "description": "해당 역할 리소스의 URL. 끝의 숫자가 역할 ID다." },
+                  "example": {
+                    "Administrators": "https://your-domain.atlassian.net/rest/api/3/project/MKY/role/10002",
+                    "Developers": "https://your-domain.atlassian.net/rest/api/3/project/MKY/role/10001"
+                  }
                 }
               }
             }
           },
-          "401": {
-            "description": "인증 정보가 잘못되었거나 없음, 또는 프로젝트에 대한 관리자 권한이 없음"
-          },
-          "404": {
-            "description": "프로젝트를 찾을 수 없거나 사용자가 해당 프로젝트에 대한 관리자 권한이 없음"
-          }
+          "401": { "$ref": "#/components/responses/UnauthorizedOrNotAdmin" },
+          "404": { "$ref": "#/components/responses/ProjectNotFoundOrNotAdmin" }
         }
       }
     },
     "/rest/api/3/project/{projectIdOrKey}/role/{id}": {
       "get": {
-        "summary": "프로젝트의 특정 역할 상세(구성원 포함) 조회",
-        "description": "프로젝트 역할 하나에 대해 설명, 범위(scope), 그리고 실제로 배정된 액터(사용자 또는 그룹) 목록을 표시 이름 순으로 정렬하여 반환한다. 사용자가 그룹 멤버십을 통해 특정 역할에 속하는지 확인하려면 Get user API의 groups expand와 결과를 비교해야 한다. 팀 채널의 담당자/구성원 정보를 대시보드에 표시하거나 알림 수신 대상을 판단하는 데 유용하다.",
+        "summary": "02. Get project role for project — 특정 역할의 상세와 액터 조회",
+        "description": "프로젝트에서 특정 역할의 상세와 **배정된 액터 목록**을 조회한다. 액터는 표시 이름순으로 정렬된다.\n\n**SSAGY가 Jira 프로젝트의 팀원 명단을 얻는 핵심 경로**다. `actors` 에서 `actorUser.accountId` 를 뽑아 Mattermost 계정과 매칭한다.\n\n**⚠️ 그룹 액터에 주의**: 액터는 사용자(`atlassian-user-role-actor`)일 수도, 그룹(`atlassian-group-role-actor`)일 수도 있다. 그룹 액터가 있으면 **그 그룹에 속한 개별 사용자는 여기 나열되지 않는다** — 실제 사람 명단이 필요하면 그룹 멤버를 별도로 조회하거나, `_90-users` 의 Get user를 `expand=groups` 로 호출해 대조해야 한다.\n\n`excludeInactiveUsers=true` 로 비활성 사용자를 걸러낼 수 있다 — 알림 대상 명단을 만들 때 권장한다.\n\n역할 ID는 01번 응답 URL에서 파싱하거나 `GET /rest/api/3/role` 로 얻는다.",
         "operationId": "getProjectRole",
-        "tags": ["Project roles"],
+        "tags": ["Project Roles"],
         "x-priority": "high",
+        "x-permissions": "**해당 프로젝트에 대한 *Administer Projects* 프로젝트 권한 또는 *Administer Jira* 글로벌 권한.** 일반 팀원 권한으로는 불가.",
         "parameters": [
-          {
-            "name": "projectIdOrKey",
-            "in": "path",
-            "required": true,
-            "schema": { "type": "string" },
-            "description": "프로젝트 ID 또는 프로젝트 키 (대소문자 구분)",
-            "example": "MKY"
-          },
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": { "type": "integer" },
-            "description": "프로젝트 역할의 ID",
-            "example": 10360
-          },
-          {
-            "name": "excludeInactiveUsers",
-            "in": "query",
-            "required": false,
-            "schema": { "type": "boolean" },
-            "description": "비활성 사용자를 결과에서 제외할지 여부",
-            "example": true
-          }
+          { "$ref": "#/components/parameters/ProjectIdOrKey" },
+          { "$ref": "#/components/parameters/RoleId" },
+          { "name": "excludeInactiveUsers", "in": "query", "required": false, "schema": { "type": "boolean", "default": false }, "description": "비활성 사용자를 제외할지 여부. **알림 대상 명단 생성 시 `true` 를 권장.**" }
         ],
         "responses": {
           "200": {
-            "description": "OK - 역할 상세 정보와 소속 액터 목록",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "id": { "type": "integer", "description": "역할 ID" },
-                    "name": { "type": "string", "description": "역할 이름" },
-                    "description": { "type": "string", "description": "역할 설명" },
-                    "actors": {
-                      "type": "array",
-                      "description": "역할에 소속된 사용자/그룹 액터 목록",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": { "type": "integer", "description": "액터 ID" },
-                          "displayName": { "type": "string", "description": "액터 표시 이름" },
-                          "type": { "type": "string", "description": "액터 타입 (atlassian-group-role-actor 또는 atlassian-user-role-actor)" },
-                          "name": { "type": "string", "description": "액터 이름 (그룹인 경우)" },
-                          "actorGroup": {
-                            "type": "object",
-                            "description": "그룹 액터 정보",
-                            "properties": {
-                              "displayName": { "type": "string" },
-                              "groupId": { "type": "string" },
-                              "name": { "type": "string" }
-                            }
-                          },
-                          "actorUser": {
-                            "type": "object",
-                            "description": "사용자 액터 정보",
-                            "properties": {
-                              "accountId": { "type": "string" }
-                            }
-                          }
-                        }
-                      }
-                    },
-                    "scope": {
-                      "type": "object",
-                      "description": "역할이 적용되는 프로젝트 범위 정보",
-                      "properties": {
-                        "project": {
-                          "type": "object",
-                          "properties": {
-                            "id": { "type": "string" },
-                            "key": { "type": "string" },
-                            "name": { "type": "string" }
-                          }
-                        },
-                        "type": { "type": "string" }
-                      }
-                    },
-                    "self": { "type": "string", "description": "역할 상세 조회 URL" }
-                  }
-                },
-                "example": {
-                  "actors": [
-                    {
-                      "actorGroup": {
-                        "displayName": "jira-developers",
-                        "groupId": "952d12c3-5b5b-4d04-bb32-44d383afc4b2",
-                        "name": "jira-developers"
-                      },
-                      "displayName": "jira-developers",
-                      "id": 10240,
-                      "name": "jira-developers",
-                      "type": "atlassian-group-role-actor",
-                      "user": "jira-developers"
-                    },
-                    {
-                      "actorUser": { "accountId": "5b10a2844c20165700ede21g" },
-                      "displayName": "Mia Krystof",
-                      "id": 10241,
-                      "type": "atlassian-user-role-actor"
-                    }
-                  ],
-                  "description": "A project role that represents developers in a project",
-                  "id": 10360,
-                  "name": "Developers",
-                  "scope": {
-                    "project": { "id": "10000", "key": "KEY", "name": "Next Gen Project" },
-                    "type": "PROJECT"
-                  },
-                  "self": "https://your-domain.atlassian.net/rest/api/3/project/MKY/role/10360"
-                }
-              }
-            }
+            "description": "요청이 성공한 경우 반환됨",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProjectRole" } } }
           },
           "400": {
-            "description": "요청이 유효하지 않음"
+            "description": "요청이 유효하지 않은 경우 반환됨",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorCollection" } } }
           },
-          "401": {
-            "description": "인증 정보가 잘못되었거나 없음"
-          },
-          "404": {
-            "description": "프로젝트 또는 역할을 찾을 수 없거나, 관리자 권한 없음"
-          }
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/RoleNotFoundOrNotAdmin" }
         }
       }
     },
     "/rest/api/3/project/{projectIdOrKey}/roledetails": {
       "get": {
-        "summary": "프로젝트의 전체 역할 상세 목록 조회",
-        "description": "프로젝트 역할 목록 API와 달리 역할별 액터 목록은 포함하지 않지만, 각 역할의 설명(description), 관리자 역할 여부(admin), 기본 역할 여부(default), 역할 설정 가능 여부(roleConfigurable), 타입(type) 등 메타데이터를 한 번의 호출로 모두 가져올 수 있다. currentMember 쿼리 파라미터로 현재 사용자가 속한 역할만 필터링할 수도 있어, 로그인한 사용자 기준 개인화된 뷰 구성에 유용하다.",
+        "summary": "03. Get project role details — 전체 역할 상세 목록 조회",
+        "description": "프로젝트의 **모든 역할과 각 역할의 상세**를 한 번에 조회한다. 01번이 이름과 URL만 준다면, 이쪽은 ID·설명까지 배열로 준다 — **01번 응답 URL을 파싱할 필요가 없어 실용적이다.**\n\n**`currentMember=true` 가 유용하다**: 호출자가 배정된 역할만 필터링해 반환한다. \"내가 이 프로젝트에서 무슨 역할인가\"를 확인하는 가장 간단한 방법이다.\n\n`excludeOtherServiceRoles=true` 로 JSM/CSM 교차 기본 역할을 걸러낼 수 있다.\n\n**주의**: 역할 정의는 사이트 전역 공유이므로 반환되는 역할 목록은 프로젝트와 무관하게 동일하다.\n\n**⚠️ `excludeConnectAddons` 는 원문에 설명이 비어 있다** — Connect 애드온 관련 역할을 제외하는 것으로 보이나 확인이 필요하다.",
         "operationId": "getProjectRoleDetails",
-        "tags": ["Project roles"],
-        "x-priority": "medium",
+        "tags": ["Project Roles"],
+        "x-priority": "high",
+        "x-permissions": "***Administer Jira* 글로벌 권한 또는 해당 프로젝트에 대한 *Administer projects* 프로젝트 권한.** 일반 팀원 권한으로는 불가.",
         "parameters": [
-          {
-            "name": "projectIdOrKey",
-            "in": "path",
-            "required": true,
-            "schema": { "type": "string" },
-            "description": "프로젝트 ID 또는 프로젝트 키 (대소문자 구분)",
-            "example": "MKY"
-          },
-          {
-            "name": "currentMember",
-            "in": "query",
-            "required": false,
-            "schema": { "type": "boolean" },
-            "description": "현재 사용자가 속한 역할만 필터링할지 여부",
-            "example": true
-          },
-          {
-            "name": "excludeConnectAddons",
-            "in": "query",
-            "required": false,
-            "schema": { "type": "boolean" },
-            "description": "Connect 애드온 관련 역할을 결과에서 제외할지 여부",
-            "example": true
-          },
-          {
-            "name": "excludeOtherServiceRoles",
-            "in": "query",
-            "required": false,
-            "schema": { "type": "boolean" },
-            "description": "CSM/JSM 관련 기본 역할을 결과에서 제외할지 여부",
-            "example": true
-          }
+          { "$ref": "#/components/parameters/ProjectIdOrKey" },
+          { "name": "currentMember", "in": "query", "required": false, "schema": { "type": "boolean", "default": false }, "description": "**호출자가 배정된 역할만** 반환하도록 필터링할지 여부. \"내 역할 확인\"에 유용." },
+          { "name": "excludeConnectAddons", "in": "query", "required": false, "schema": { "type": "boolean" }, "description": "**원문에 설명이 비어 있는 파라미터.** Connect 애드온 관련 역할을 제외하는 것으로 보이나 실호출 확인이 필요하다." },
+          { "name": "excludeOtherServiceRoles", "in": "query", "required": false, "schema": { "type": "boolean" }, "description": "JSM 회사 관리 스페이스에서 CSM 스페이스의 기본값을, 또는 CSM 스페이스에서 JSM 기본 역할을 반환하지 않도록 한다." }
         ],
         "responses": {
           "200": {
-            "description": "OK - 프로젝트 역할 상세 목록",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "self": { "type": "string", "description": "역할 상세 조회 URL" },
-                      "name": { "type": "string", "description": "역할 이름" },
-                      "id": { "type": "integer", "description": "역할 ID" },
-                      "description": { "type": "string", "description": "역할 설명" },
-                      "admin": { "type": "boolean", "description": "관리자 역할 여부" },
-                      "default": { "type": "boolean", "description": "기본 역할 여부" },
-                      "roleConfigurable": { "type": "boolean", "description": "역할 설정 가능 여부" },
-                      "translatedName": { "type": "string", "description": "번역된 역할 이름" },
-                      "type": { "type": "string", "description": "역할 타입" }
-                    }
-                  }
-                },
-                "example": [
-                  {
-                    "self": "https://your-domain.atlassian.net/rest/api/3/project/MKY/role/10360",
-                    "name": "Developers",
-                    "id": 10360,
-                    "description": "A project role that represents developers in a project",
-                    "admin": false,
-                    "default": true,
-                    "roleConfigurable": true,
-                    "translatedName": "Developers",
-                    "type": "DEFAULT"
-                  }
-                ]
-              }
-            }
+            "description": "요청이 성공한 경우 반환됨",
+            "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/ProjectRoleDetails" } } } }
           },
-          "401": {
-            "description": "인증 정보가 잘못되었거나 없음"
-          },
-          "404": {
-            "description": "프로젝트를 찾을 수 없거나 필요한 권한이 없음"
-          }
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/ProjectNotFoundOrNotAdmin" }
         }
       }
     }
@@ -313,6 +124,111 @@
               "manage:jira-webhook": "Jira 웹훅 관리"
             }
           }
+        }
+      }
+    },
+    "parameters": {
+      "ProjectIdOrKey": {
+        "name": "projectIdOrKey",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string" },
+        "description": "프로젝트 ID 또는 프로젝트 키(**대소문자 구분**)",
+        "example": "A502"
+      },
+      "RoleId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "integer", "format": "int64" },
+        "description": "프로젝트 역할의 ID. 03번 응답 또는 `GET /rest/api/3/role` 로 얻는다."
+      }
+    },
+    "responses": {
+      "Unauthorized": {
+        "description": "인증 정보가 잘못됐거나 누락된 경우 반환됨",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorCollection" } } }
+      },
+      "UnauthorizedOrNotAdmin": {
+        "description": "인증 정보가 잘못·누락됐거나, **호출자가 해당 프로젝트의 관리 권한을 갖고 있지 않은 경우** 반환됨. 권한 부족이 403이 아니라 401로 오므로 인증 문제로 오진하기 쉽다.",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorCollection" } } }
+      },
+      "ProjectNotFoundOrNotAdmin": {
+        "description": "프로젝트를 찾을 수 없거나, **호출자가 해당 프로젝트의 관리 권한을 갖고 있지 않은 경우** 반환됨",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorCollection" } } }
+      },
+      "RoleNotFoundOrNotAdmin": {
+        "description": "프로젝트 또는 프로젝트 역할을 찾을 수 없거나, 호출자에게 관리 권한이 없는 경우 반환됨",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorCollection" } } }
+      }
+    },
+    "schemas": {
+      "ErrorCollection": {
+        "type": "object",
+        "description": "Jira 공통 오류 응답",
+        "properties": {
+          "errorMessages": { "type": "array", "items": { "type": "string" }, "description": "필드에 연결되지 않은 오류 메시지 목록" },
+          "errors": { "type": "object", "additionalProperties": { "type": "string" }, "description": "필드명을 키로, 해당 필드의 오류 메시지를 값으로 갖는 맵" },
+          "status": { "type": "integer", "description": "HTTP 상태 코드" }
+        }
+      },
+      "RoleActor": {
+        "type": "object",
+        "description": "역할에 배정된 액터. **사용자일 수도 그룹일 수도 있다** — 그룹인 경우 소속 개별 사용자는 나열되지 않는다.",
+        "properties": {
+          "id": { "type": "integer", "format": "int64", "description": "액터의 ID" },
+          "displayName": { "type": "string", "description": "액터의 표시 이름(사용자 이름 또는 그룹 이름)" },
+          "type": { "type": "string", "enum": ["atlassian-user-role-actor", "atlassian-group-role-actor"], "description": "액터의 유형. **사용자인지 그룹인지 판별하는 값.**" },
+          "name": { "type": "string", "description": "그룹 액터인 경우 그룹 이름" },
+          "avatarUrl": { "type": "string", "description": "액터의 아바타 URL" },
+          "actorUser": {
+            "type": "object",
+            "description": "사용자 액터인 경우의 사용자 정보",
+            "properties": {
+              "accountId": { "type": "string", "description": "사용자의 계정 ID. **Mattermost 계정 매칭의 기준값.**" }
+            }
+          },
+          "actorGroup": {
+            "type": "object",
+            "description": "그룹 액터인 경우의 그룹 정보",
+            "properties": {
+              "name": { "type": "string", "description": "그룹 이름" },
+              "groupId": { "type": "string", "description": "그룹 ID. 이름은 바뀔 수 있으므로 이 값 사용을 권장." },
+              "displayName": { "type": "string", "description": "그룹 표시 이름" }
+            }
+          }
+        }
+      },
+      "ProjectRole": {
+        "type": "object",
+        "description": "프로젝트 역할 상세(액터 포함)",
+        "properties": {
+          "id": { "type": "integer", "format": "int64", "description": "프로젝트 역할의 ID" },
+          "name": { "type": "string", "description": "프로젝트 역할의 이름" },
+          "description": { "type": "string", "description": "프로젝트 역할의 설명" },
+          "self": { "type": "string", "description": "이 프로젝트 역할 리소스의 URL" },
+          "actors": { "type": "array", "items": { "$ref": "#/components/schemas/RoleActor" }, "description": "이 역할에 배정된 액터 목록. **표시 이름순 정렬.**" },
+          "scope": { "type": "object", "additionalProperties": true, "description": "역할의 범위" },
+          "admin": { "type": "boolean", "description": "관리자 역할인지 여부" },
+          "default": { "type": "boolean", "description": "기본 역할인지 여부" },
+          "roleConfigurable": { "type": "boolean", "description": "역할 구성이 가능한지 여부" },
+          "translatedName": { "type": "string", "description": "번역된 역할 이름" },
+          "currentUserRole": { "type": "boolean", "description": "호출자가 이 역할에 속하는지 여부" }
+        }
+      },
+      "ProjectRoleDetails": {
+        "type": "object",
+        "description": "03번이 반환하는 역할 상세. 액터는 포함되지 않는다.",
+        "properties": {
+          "id": { "type": "integer", "format": "int64", "description": "프로젝트 역할의 ID. **02번 호출에 쓸 값 — 01번 URL 파싱 없이 여기서 바로 얻을 수 있다.**" },
+          "name": { "type": "string", "description": "프로젝트 역할의 이름" },
+          "description": { "type": "string", "description": "프로젝트 역할의 설명" },
+          "self": { "type": "string", "description": "이 프로젝트 역할 리소스의 URL" },
+          "admin": { "type": "boolean", "description": "관리자 역할인지 여부" },
+          "default": { "type": "boolean", "description": "기본 역할인지 여부" },
+          "roleConfigurable": { "type": "boolean", "description": "역할 구성이 가능한지 여부" },
+          "translatedName": { "type": "string", "description": "번역된 역할 이름" },
+          "scope": { "type": "object", "additionalProperties": true, "description": "역할의 범위" }
         }
       }
     }

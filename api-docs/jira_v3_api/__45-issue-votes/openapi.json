@@ -3,7 +3,7 @@
   "info": {
     "title": "Jira API - __45-issue-votes",
     "version": "1.0.0",
-    "description": "이슈에 대한 사용자 투표(vote)를 다루는 API 리소스 그룹. 이슈의 투표 상세 조회, 투표 등록(Vote), 투표 취소(Unvote) 기능을 제공한다. 모든 API가 프로젝트 단위 권한(Browse projects)만 요구하며, 사이트 전체 관리자 권한이 필요한 API는 없다."
+    "description": "Jira Cloud 이슈 투표(vote) API. 이슈의 투표 현황을 조회하고, 호출자 본인의 투표를 추가·취소한다.\n\n**포함 기준**: 01~03 (총 3건 — 디렉토리 전체).\n\n**⚠️ 전 항목 공통 전제 — 사이트 설정에 의존한다**\n세 엔드포인트 모두 Jira 일반 설정의 **\"Allow users to vote on issues\" 옵션이 ON** 이어야 동작한다. 꺼져 있으면 **404**가 반환되므로, 404를 \"이슈 없음\"으로만 해석하면 안 된다.\n\n**⚠️ 본인 투표만 조작할 수 있다**\n왓처(`_46-issue-watchers`)와 달리 **타인을 대신해 투표하거나 취소하는 방법이 없다.** 02·03번은 항상 호출자 본인의 투표에만 작용한다. 즉 연동 계정이 자동으로 투표하면 그것은 \"SSAGY 봇의 한 표\"일 뿐 팀원의 의사가 아니므로, **자동 투표는 지표를 오염시킨다** — 쓰지 않는 편이 낫다.\n\n**연동 활용 — 읽기 전용으로 쓸 것**\n01번의 `votes` 수치는 팀이 어떤 이슈를 중요하게 보는지 나타내는 신호다. SSAGY 대시보드에서 \"팀이 주목하는 이슈\" 정렬 기준으로 활용할 수 있다. 다만 SSAFY 팀 프로젝트 규모에서는 투표 기능 자체를 안 쓸 가능성이 높으니, 값이 항상 0이면 이 지표는 버리는 편이 낫다.\n\n**권한 주의**: *View voters and watchers* 프로젝트 권한이 없으면 01번의 `voters` 배열에 상세가 담기지 않는다. `votes` 개수는 보인다.\n\n**x-priority 의미**: SSAGY(통합 워크스페이스) 관점의 연동 우선순위."
   },
   "servers": [
     {
@@ -20,201 +20,58 @@
     { "basicAuth": [] },
     { "oauth2": ["read:jira-work", "write:jira-work"] }
   ],
-  "tags": [
-    {
-      "name": "Issue votes",
-      "description": "이슈 투표(vote) 조회 및 등록/취소 API"
-    }
-  ],
+  "tags": [{ "name": "Issue Votes", "description": "이슈 투표 조회·추가·취소" }],
   "paths": {
     "/rest/api/3/issue/{issueIdOrKey}/votes": {
       "get": {
-        "summary": "Get votes",
-        "description": "이슈에 대한 투표 현황을 조회하는 API로, 현재 사용자가 투표했는지 여부(hasVoted), 총 투표 수(votes), 투표한 사용자 목록(voters)을 반환한다. Jira 전역 설정에서 \"Allow users to vote on issues\" 옵션이 켜져 있어야 동작한다. 익명으로도 호출할 수 있으나 익명 사용자는 voters 상세 정보를 볼 권한이 없을 수 있다.",
-        "operationId": "getIssueVotes",
-        "tags": ["Issue votes"],
-        "x-priority": "medium",
-        "security": [
-          { "basicAuth": [] },
-          { "oauth2": ["read:jira-work"] },
-          {}
-        ],
-        "parameters": [
-          {
-            "name": "issueIdOrKey",
-            "in": "path",
-            "required": true,
-            "schema": { "type": "string" },
-            "description": "이슈의 ID 또는 키",
-            "example": "MKY-1"
-          }
-        ],
+        "summary": "01. Get votes — 이슈의 투표 현황 조회",
+        "description": "이슈의 투표 상세를 조회한다.\n\n**권한에 따라 응답이 달라진다**: 이 오퍼레이션에 필요한 권한은 있으나 *View voters and watchers* 프로젝트 권한이 없는 사용자에게는 **`voters` 필드의 상세가 반환되지 않는다.** `votes` 개수와 `hasVoted` 는 보인다.\n\n**404가 세 가지 의미를 갖는다** — 투표 기능이 꺼져 있거나, 이슈 조회 권한이 없거나, 이슈가 없거나. 구분이 불가능하므로 진단 시 주의할 것.\n\n익명 호출이 가능하다.",
+        "operationId": "getVotes",
+        "tags": ["Issue Votes"],
+        "x-priority": "low",
+        "x-permissions": "이슈가 속한 프로젝트에 대한 *Browse projects* 프로젝트 권한. 이슈 수준 보안 설정 시 해당 이슈 조회 권한. **`voters` 상세를 보려면 추가로 *View voters and watchers* 권한 필요.** 익명 호출 가능.",
+        "parameters": [{ "$ref": "#/components/parameters/IssueIdOrKey" }],
         "responses": {
           "200": {
-            "description": "요청이 성공한 경우 반환됨.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "hasVoted": {
-                      "type": "boolean",
-                      "description": "현재 사용자의 투표 여부"
-                    },
-                    "self": {
-                      "type": "string",
-                      "description": "이 리소스의 API 링크"
-                    },
-                    "votes": {
-                      "type": "integer",
-                      "description": "총 투표 수"
-                    },
-                    "voters": {
-                      "type": "array",
-                      "description": "투표한 사용자 목록 (User 객체 배열). View voters and watchers 권한이 없으면 상세 정보가 채워지지 않을 수 있음",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "accountId": {
-                            "type": "string",
-                            "description": "사용자 계정 ID"
-                          },
-                          "accountType": {
-                            "type": "string",
-                            "description": "사용자 계정 유형"
-                          },
-                          "active": {
-                            "type": "boolean",
-                            "description": "사용자 활성 여부"
-                          },
-                          "avatarUrls": {
-                            "type": "object",
-                            "description": "사용자 아바타 URL 모음",
-                            "properties": {
-                              "16x16": { "type": "string" },
-                              "24x24": { "type": "string" },
-                              "32x32": { "type": "string" },
-                              "48x48": { "type": "string" }
-                            }
-                          },
-                          "displayName": {
-                            "type": "string",
-                            "description": "사용자 표시 이름"
-                          },
-                          "key": {
-                            "type": "string",
-                            "description": "사용자 키 (deprecated)"
-                          },
-                          "name": {
-                            "type": "string",
-                            "description": "사용자 이름 (deprecated)"
-                          },
-                          "self": {
-                            "type": "string",
-                            "description": "사용자 리소스 API 링크"
-                          }
-                        }
-                      }
-                    }
-                  }
-                },
-                "example": {
-                  "hasVoted": true,
-                  "self": "https://your-domain.atlassian.net/rest/api/issue/MKY-1/votes",
-                  "voters": [
-                    {
-                      "accountId": "5b10a2844c20165700ede21g",
-                      "accountType": "atlassian",
-                      "active": false,
-                      "avatarUrls": {
-                        "16x16": "https://avatar-management--avatars.server-location.prod.public.atl-paas.net/initials/MK-5.png?size=16&s=16",
-                        "24x24": "https://avatar-management--avatars.server-location.prod.public.atl-paas.net/initials/MK-5.png?size=24&s=24",
-                        "32x32": "https://avatar-management--avatars.server-location.prod.public.atl-paas.net/initials/MK-5.png?size=32&s=32",
-                        "48x48": "https://avatar-management--avatars.server-location.prod.public.atl-paas.net/initials/MK-5.png?size=48&s=48"
-                      },
-                      "displayName": "Mia Krystof",
-                      "key": "",
-                      "name": "",
-                      "self": "https://your-domain.atlassian.net/rest/api/3/user?accountId=5b10a2844c20165700ede21g"
-                    }
-                  ],
-                  "votes": 24
-                }
-              }
-            }
+            "description": "요청이 성공한 경우 반환됨",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Votes" } } }
           },
-          "401": {
-            "description": "인증 자격 증명이 올바르지 않거나 없는 경우 반환됨."
-          },
-          "404": {
-            "description": "투표 기능이 비활성화된 경우 / 이슈를 볼 권한이 없는 경우 / 이슈를 찾을 수 없는 경우 반환됨."
-          }
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/VotingNotFound" }
         }
       },
       "post": {
-        "summary": "Add vote",
-        "description": "지정한 이슈에 현재 인증된 사용자의 투표를 추가한다. Jira UI의 \"Vote\" 클릭과 동일한 동작이다. Jira 전역 설정에서 \"Allow users to vote on issues\" 옵션이 켜져 있어야 하며, 성공 시 본문 없이 204를 반환한다. 익명 접근은 불가하며 인증된 사용자만 호출 가능하다.",
-        "operationId": "addIssueVote",
-        "tags": ["Issue votes"],
-        "x-priority": "medium",
-        "security": [
-          { "basicAuth": [] },
-          { "oauth2": ["write:jira-work"] }
-        ],
-        "parameters": [
-          {
-            "name": "issueIdOrKey",
-            "in": "path",
-            "required": true,
-            "schema": { "type": "string" },
-            "description": "이슈의 ID 또는 키",
-            "example": "MKY-1"
-          }
-        ],
+        "summary": "02. Add vote — 이슈에 투표",
+        "description": "**호출자 본인**의 투표를 이슈에 추가한다. Jira UI에서 사용자가 *Vote* 를 누르는 것과 같다.\n\n**⚠️ 타인을 대신해 투표할 수 없다.** 대상 사용자를 지정하는 파라미터가 없으며, 항상 인증된 호출자의 투표로 기록된다. 따라서 **SSAGY 연동 계정이 자동 투표하면 그것은 봇의 표**이며 팀 의사를 왜곡한다 — 자동화에 쓰지 말 것.\n\n요청 본문이 없다.\n\n**주의**: 성공 응답이 200이 아니라 **204 No Content** 다.\n\n**전제 조건**: \"Allow users to vote on issues\" 가 ON 이어야 한다.",
+        "operationId": "addVote",
+        "tags": ["Issue Votes"],
+        "x-priority": "low",
+        "x-permissions": "이슈가 속한 프로젝트에 대한 *Browse projects* 프로젝트 권한. 이슈 수준 보안 설정 시 해당 이슈 조회 권한. **항상 호출자 본인의 투표로만 동작한다.**",
+        "parameters": [{ "$ref": "#/components/parameters/IssueIdOrKey" }],
         "responses": {
-          "204": {
-            "description": "요청이 성공한 경우 반환됨. 응답 본문 없음."
-          },
-          "400": {
-            "description": "요청이 유효하지 않은 경우 반환됨."
-          },
-          "401": {
-            "description": "인증 자격 증명이 올바르지 않거나 없는 경우 반환됨."
-          },
+          "204": { "description": "요청이 성공한 경우 반환됨. 응답 본문 없음." },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
           "404": {
-            "description": "투표 기능이 비활성화된 경우 / 이슈를 찾을 수 없는 경우 반환됨."
+            "description": "다음 중 하나인 경우 반환됨 — 투표 기능이 비활성화됨, 이슈를 찾을 수 없음",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorCollection" } } }
           }
         }
       },
       "delete": {
-        "summary": "Delete vote",
-        "description": "지정한 이슈에서 현재 인증된 사용자의 투표를 제거한다. Jira UI의 \"Unvote\" 클릭과 동일한 동작이다. Jira 전역 설정에서 \"Allow users to vote on issues\" 옵션이 켜져 있어야 하며, 성공 시 본문 없이 204를 반환한다. 투표한 적이 없는 이슈에 대해 호출하면 404가 반환된다.",
-        "operationId": "deleteIssueVote",
-        "tags": ["Issue votes"],
-        "x-priority": "medium",
-        "security": [
-          { "basicAuth": [] },
-          { "oauth2": ["write:jira-work"] }
-        ],
-        "parameters": [
-          {
-            "name": "issueIdOrKey",
-            "in": "path",
-            "required": true,
-            "schema": { "type": "string" },
-            "description": "이슈의 ID 또는 키",
-            "example": "MKY-1"
-          }
-        ],
+        "summary": "03. Delete vote — 투표 취소",
+        "description": "**호출자 본인**의 투표를 이슈에서 제거한다. Jira UI에서 *Unvote* 를 누르는 것과 같다.\n\n02번과 마찬가지로 **타인의 투표는 취소할 수 없다.**\n\n**주의**: 성공 응답이 **204 No Content** 다. 또한 **투표한 적이 없으면 404**가 반환되므로, 멱등성을 기대하고 반복 호출하면 오류로 보일 수 있다.\n\n**전제 조건**: \"Allow users to vote on issues\" 가 ON 이어야 한다.",
+        "operationId": "removeVote",
+        "tags": ["Issue Votes"],
+        "x-priority": "low",
+        "x-permissions": "이슈가 속한 프로젝트에 대한 *Browse projects* 프로젝트 권한. 이슈 수준 보안 설정 시 해당 이슈 조회 권한. **항상 호출자 본인의 투표에만 동작한다.**",
+        "parameters": [{ "$ref": "#/components/parameters/IssueIdOrKey" }],
         "responses": {
-          "204": {
-            "description": "요청이 성공한 경우 반환됨. 응답 본문 없음."
-          },
-          "401": {
-            "description": "인증 자격 증명이 올바르지 않거나 없는 경우 반환됨."
-          },
+          "204": { "description": "요청이 성공한 경우 반환됨. 응답 본문 없음." },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
           "404": {
-            "description": "투표 기능이 비활성화된 경우 / 사용자가 해당 이슈에 투표한 적이 없는 경우 / 이슈를 찾을 수 없는 경우 반환됨."
+            "description": "다음 중 하나인 경우 반환됨 — 투표 기능이 비활성화됨, **사용자가 해당 이슈에 투표한 적이 없음**, 이슈를 찾을 수 없음",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorCollection" } } }
           }
         }
       }
@@ -240,6 +97,62 @@
               "manage:jira-webhook": "Jira 웹훅 관리"
             }
           }
+        }
+      }
+    },
+    "parameters": {
+      "IssueIdOrKey": {
+        "name": "issueIdOrKey",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string" },
+        "description": "이슈의 ID 또는 키. 숫자 ID(`10010`)와 이슈 키(`A502-42`) 모두 사용 가능하다.",
+        "example": "A502-42"
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "요청이 유효하지 않은 경우 반환됨",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorCollection" } } }
+      },
+      "Unauthorized": {
+        "description": "인증 정보가 잘못됐거나 누락된 경우 반환됨",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorCollection" } } }
+      },
+      "VotingNotFound": {
+        "description": "다음 중 하나인 경우 반환됨 — **투표 기능이 비활성화됨**, 사용자에게 이슈 조회 권한이 없음, 이슈를 찾을 수 없음. 세 경우를 응답만으로 구분할 수 없다.",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorCollection" } } }
+      }
+    },
+    "schemas": {
+      "ErrorCollection": {
+        "type": "object",
+        "description": "Jira 공통 오류 응답",
+        "properties": {
+          "errorMessages": { "type": "array", "items": { "type": "string" }, "description": "필드에 연결되지 않은 오류 메시지 목록" },
+          "errors": { "type": "object", "additionalProperties": { "type": "string" }, "description": "필드명을 키로, 해당 필드의 오류 메시지를 값으로 갖는 맵" },
+          "status": { "type": "integer", "description": "HTTP 상태 코드" }
+        }
+      },
+      "UserDetails": {
+        "type": "object",
+        "description": "축약된 사용자 정보. Jira Cloud는 GDPR 대응으로 `accountId` 를 사용자 식별자로 쓴다.",
+        "properties": {
+          "accountId": { "type": "string", "description": "사용자의 계정 ID" },
+          "active": { "type": "boolean", "description": "활성 사용자 여부" },
+          "displayName": { "type": "string", "description": "표시 이름" },
+          "avatarUrls": { "type": "object", "additionalProperties": { "type": "string" }, "description": "크기별 아바타 URL 맵" },
+          "self": { "type": "string", "description": "이 사용자 리소스의 URL" }
+        }
+      },
+      "Votes": {
+        "type": "object",
+        "description": "이슈의 투표 정보",
+        "properties": {
+          "self": { "type": "string", "description": "이 투표 리소스의 URL" },
+          "votes": { "type": "integer", "format": "int64", "description": "이 이슈의 투표 수. **권한이 없어도 이 값은 보인다** — 대시보드 정렬 기준으로 쓸 수 있다." },
+          "hasVoted": { "type": "boolean", "description": "호출자가 이 이슈에 투표했는지 여부" },
+          "voters": { "type": "array", "items": { "$ref": "#/components/schemas/UserDetails" }, "description": "투표한 사용자 목록. **본인 외 상세를 보려면 *View voters and watchers* 권한이 필요**하며, 없으면 반환되지 않는다." }
         }
       }
     }

@@ -1,79 +1,203 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "Mattermost Uploads API (권한 필터됨)",
-    "description": "AGENTS.md 실효 권한 지도 기준 포함: upload_file 권한 + 본인 생성 업로드 세션. 대용량/재개형 업로드에 사용 (5.28+).",
-    "version": "1.0.0"
+    "title": "Mattermost API - _09-uploads",
+    "version": "1.0.0",
+    "description": "Mattermost Uploads API 중 SSAGY 연동 계정(`system_user` + `team_user` + `channel_user`)으로 실제 호출 가능한 엔드포인트만 정리한 명세.\n\n**포함 기준**: 01, 02, 03 (총 3건 — 디렉토리 전체).\n\n**언제 이걸 쓰는가**\n`_08-files` 의 01번(`POST /files`)은 한 번의 요청으로 끝나는 소용량 업로드용이다. 이 문서의 업로드 세션은 **대용량 파일이나 중단 후 재개가 필요한 업로드**에 쓴다.\n\n**표준 흐름**\n1. `POST /uploads` 로 세션 생성 → `id`, `file_offset`(초기 0) 획득\n2. `POST /uploads/{upload_id}` 로 데이터 전송\n   - 완료되면 **201** + `FileInfo` 반환 → 이 `id` 를 게시물의 `file_ids` 에 넣는다\n   - 미완료면 **204** 반환 → `GET /uploads/{upload_id}` 로 현재 `file_offset` 을 확인하고 그 지점부터 이어서 전송\n3. 중단된 세션은 users API 68번(`GET /users/{user_id}/uploads`)으로 조회해 정리할 수 있다\n\n최소 서버 버전 5.28\n\n**공통 규칙**\n- 타임스탬프 계열 필드는 모두 Unix epoch **밀리초** 정수다.\n- 오류 응답 본문은 모두 `AppError` 스키마를 따른다.\n\n**x-priority 의미**: SSAGY(통합 워크스페이스) 관점의 연동 우선순위."
   },
   "servers": [
-    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+    {
+      "url": "https://{host}/api/v4",
+      "variables": {
+        "host": {
+          "default": "meeting.ssafy.com",
+          "description": "self-hosted Mattermost 호스트"
+        }
+      }
+    }
   ],
+  "security": [{ "bearerAuth": [] }],
+  "tags": [{ "name": "Uploads", "description": "재개 가능한 업로드 세션" }],
+  "paths": {
+    "/uploads": {
+      "post": {
+        "summary": "01. Create an upload",
+        "description": "새 업로드 세션을 생성한다. `file_size` 를 미리 알려줘야 서버가 진행률과 완료 시점을 판단할 수 있다.\n\n응답의 `id` 가 이후 02/03번의 `upload_id` 가 된다.\n\n최소 서버 버전 5.28",
+        "operationId": "createUpload",
+        "tags": ["Uploads"],
+        "x-priority": "medium",
+        "x-permissions": "`upload_file` 권한 필요(`channel_user` 에 포함).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["channel_id", "filename", "file_size"],
+                "properties": {
+                  "channel_id": { "type": "string", "description": "업로드 대상 채널 ID" },
+                  "filename": { "type": "string", "description": "업로드할 파일명" },
+                  "file_size": { "type": "integer", "format": "int64", "description": "업로드할 파일의 전체 크기(바이트)" }
+                }
+              },
+              "example": { "channel_id": "4eb6axxw7fg3je5iyasnfudc5y", "filename": "build-log.txt", "file_size": 1048576 }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "업로드 세션 생성 성공",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UploadSession" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "413": { "$ref": "#/components/responses/PayloadTooLarge" },
+          "501": { "$ref": "#/components/responses/NotImplemented" }
+        }
+      }
+    },
+    "/uploads/{upload_id}": {
+      "get": {
+        "summary": "02. Get an upload session",
+        "description": "이전에 생성한 업로드 세션을 조회한다. **재개 지점을 알아내는 핵심 호출**로, 응답의 `file_offset` 이 현재까지 전송된 바이트 수다. 03번에서 이 지점부터 이어서 보내면 된다.\n\n**주의**: 원문 md에 성공 응답이 누락돼 있다. 아래 200 응답은 `UploadSession` 을 반환하는 실제 동작 기준이다.",
+        "operationId": "getUpload",
+        "tags": ["Uploads"],
+        "x-priority": "medium",
+        "x-permissions": "해당 업로드 세션을 생성한 사용자 본인으로 로그인해야 함.",
+        "parameters": [{ "$ref": "#/components/parameters/UploadId" }],
+        "responses": {
+          "200": {
+            "description": "업로드 세션 조회 성공",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UploadSession" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "501": { "$ref": "#/components/responses/NotImplemented" }
+        }
+      },
+      "post": {
+        "summary": "03. Perform a file upload",
+        "description": "파일 업로드를 시작하거나 재개한다. 진행 중이던 업로드를 이어가려면 **업로드 세션 객체의 `file_offset` 위치부터** 데이터를 보내야 한다.\n\n요청 본문 형식은 두 가지다.\n- 바이너리 파일 내용을 본문에 스트리밍(`application/octet-stream`)\n- `multipart/form-data`\n\n**응답 코드로 완료 여부를 판단한다.**\n- **201**: 업로드 완료. `FileInfo` 가 반환되며, 이 `id` 를 게시물의 `file_ids` 에 넣는다.\n- **204**: 아직 미완료. 02번으로 `file_offset` 을 확인하고 이어서 전송한다.",
+        "operationId": "uploadData",
+        "tags": ["Uploads"],
+        "x-priority": "medium",
+        "x-permissions": "해당 업로드 세션을 생성한 사용자 본인으로 로그인해야 함.",
+        "parameters": [
+          { "name": "upload_id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "데이터가 속한 업로드 세션의 ID" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": { "schema": { "type": "string", "format": "binary", "description": "전송할 파일 데이터. 재개 시에는 `file_offset` 위치부터의 내용." } },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": { "file": { "type": "string", "format": "binary", "description": "전송할 파일 데이터" } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "업로드 완료. 생성된 파일의 메타데이터가 반환된다.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/FileInfo" } } }
+          },
+          "204": { "description": "업로드 미완료. 02번으로 `file_offset` 을 확인하고 이어서 전송할 것. 본문 없음." },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "413": { "$ref": "#/components/responses/PayloadTooLarge" },
+          "501": { "$ref": "#/components/responses/NotImplemented" }
+        }
+      }
+    }
+  },
   "components": {
-    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "`Authorization: Bearer <token>`. 세션 토큰 또는 개인 액세스 토큰을 사용한다."
+      }
+    },
+    "parameters": {
+      "UploadId": {
+        "name": "upload_id",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string" },
+        "description": "조회할 업로드 세션의 ID"
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "잘못된 요청",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      },
+      "Unauthorized": {
+        "description": "인증 실패 또는 세션 만료",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      },
+      "Forbidden": {
+        "description": "권한 부족(세션 생성자가 아님 등)",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      },
+      "NotFound": {
+        "description": "업로드 세션을 찾을 수 없음",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      },
+      "PayloadTooLarge": {
+        "description": "파일 크기가 서버 허용치를 초과함",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      },
+      "NotImplemented": {
+        "description": "서버 버전 또는 설정상 해당 기능이 지원되지 않음",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      }
+    },
     "schemas": {
+      "AppError": {
+        "type": "object",
+        "description": "Mattermost 공통 오류 응답",
+        "properties": {
+          "status_code": { "type": "integer", "description": "HTTP 상태 코드" },
+          "id": { "type": "string", "description": "오류 식별자" },
+          "message": { "type": "string", "description": "사람이 읽을 수 있는 오류 메시지" },
+          "request_id": { "type": "string", "description": "요청 추적용 ID" }
+        }
+      },
       "UploadSession": {
         "type": "object",
         "properties": {
-          "id": { "type": "string" },
-          "type": { "type": "string", "enum": ["attachment", "import"] },
-          "create_at": { "type": "integer" },
-          "user_id": { "type": "string" },
-          "channel_id": { "type": "string" },
-          "filename": { "type": "string" },
-          "file_size": { "type": "integer" },
-          "file_offset": { "type": "integer" }
+          "id": { "type": "string", "description": "업로드 고유 식별자. 02/03번의 `upload_id` 로 사용한다." },
+          "type": { "type": "string", "enum": ["attachment", "import"], "description": "업로드 종류. 게시물 첨부는 `attachment`." },
+          "create_at": { "type": "integer", "format": "int64", "description": "업로드가 생성된 시각(밀리초)" },
+          "user_id": { "type": "string", "description": "업로드를 수행하는 사용자 ID" },
+          "channel_id": { "type": "string", "description": "업로드 대상 채널 ID" },
+          "filename": { "type": "string", "description": "업로드할 파일명" },
+          "file_size": { "type": "integer", "format": "int64", "description": "업로드할 파일의 전체 크기(바이트)" },
+          "file_offset": { "type": "integer", "format": "int64", "description": "현재까지 업로드된 데이터 크기(바이트). **재개 시 이 위치부터 전송한다.**" }
         }
       },
       "FileInfo": {
         "type": "object",
         "properties": {
-          "id": { "type": "string" },
-          "user_id": { "type": "string" },
-          "post_id": { "type": "string" },
-          "name": { "type": "string" },
-          "extension": { "type": "string" },
-          "size": { "type": "integer" },
-          "mime_type": { "type": "string" }
-        }
-      }
-    }
-  },
-  "security": [{ "bearerAuth": [] }],
-  "paths": {
-    "/uploads": {
-      "post": {
-        "summary": "1. Create an upload (upload_file, 서버 5.28+)",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "channel_id": { "type": "string" },
-                  "filename": { "type": "string" },
-                  "file_size": { "type": "integer" }
-                },
-                "required": ["channel_id", "filename", "file_size"]
-              }
-            }
-          }
-        },
-        "responses": { "201": { "description": "Upload session created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UploadSession" } } } } }
-      }
-    },
-    "/uploads/{upload_id}": {
-      "get": {
-        "summary": "2. Get an upload session (본인)",
-        "parameters": [{ "name": "upload_id", "in": "path", "required": true, "schema": { "type": "string" } }],
-        "responses": { "200": { "description": "Upload session", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UploadSession" } } } } }
-      },
-      "post": {
-        "summary": "3. Perform a file upload (본인, 시작/재개)",
-        "parameters": [{ "name": "upload_id", "in": "path", "required": true, "schema": { "type": "string" } }],
-        "requestBody": { "content": { "application/octet-stream": { "schema": { "type": "string", "format": "binary" } } } },
-        "responses": {
-          "201": { "description": "Upload complete", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/FileInfo" } } } },
-          "204": { "description": "Upload incomplete" }
+          "id": { "type": "string", "description": "파일 고유 식별자. 게시물의 `file_ids` 에 넣는 값." },
+          "user_id": { "type": "string", "description": "파일을 업로드한 사용자 ID" },
+          "post_id": { "type": "string", "description": "게시물에 첨부된 경우 해당 게시물 ID" },
+          "create_at": { "type": "integer", "format": "int64", "description": "파일이 생성된 시각(밀리초)" },
+          "update_at": { "type": "integer", "format": "int64", "description": "파일이 마지막으로 갱신된 시각(밀리초)" },
+          "delete_at": { "type": "integer", "format": "int64", "description": "파일이 삭제된 시각(밀리초)" },
+          "name": { "type": "string", "description": "파일명" },
+          "extension": { "type": "string", "description": "파일 확장자" },
+          "size": { "type": "integer", "format": "int64", "description": "파일 크기(바이트)" },
+          "mime_type": { "type": "string", "description": "파일의 MIME 타입" },
+          "width": { "type": "integer", "description": "이미지인 경우 너비" },
+          "height": { "type": "integer", "description": "이미지인 경우 높이" },
+          "has_preview_image": { "type": "boolean", "description": "이미지인 경우 미리보기 크기 버전 존재 여부" }
         }
       }
     }

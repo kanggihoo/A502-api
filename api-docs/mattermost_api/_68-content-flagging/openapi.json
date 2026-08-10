@@ -1,53 +1,245 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "Mattermost Content Flagging API (권한 필터됨)",
-    "description": "일반 사용자/채널 접근 권한으로 가능한 신고 조회·제출 API. Enterprise Advanced 라이선스 + feature flag 필요 (없으면 404/501). content reviewer 전용, 시스템 관리자 전용 항목은 제외.",
-    "version": "1.0.0"
+    "title": "Mattermost API - _68-content-flagging",
+    "version": "1.0.0",
+    "description": "Mattermost Content Flagging API. SSAGY 연동 계정으로 전 항목 호출 가능하다.\n\n**포함 기준**: 01~05 (총 5건 — 디렉토리 전체).\n\n**⚠️ 전 항목 Enterprise Advanced 라이선스 필요**\nSSAFY의 self-hosted Mattermost가 이 라이선스를 갖고 있지 않다면 **전 항목이 501**을 반환한다. GitLab이 CE라 Enterprise 기능을 못 쓰는 것과 같은 상황이므로, 연동 설계 시 이 API에 의존하지 말 것.\n\n**404와 501의 의미가 다르다 — 진단에 유용**\n- **404**: 기능 플래그로 기능이 꺼져 있음 (또는 대상 리소스 없음)\n- **501**: 설정으로 비활성이거나 **Enterprise Advanced 라이선스가 없음**\n\n두 코드를 구분해 처리하면 \"라이선스가 없어서\"인지 \"기능을 꺼둬서\"인지 판별할 수 있다.\n\n**연동 활용**\n부적절한 콘텐츠 신고 기능이다. SSAGY가 자동으로 신고를 넣는 설계는 위험하므로(오탐 시 팀 신뢰 손상), 쓴다면 **사용자가 명시적으로 요청했을 때만** 03번을 호출할 것.\n\n**⚠️ 원문 문서의 문제**\n- **04번 응답이 `{}` 로만 정의돼 있다.** 05번 응답이 `field_id` 를 참조하는 것으로 보아 필드 정의 배열일 가능성이 높으나 확인이 필요하다.\n- **01~05번 모두 권한 섹션이 없다.** 03번 설명에 \"게시물이 속한 채널에 접근할 수 있어야 한다\"는 문장만 있다.\n\n**공통 규칙**\n- 타임스탬프 계열 필드는 Unix epoch **밀리초** 정수다.\n- 오류 응답 본문은 모두 `AppError` 스키마를 따른다.\n\n**x-priority 의미**: SSAGY(통합 워크스페이스) 관점의 연동 우선순위."
   },
   "servers": [
-    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
-  ],
-  "components": {
-    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } },
-    "schemas": {
-      "StatusOk": { "type": "object", "properties": { "status": { "type": "string", "example": "ok" } } }
+    {
+      "url": "https://{host}/api/v4",
+      "variables": {
+        "host": {
+          "default": "meeting.ssafy.com",
+          "description": "self-hosted Mattermost 호스트"
+        }
+      }
     }
-  },
+  ],
   "security": [{ "bearerAuth": [] }],
+  "tags": [{ "name": "Content Flagging", "description": "콘텐츠 신고 (Enterprise Advanced 라이선스 필요)" }],
   "paths": {
     "/content_flagging/flag/config": {
       "get": {
-        "summary": "1. Get content flagging configuration (일반 사용자, Enterprise Advanced 필요)",
-        "responses": { "200": { "description": "Flagging config", "content": { "application/json": { "schema": { "type": "object", "properties": { "reasons": { "type": "array", "items": { "type": "string" } }, "reporter_comment_required": { "type": "boolean" } } } } } } }
+        "summary": "01. Get content flagging configuration",
+        "description": "콘텐츠 신고 설정을 조회한다. 선택 가능한 신고 사유 목록과, 신고자 코멘트가 필수인지 여부를 담는다.\n\n**03번을 호출하기 전 반드시 이 API로 유효한 `reason` 값을 확인할 것** — 임의 문자열을 넣으면 거부된다.\n\n**Enterprise Advanced 라이선스 필요.**",
+        "operationId": "getContentFlaggingConfig",
+        "tags": ["Content Flagging"],
+        "x-priority": "low",
+        "x-permissions": "**원문에 권한 명시 없음.** Enterprise Advanced 라이선스 필요.",
+        "responses": {
+          "200": {
+            "description": "설정 조회 성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "reasons": { "type": "array", "items": { "type": "string" }, "description": "콘텐츠 신고 사유 목록. 03번의 `reason` 은 이 중 하나여야 한다." },
+                    "reporter_comment_required": { "type": "boolean", "description": "신고 시 신고자의 코멘트가 필수인지 여부" }
+                  }
+                }
+              }
+            }
+          },
+          "404": { "$ref": "#/components/responses/FeatureFlagDisabled" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "501": { "$ref": "#/components/responses/LicenseRequired" }
+        }
       }
     },
     "/content_flagging/team/{team_id}/status": {
       "get": {
-        "summary": "2. Get content flagging status for a team (팀 멤버)",
-        "parameters": [{ "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } }],
-        "responses": { "200": { "description": "enabled", "content": { "application/json": { "schema": { "type": "object", "properties": { "enabled": { "type": "boolean" } } } } } } }
+        "summary": "02. Get content flagging status for a team",
+        "description": "특정 팀에서 콘텐츠 신고 기능이 활성화돼 있는지 조회한다. 전역 라이선스가 있어도 팀별로 꺼져 있을 수 있으므로, UI에서 신고 버튼을 노출할지 판단하는 데 쓴다.\n\n**Enterprise Advanced 라이선스 필요.**",
+        "operationId": "getTeamContentFlaggingStatus",
+        "tags": ["Content Flagging"],
+        "x-priority": "low",
+        "x-permissions": "**원문에 권한 명시 없음.** 403 응답 정의로 보아 해당 팀 접근 권한이 필요하다. Enterprise Advanced 라이선스 필요.",
+        "parameters": [
+          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "콘텐츠 신고 상태를 조회할 팀의 ID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "콘텐츠 신고 상태 조회 성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "enabled": { "type": "boolean", "description": "해당 팀에서 콘텐츠 신고가 활성화돼 있는지 여부" } }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "권한 부족 — 이 팀에 접근할 권한이 없음",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+          },
+          "404": {
+            "description": "지정한 팀을 찾을 수 없거나, 기능 플래그로 기능이 꺼져 있음",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+          },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "501": { "$ref": "#/components/responses/LicenseRequired" }
+        }
       }
     },
     "/content_flagging/post/{post_id}/flag": {
       "post": {
-        "summary": "3. Flag a post (해당 채널 접근 권한)",
-        "parameters": [{ "name": "post_id", "in": "path", "required": true, "schema": { "type": "string" } }],
-        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "reason": { "type": "string" }, "comment": { "type": "string" } } } } } },
-        "responses": { "200": { "description": "ok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOk" } } } } }
+        "summary": "03. Flag a post",
+        "description": "게시물을 사유와 코멘트를 붙여 신고한다. 사용자는 해당 게시물이 속한 채널에 접근할 수 있어야 한다.\n\n**`reason` 은 01번으로 조회한 사유 중 하나여야 한다.** `comment` 의 필수 여부도 01번의 `reporter_comment_required` 로 확인한다.\n\n**⚠️ 자동 신고는 권장하지 않는다.** 오탐이 팀 신뢰를 해치므로, SSAGY에서는 사용자가 명시적으로 요청했을 때만 호출할 것.\n\n**Enterprise Advanced 라이선스 필요.**",
+        "operationId": "flagPost",
+        "tags": ["Content Flagging"],
+        "x-priority": "low",
+        "x-permissions": "게시물이 속한 채널에 접근할 수 있어야 함(실질적으로 `read_channel`). Enterprise Advanced 라이선스 필요.",
+        "parameters": [{ "$ref": "#/components/parameters/PostId" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": { "type": "string", "description": "게시물을 신고하는 사유. **01번으로 조회한 사유 중 하나여야 한다.**" },
+                  "comment": { "type": "string", "description": "신고자의 코멘트. 01번의 `reporter_comment_required` 가 true면 필수." }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "게시물 신고 성공",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOK" } } }
+          },
+          "400": {
+            "description": "잘못된 요청 — 입력값이 유효하지 않거나 필수 필드가 누락됨",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+          },
+          "403": {
+            "description": "권한 부족 — 이 게시물을 신고할 권한이 없음",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+          },
+          "404": {
+            "description": "게시물을 찾을 수 없거나, 기능 플래그로 기능이 꺼져 있음",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+          },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "501": { "$ref": "#/components/responses/LicenseRequired" }
+        }
       }
     },
     "/content_flagging/fields": {
       "get": {
-        "summary": "4. Get content flagging property fields (일반 사용자)",
-        "responses": { "200": { "description": "Field list" } }
+        "summary": "04. Get content flagging property fields",
+        "description": "콘텐츠 신고 리포트에 연결할 수 있는 property field 목록을 조회한다. 이 필드들은 게시물 신고에 대한 메타데이터를 저장하는 데 쓰인다.\n\n05번 응답의 `field_id` 가 여기서 얻은 필드를 가리킨다.\n\n**⚠️ 원문 응답이 `{}` 로만 정의돼 있다.** 05번이 `field_id` 를 참조하는 구조로 보아 필드 정의 배열일 가능성이 높으나 실호출 확인이 필요하다.\n\n**Enterprise Advanced 라이선스 필요.**",
+        "operationId": "getContentFlaggingFields",
+        "tags": ["Content Flagging"],
+        "x-priority": "low",
+        "x-permissions": "**원문에 권한 명시 없음.** Enterprise Advanced 라이선스 필요.",
+        "responses": {
+          "200": {
+            "description": "property field 조회 성공. **원문에 스키마가 `{}` 로만 정의돼 있어 구조 미상 — 실호출 확인 필요.**",
+            "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } }
+          },
+          "404": { "$ref": "#/components/responses/FeatureFlagDisabled" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "501": { "$ref": "#/components/responses/LicenseRequired" }
+        }
       }
     },
     "/content_flagging/post/{post_id}/field_values": {
       "get": {
-        "summary": "5. Get content flagging property field values for a post (게시물 접근 권한)",
-        "parameters": [{ "name": "post_id", "in": "path", "required": true, "schema": { "type": "string" } }],
-        "responses": { "200": { "description": "Property value list" } }
+        "summary": "05. Get content flagging property field values for a post",
+        "description": "특정 게시물의 콘텐츠 신고 리포트에 연결된 property field 값을 조회한다. 그 게시물에 걸린 신고의 부가 맥락을 제공한다.\n\n각 값의 `field_id` 는 04번으로 얻는 필드 정의를 가리키며, `value` 는 **JSON 인코딩된 문자열**이므로 사용 전 파싱이 필요하다.\n\n**Enterprise Advanced 라이선스 필요.**",
+        "operationId": "getContentFlaggingFieldValuesForPost",
+        "tags": ["Content Flagging"],
+        "x-priority": "low",
+        "x-permissions": "**원문에 권한 명시 없음.** 403 응답 정의로 보아 해당 게시물 접근 권한이 필요하다. Enterprise Advanced 라이선스 필요.",
+        "parameters": [{ "$ref": "#/components/parameters/PostId" }],
+        "responses": {
+          "200": {
+            "description": "property field 값 조회 성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": { "type": "string", "description": "property value의 고유 식별자. 26자 영숫자." },
+                      "field_id": { "type": "string", "description": "이 값이 속한 property field의 식별자. 04번으로 정의를 조회한다." },
+                      "value": { "type": "string", "description": "property의 값. **JSON 인코딩된 문자열이므로 파싱이 필요하다.**" },
+                      "create_at": { "type": "integer", "format": "int64", "description": "값이 생성된 시각(밀리초)" },
+                      "update_at": { "type": "integer", "format": "int64", "description": "값이 갱신된 시각(밀리초)" },
+                      "delete_at": { "type": "integer", "format": "int64", "description": "값이 삭제된 시각(밀리초). 삭제되지 않았으면 0." }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "권한 부족 — 이 게시물에 접근할 권한이 없음",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+          },
+          "404": {
+            "description": "게시물을 찾을 수 없거나, 기능 플래그로 기능이 꺼져 있음",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+          },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "501": { "$ref": "#/components/responses/LicenseRequired" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "`Authorization: Bearer <token>`. 세션 토큰 또는 개인 액세스 토큰을 사용한다."
+      }
+    },
+    "parameters": {
+      "PostId": {
+        "name": "post_id",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string" },
+        "description": "대상 게시물의 ID"
+      }
+    },
+    "responses": {
+      "FeatureFlagDisabled": {
+        "description": "**기능 플래그로 콘텐츠 신고 기능이 꺼져 있음.** 501(라이선스 없음)과 구분해 처리할 것.",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      },
+      "LicenseRequired": {
+        "description": "**설정으로 비활성이거나 Enterprise Advanced 라이선스가 없음.** 무료/저사양 라이선스 서버에서는 이 응답이 정상 경로다.",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      },
+      "InternalServerError": {
+        "description": "서버 내부 오류",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      }
+    },
+    "schemas": {
+      "AppError": {
+        "type": "object",
+        "description": "Mattermost 공통 오류 응답",
+        "properties": {
+          "status_code": { "type": "integer", "description": "HTTP 상태 코드" },
+          "id": { "type": "string", "description": "오류 식별자" },
+          "message": { "type": "string", "description": "사람이 읽을 수 있는 오류 메시지" },
+          "request_id": { "type": "string", "description": "요청 추적용 ID" }
+        }
+      },
+      "StatusOK": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string", "example": "ok", "description": "요청이 성공했고 반환할 다른 내용이 없으면 `\"ok\"` 가 담긴다." }
+        }
       }
     }
   }

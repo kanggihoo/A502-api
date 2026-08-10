@@ -1,20 +1,67 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "Mattermost Brand API (권한 필터됨)",
-    "description": "조회 API만 문서화됨, 인증 불필요. 브랜드 이미지 업로드/삭제는 manage_system 필요해 summary.md에 없음.",
-    "version": "1.0.0"
+    "title": "Mattermost API - _20-brand",
+    "version": "1.0.0",
+    "description": "Mattermost Brand API 중 SSAGY 연동 계정으로 호출 가능한 항목만 정리한 명세.\n\n**포함 기준**: 01 (총 1건).\n**제외 기준**: 브랜드 이미지 업로드·삭제는 `manage_system` 권한이 필요해 연동 계정 범위 밖이다.\n\n**연동 활용**\n대시보드에서 연동 대상 Mattermost 인스턴스의 브랜딩 이미지를 함께 보여줄 때 쓸 수 있다. **인증이 필요 없다.**\n\n**⚠️ 원문 문서 오류**\n응답 콘텐츠 타입이 `application/json` 에 `string` 스키마로 기록돼 있으나, 실제로는 **이미지 바이너리**를 반환한다. 아래에서는 이미지로 정정했다.\n\n**응답 코드 해석**\n- 404: 브랜드 이미지가 업로드된 적 없음\n- 501: 서버 설정상 커스텀 브랜딩 기능이 비활성화됨\n\n**x-priority 의미**: SSAGY(통합 워크스페이스) 관점의 연동 우선순위."
   },
   "servers": [
-    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+    {
+      "url": "https://{host}/api/v4",
+      "variables": {
+        "host": {
+          "default": "meeting.ssafy.com",
+          "description": "self-hosted Mattermost 호스트"
+        }
+      }
+    }
   ],
+  "security": [{ "bearerAuth": [] }],
+  "tags": [{ "name": "Brand", "description": "커스텀 브랜딩 이미지" }],
   "paths": {
     "/brand/image": {
       "get": {
-        "summary": "1. Get brand image (인증 불필요)",
+        "summary": "01. Get brand image",
+        "description": "이전에 업로드된 브랜드 이미지를 조회한다. 업로드된 이미지가 없으면 404를 반환한다.\n\n**인증이 필요 없다.**\n\n**⚠️ 원문 문서 오류**: 응답이 `application/json` 의 `string` 으로 기록돼 있으나 실제로는 이미지 바이너리다.",
+        "operationId": "getBrandImage",
+        "tags": ["Brand"],
+        "x-priority": "low",
+        "x-permissions": "권한 불필요. 인증 없이 호출 가능.",
+        "security": [],
         "responses": {
-          "200": { "description": "Brand image binary" },
-          "404": { "description": "브랜드 이미지 업로드된 적 없음" }
+          "200": {
+            "description": "브랜드 이미지",
+            "content": { "image/*": { "schema": { "type": "string", "format": "binary" } } }
+          },
+          "404": {
+            "description": "브랜드 이미지가 업로드된 적 없음",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+          },
+          "501": {
+            "description": "서버 설정상 커스텀 브랜딩 기능이 비활성화됨",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "`Authorization: Bearer <token>`. 이 문서의 엔드포인트는 인증이 필요 없다."
+      }
+    },
+    "schemas": {
+      "AppError": {
+        "type": "object",
+        "description": "Mattermost 공통 오류 응답",
+        "properties": {
+          "status_code": { "type": "integer", "description": "HTTP 상태 코드" },
+          "id": { "type": "string", "description": "오류 식별자" },
+          "message": { "type": "string", "description": "사람이 읽을 수 있는 오류 메시지" },
+          "request_id": { "type": "string", "description": "요청 추적용 ID" }
         }
       }
     }

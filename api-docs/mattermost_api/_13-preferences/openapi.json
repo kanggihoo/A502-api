@@ -1,71 +1,219 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "Mattermost Preferences API (권한 필터됨)",
-    "description": "본인(user_id=me) 대상 preference CRUD. 타인 대상은 edit_other_users 필요해 제외.",
-    "version": "1.0.0"
+    "title": "Mattermost API - _13-preferences",
+    "version": "1.0.0",
+    "description": "Mattermost Preferences API. SSAGY 연동 계정(`system_user` + `team_user` + `channel_user`)으로 전 항목 호출 가능하다.\n\n**포함 기준**: 01~05 (총 5건 — 디렉토리 전체).\n\n**Preference 는 무엇인가**\n`(user_id, category, name)` 을 키로, 문자열 `value` 를 저장하는 범용 사용자 키-값 저장소다. Mattermost 자체 설정(사이드바 표시, 즐겨찾기 채널, 튜토리얼 진행 상태 등)이 여기 쌓이지만, **연동 앱이 자기 네임스페이스를 만들어 사용자별 설정을 저장하는 용도로도 쓸 수 있다** — 예: `category: \"ssagy_settings\"`, `name: \"jira_notify_level\"`, `value: \"mention_only\"`.\n\n별도 DB 없이 사용자별 알림 취향을 보관할 수 있다는 점에서 실용적이지만, **`value` 가 항상 문자열**이라 JSON을 넣으려면 직렬화가 필요하다. 또 Mattermost 내장 카테고리와 충돌하지 않도록 고유한 접두사를 쓸 것.\n\n**공통 규칙**\n- `user_id` 경로 파라미터에는 문자열 `me` 를 넣어 현재 로그인 사용자를 지칭할 수 있다.\n- 오류 응답 본문은 모두 `AppError` 스키마를 따른다.\n\n**x-priority 의미**: SSAGY(통합 워크스페이스) 관점의 연동 우선순위."
   },
   "servers": [
-    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
-  ],
-  "components": {
-    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } },
-    "schemas": {
-      "Preference": {
-        "type": "object",
-        "properties": {
-          "user_id": { "type": "string" },
-          "category": { "type": "string" },
-          "name": { "type": "string" },
-          "value": { "type": "string" }
-        },
-        "required": ["user_id", "category", "name", "value"]
-      },
-      "StatusOk": { "type": "object", "properties": { "status": { "type": "string", "example": "ok" } } }
+    {
+      "url": "https://{host}/api/v4",
+      "variables": {
+        "host": {
+          "default": "meeting.ssafy.com",
+          "description": "self-hosted Mattermost 호스트"
+        }
+      }
     }
-  },
+  ],
   "security": [{ "bearerAuth": [] }],
+  "tags": [{ "name": "Preferences", "description": "사용자 환경설정 키-값 저장소" }],
   "paths": {
     "/users/{user_id}/preferences": {
       "get": {
-        "summary": "1. Get the user's preferences (본인)",
-        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
-        "responses": { "200": { "description": "Preference list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Preference" } } } } } }
+        "summary": "01. Get the user's preferences",
+        "description": "사용자의 환경설정 전체 목록을 조회한다. 카테고리가 많으면 응답이 커지므로, 특정 카테고리만 필요하면 04번을 쓰는 편이 낫다.",
+        "operationId": "getPreferences",
+        "tags": ["Preferences"],
+        "x-priority": "medium",
+        "x-permissions": "본인이거나 `edit_other_users` 권한 필요. 연동 계정은 본인(`me`)만 가능.",
+        "parameters": [{ "$ref": "#/components/parameters/UserIdOrMe" }],
+        "responses": {
+          "200": {
+            "description": "환경설정 조회 성공",
+            "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Preference" } } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
       },
       "put": {
-        "summary": "2. Save the user's preferences (본인)",
-        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
-        "requestBody": { "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Preference" } } } } },
-        "responses": { "200": { "description": "ok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOk" } } } } }
+        "summary": "02. Save the user's preferences",
+        "description": "환경설정 목록을 저장한다. **upsert 동작**이다 — `(user_id, category, name)` 이 이미 있으면 `value` 를 덮어쓰고, 없으면 새로 만든다. 배열로 여러 건을 한 번에 처리할 수 있다.\n\n각 항목의 `user_id` 는 경로 파라미터와 일치해야 한다.",
+        "operationId": "updatePreferences",
+        "tags": ["Preferences"],
+        "x-priority": "medium",
+        "x-permissions": "본인이거나 `edit_other_users` 권한 필요. 연동 계정은 본인(`me`)만 가능.",
+        "parameters": [{ "$ref": "#/components/parameters/UserIdOrMe" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Preference" }, "description": "저장할 환경설정 목록" },
+              "example": [
+                { "user_id": "4eb6axxw7fg3je5iyasnfudc5y", "category": "ssagy_settings", "name": "jira_notify_level", "value": "mention_only" }
+              ]
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "환경설정 저장 성공",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOK" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
       }
     },
     "/users/{user_id}/preferences/delete": {
       "post": {
-        "summary": "3. Delete user's preferences (본인)",
-        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
-        "requestBody": { "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Preference" } } } } },
-        "responses": { "200": { "description": "ok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOk" } } } } }
+        "summary": "03. Delete user's preferences",
+        "description": "환경설정 목록을 삭제한다. **DELETE 가 아니라 POST** 메서드를 쓴다(삭제 대상을 본문 배열로 넘겨야 하기 때문).\n\n삭제 키는 `(category, name)` 이며, `value` 는 본문 스키마상 포함되지만 매칭에는 쓰이지 않는다.",
+        "operationId": "deletePreferences",
+        "tags": ["Preferences"],
+        "x-priority": "low",
+        "x-permissions": "본인이거나 `edit_other_users` 권한 필요. 연동 계정은 본인(`me`)만 가능.",
+        "parameters": [{ "$ref": "#/components/parameters/UserIdOrMe" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Preference" }, "description": "삭제할 환경설정 목록" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "환경설정 삭제 성공",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOK" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
       }
     },
     "/users/{user_id}/preferences/{category}": {
       "get": {
-        "summary": "4. List a user's preferences by category (본인)",
+        "summary": "04. List a user's preferences by category",
+        "description": "지정한 카테고리에 저장된 환경설정만 조회한다. 연동 앱이 자기 네임스페이스(예: `ssagy_settings`)의 설정만 읽을 때 쓴다.",
+        "operationId": "getPreferencesByCategory",
+        "tags": ["Preferences"],
+        "x-priority": "high",
+        "x-permissions": "본인이거나 `edit_other_users` 권한 필요. 연동 계정은 본인(`me`)만 가능.",
         "parameters": [
-          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
-          { "name": "category", "in": "path", "required": true, "schema": { "type": "string" } }
+          { "$ref": "#/components/parameters/UserIdOrMe" },
+          { "$ref": "#/components/parameters/Category" }
         ],
-        "responses": { "200": { "description": "Preference list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Preference" } } } } } }
+        "responses": {
+          "200": {
+            "description": "해당 카테고리의 환경설정 전체 목록",
+            "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Preference" } } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
       }
     },
     "/users/{user_id}/preferences/{category}/name/{preference_name}": {
       "get": {
-        "summary": "5. Get a specific user preference (본인)",
+        "summary": "05. Get a specific user preference",
+        "description": "카테고리와 이름으로 환경설정 한 건을 조회한다.",
+        "operationId": "getPreferenceByCategoryAndName",
+        "tags": ["Preferences"],
+        "x-priority": "medium",
+        "x-permissions": "본인이거나 `edit_other_users` 권한 필요. 연동 계정은 본인(`me`)만 가능.",
         "parameters": [
-          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
-          { "name": "category", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "preference_name", "in": "path", "required": true, "schema": { "type": "string" } }
+          { "$ref": "#/components/parameters/UserIdOrMe" },
+          { "$ref": "#/components/parameters/Category" },
+          { "name": "preference_name", "in": "path", "required": true, "schema": { "type": "string" }, "description": "환경설정의 이름" }
         ],
-        "responses": { "200": { "description": "Preference", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Preference" } } } } }
+        "responses": {
+          "200": {
+            "description": "환경설정 한 건 조회 성공",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Preference" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "`Authorization: Bearer <token>`. 세션 토큰 또는 개인 액세스 토큰을 사용한다."
+      }
+    },
+    "parameters": {
+      "UserIdOrMe": {
+        "name": "user_id",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string" },
+        "description": "사용자 GUID. 문자열 `me` 를 넣으면 현재 로그인 사용자를 가리킨다.",
+        "example": "me"
+      },
+      "Category": {
+        "name": "category",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string" },
+        "description": "환경설정 그룹의 카테고리",
+        "example": "ssagy_settings"
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "잘못된 요청",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      },
+      "Unauthorized": {
+        "description": "인증 실패 또는 세션 만료",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      },
+      "Forbidden": {
+        "description": "권한 부족",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      },
+      "NotFound": {
+        "description": "리소스를 찾을 수 없음",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      }
+    },
+    "schemas": {
+      "AppError": {
+        "type": "object",
+        "description": "Mattermost 공통 오류 응답",
+        "properties": {
+          "status_code": { "type": "integer", "description": "HTTP 상태 코드" },
+          "id": { "type": "string", "description": "오류 식별자" },
+          "message": { "type": "string", "description": "사람이 읽을 수 있는 오류 메시지" },
+          "request_id": { "type": "string", "description": "요청 추적용 ID" }
+        }
+      },
+      "StatusOK": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string", "example": "ok", "description": "요청이 성공했고 반환할 다른 내용이 없으면 `\"ok\"` 가 담긴다." }
+        }
+      },
+      "Preference": {
+        "type": "object",
+        "description": "`(user_id, category, name)` 을 키로 하는 사용자 환경설정 한 건",
+        "properties": {
+          "user_id": { "type": "string", "description": "이 환경설정을 소유한 사용자 ID" },
+          "category": { "type": "string", "description": "환경설정 그룹의 카테고리. 연동 앱은 충돌을 피하기 위해 고유 접두사를 쓸 것." },
+          "name": { "type": "string", "description": "환경설정의 이름" },
+          "value": { "type": "string", "description": "환경설정 값. **항상 문자열**이므로 구조화된 데이터는 JSON 문자열로 직렬화해 넣어야 한다." }
+        }
       }
     }
   }

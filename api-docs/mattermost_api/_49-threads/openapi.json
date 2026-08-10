@@ -1,98 +1,269 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "Mattermost Threads API (권한 필터됨)",
-    "description": "본인(user_id=me) 대상 스레드 팔로우/읽음 관리. 타인 대상은 edit_other_users 필요해 제외. 최소 서버 버전 5.29 (일부 6.7).",
-    "version": "1.0.0"
+    "title": "Mattermost API - _49-threads",
+    "version": "1.0.0",
+    "description": "Mattermost Threads (Collapsed Reply Threads) API. SSAGY 연동 계정으로 전 항목 호출 가능하다.\n\n**포함 기준**: 01~07 (총 7건 — 디렉토리 전체).\n\n**연동 활용 — 대시보드의 '내가 팔로우하는 논의'**\n01번이 이 디렉토리의 핵심이다. 사용자가 팔로우 중인 스레드를 미확인 수와 함께 한 번에 받아, \"내가 관심 있는 논의 중 새 답글이 달린 것\"을 보여줄 수 있다. AGENTS.md의 \"팀에 중요한 정보만 선별해 한곳에서 확인\"이라는 가설에 직접 대응하는 데이터다.\n\nSSAGY가 발송한 알림 메시지의 스레드를 05번으로 자동 팔로우시켜 두면, 그 논의의 후속 답글을 놓치지 않게 만들 수도 있다.\n\n**⚠️ 원문 문서의 문제 두 가지**\n1. **01번 응답 스키마가 파싱 오류로 깨져 있다.** 원문에 `threads` 배열 항목의 중괄호가 어긋나 있고(`participants` 블록이 잘린 흔적), `unread_replies`·`unread_mentions`·`post` 같은 필드가 누락된 것으로 보인다. 아래 스키마는 실제 Mattermost 동작 기준으로 재구성했으므로 **실호출 검증이 필요하다.**\n2. **02~07번은 200 응답의 본문 스키마가 아예 없다.** 03·05·06·07번은 갱신·조회된 `UserThread` 객체를 반환하는 것이 자연스러우나 확인이 필요하다.\n\n**공통 규칙**\n- `user_id` 경로 파라미터에는 문자열 `me` 를 넣어 현재 로그인 사용자를 지칭할 수 있다.\n- 타임스탬프 계열 필드는 Unix epoch **밀리초** 정수다.\n- 오류 응답 본문은 모두 `AppError` 스키마를 따른다.\n\n최소 서버 버전 5.29 (04번만 6.7)\n\n**x-priority 의미**: SSAGY(통합 워크스페이스) 관점의 연동 우선순위."
   },
   "servers": [
-    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+    {
+      "url": "https://{host}/api/v4",
+      "variables": {
+        "host": {
+          "default": "meeting.ssafy.com",
+          "description": "self-hosted Mattermost 호스트"
+        }
+      }
+    }
   ],
-  "components": {
-    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } }
-  },
   "security": [{ "bearerAuth": [] }],
+  "tags": [
+    { "name": "Threads", "description": "팔로우 중인 스레드 조회" },
+    { "name": "Thread Read State", "description": "스레드 읽음·미확인 처리" },
+    { "name": "Thread Following", "description": "스레드 팔로우 시작·중단" }
+  ],
   "paths": {
     "/users/{user_id}/teams/{team_id}/threads": {
       "get": {
-        "summary": "1. Get all threads that user is following (본인)",
+        "summary": "01. Get all threads that user is following",
+        "description": "사용자가 팔로우 중인 스레드를 모두 조회한다. **이 디렉토리에서 연동 활용도가 가장 높은 항목**으로, 대시보드의 \"내가 관심 있는 논의\" 목록을 만드는 기본 호출이다.\n\n**유용한 파라미터 조합**\n- `since` 로 마지막 확인 시각 이후 갱신된 스레드만 받아 폴링 비용을 줄인다\n- `totalsOnly=true` 로 개수만 받아 배지 숫자를 갱신한다\n- `extended=true` 로 참여자 상세를 함께 받아 추가 조회를 없앤다\n\n**⚠️ 원문 응답 스키마가 파싱 오류로 깨져 있다.** 아래는 실제 동작 기준으로 재구성한 것이므로 실호출 검증이 필요하다.\n\n최소 서버 버전 5.29",
+        "operationId": "getUserThreads",
+        "tags": ["Threads"],
+        "x-priority": "high",
+        "x-permissions": "본인이거나 `edit_other_users` 권한 필요. 연동 계정은 본인(`me`)만 가능.",
         "parameters": [
-          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
-          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "since", "in": "query", "schema": { "type": "integer" } },
-          { "name": "deleted", "in": "query", "schema": { "type": "boolean" } },
-          { "name": "extended", "in": "query", "schema": { "type": "boolean" } },
-          { "name": "page", "in": "query", "schema": { "type": "integer" } },
-          { "name": "per_page", "in": "query", "schema": { "type": "integer" } },
-          { "name": "totalsOnly", "in": "query", "schema": { "type": "boolean" } },
-          { "name": "threadsOnly", "in": "query", "schema": { "type": "boolean" } }
+          { "$ref": "#/components/parameters/UserIdOrMe" },
+          { "$ref": "#/components/parameters/TeamId" },
+          { "name": "since", "in": "query", "required": false, "schema": { "type": "integer", "format": "int64" }, "description": "스레드의 `LastUpdateAt` 타임스탬프 기준으로 필터링한다. 증분 폴링에 사용." },
+          { "name": "deleted", "in": "query", "required": false, "schema": { "type": "boolean" }, "description": "true면 삭제된 스레드도 반환한다(모바일 동기화용)." },
+          { "name": "extended", "in": "query", "required": false, "schema": { "type": "boolean" }, "description": "true면 응답에 참여자 상세 정보를 함께 담는다." },
+          { "name": "page", "in": "query", "required": false, "schema": { "type": "integer", "default": 0 }, "description": "per_page 기준으로 반환할 페이지 위치" },
+          { "name": "per_page", "in": "query", "required": false, "schema": { "type": "integer", "default": 60 }, "description": "반환할 결과 묶음의 크기" },
+          { "name": "totalsOnly", "in": "query", "required": false, "schema": { "type": "boolean" }, "description": "true면 총계만 반환한다. 배지 숫자 갱신용." },
+          { "name": "threadsOnly", "in": "query", "required": false, "schema": { "type": "boolean" }, "description": "true면 스레드 목록만 반환한다." }
         ],
-        "responses": { "200": { "description": "Thread list" } }
+        "responses": {
+          "200": {
+            "description": "스레드 조회 성공. **원문 스키마가 깨져 있어 재구성한 것 — 실호출 검증 필요.**",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": { "type": "integer", "description": "전체 스레드 수(페이징에 사용)" },
+                    "total_unread_threads": { "type": "integer", "description": "읽지 않은 스레드 수. **원문 스키마에는 없으나 실제 응답에 포함되는 필드** — 실호출 확인 필요." },
+                    "total_unread_mentions": { "type": "integer", "description": "읽지 않은 멘션 수. **원문 스키마에는 없는 필드** — 실호출 확인 필요." },
+                    "threads": { "type": "array", "items": { "$ref": "#/components/schemas/UserThread" }, "description": "스레드 배열" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
       }
     },
     "/users/{user_id}/teams/{team_id}/threads/read": {
       "put": {
-        "summary": "2. Mark all threads that user is following as read (본인)",
+        "summary": "02. Mark all threads that user is following as read",
+        "description": "사용자가 팔로우 중인 모든 스레드를 읽음 처리한다.\n\n**⚠️ 원문에 200 응답의 본문 스키마가 없다.**\n\n최소 서버 버전 5.29",
+        "operationId": "updateReadStateAllThreadsByUser",
+        "tags": ["Thread Read State"],
+        "x-priority": "medium",
+        "x-permissions": "본인이거나 `edit_other_users` 권한 필요. 연동 계정은 본인(`me`)만 가능.",
         "parameters": [
-          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
-          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } }
+          { "$ref": "#/components/parameters/UserIdOrMe" },
+          { "$ref": "#/components/parameters/TeamId" }
         ],
-        "responses": { "200": { "description": "ok" } }
+        "responses": {
+          "200": { "description": "스레드 읽음 처리 성공. 원문에 응답 본문 스키마가 명시돼 있지 않다." },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
       }
     },
     "/users/{user_id}/teams/{team_id}/threads/{thread_id}/read/{timestamp}": {
       "put": {
-        "summary": "3. Mark a thread read state to the timestamp (본인)",
+        "summary": "03. Mark a thread read state to the timestamp",
+        "description": "팔로우 중인 스레드의 \"마지막 읽음\" 상태를 지정한 타임스탬프로 되돌린다. 특정 시점 이후를 다시 미확인으로 만들 때 쓴다.\n\n**주의**: `timestamp` 가 경로 파라미터이며 원문상 타입이 **string** 이다(정수가 아님).\n\n**⚠️ 원문에 200 응답의 본문 스키마가 없다.**\n\n최소 서버 버전 5.29",
+        "operationId": "updateReadStateThreadByUser",
+        "tags": ["Thread Read State"],
+        "x-priority": "medium",
+        "x-permissions": "본인이거나 `edit_other_users` 권한 필요. 연동 계정은 본인(`me`)만 가능.",
         "parameters": [
-          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
-          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "thread_id", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "timestamp", "in": "path", "required": true, "schema": { "type": "string" } }
+          { "$ref": "#/components/parameters/UserIdOrMe" },
+          { "$ref": "#/components/parameters/TeamId" },
+          { "$ref": "#/components/parameters/ThreadId" },
+          { "name": "timestamp", "in": "path", "required": true, "schema": { "type": "string" }, "description": "스레드의 \"마지막 읽음\" 상태를 되돌릴 타임스탬프. **원문상 타입이 string 이다.**" }
         ],
-        "responses": { "200": { "description": "ok" } }
+        "responses": {
+          "200": { "description": "스레드 갱신 성공. 원문에 응답 본문 스키마가 명시돼 있지 않다." },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
       }
     },
     "/users/{user_id}/teams/{team_id}/threads/{thread_id}/set_unread/{post_id}": {
       "post": {
-        "summary": "4. Mark a thread as unread based on a post id (본인, read_channel, 서버 6.7+)",
+        "summary": "04. Mark a thread as unread based on a post id",
+        "description": "스레드에 속한 특정 게시물을 기준으로 그 지점부터 미확인 상태로 만든다.\n\n**권한 조건이 다른 항목들과 다르다** — 스레드가 속한 채널에 대한 `read_channel`(또는 공개 채널이면 팀의 `read_public_channels`)이 필요하고, 본인이 아닌 사용자를 대상으로 하려면 추가로 `edit_other_users` 가 필요하다.\n\n**⚠️ 원문에 200 응답의 본문 스키마가 없다.**\n\n최소 서버 버전 6.7",
+        "operationId": "setUnreadThreadByPostId",
+        "tags": ["Thread Read State"],
+        "x-priority": "low",
+        "x-permissions": "스레드가 속한 채널에 대한 `read_channel` 권한(또는 공개 채널이면 팀의 `read_public_channels`) 필요. 타인 대상이면 `edit_other_users` 도 필요.",
         "parameters": [
-          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
-          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "thread_id", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "post_id", "in": "path", "required": true, "schema": { "type": "string" } }
+          { "$ref": "#/components/parameters/UserIdOrMe" },
+          { "$ref": "#/components/parameters/TeamId" },
+          { "$ref": "#/components/parameters/ThreadId" },
+          { "name": "post_id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "미확인 기준이 될, 해당 스레드에 속한 게시물의 ID" }
         ],
-        "responses": { "200": { "description": "ok" } }
+        "responses": {
+          "200": { "description": "스레드 갱신 성공. 원문에 응답 본문 스키마가 명시돼 있지 않다." },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
       }
     },
     "/users/{user_id}/teams/{team_id}/threads/{thread_id}/following": {
       "put": {
-        "summary": "5. Start following a thread (본인)",
+        "summary": "05. Start following a thread",
+        "description": "스레드 팔로우를 시작한다. **SSAGY가 발송한 알림 메시지의 스레드를 자동 팔로우시켜 두면**, 그 논의에 달리는 후속 답글을 01번으로 계속 추적할 수 있다.\n\n**⚠️ 원문에 200 응답의 본문 스키마가 없다.**\n\n최소 서버 버전 5.29",
+        "operationId": "startFollowingThread",
+        "tags": ["Thread Following"],
+        "x-priority": "medium",
+        "x-permissions": "본인이거나 `edit_other_users` 권한 필요. 연동 계정은 본인(`me`)만 가능.",
         "parameters": [
-          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
-          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "thread_id", "in": "path", "required": true, "schema": { "type": "string" } }
+          { "$ref": "#/components/parameters/UserIdOrMe" },
+          { "$ref": "#/components/parameters/TeamId" },
+          { "$ref": "#/components/parameters/ThreadId" }
         ],
-        "responses": { "200": { "description": "ok" } }
+        "responses": {
+          "200": { "description": "스레드 팔로우 성공. 원문에 응답 본문 스키마가 명시돼 있지 않다." },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
       },
       "delete": {
-        "summary": "6. Stop following a thread (본인)",
+        "summary": "06. Stop following a thread",
+        "description": "스레드 팔로우를 중단한다. 이후 01번 결과에서 빠진다.\n\n**⚠️ 원문에 200 응답의 본문 스키마가 없다.**\n\n최소 서버 버전 5.29",
+        "operationId": "stopFollowingThread",
+        "tags": ["Thread Following"],
+        "x-priority": "medium",
+        "x-permissions": "본인이거나 `edit_other_users` 권한 필요. 연동 계정은 본인(`me`)만 가능.",
         "parameters": [
-          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
-          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "thread_id", "in": "path", "required": true, "schema": { "type": "string" } }
+          { "$ref": "#/components/parameters/UserIdOrMe" },
+          { "$ref": "#/components/parameters/TeamId" },
+          { "$ref": "#/components/parameters/ThreadId" }
         ],
-        "responses": { "200": { "description": "ok" } }
+        "responses": {
+          "200": { "description": "스레드 팔로우 중단 성공. 원문에 응답 본문 스키마가 명시돼 있지 않다." },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
       }
     },
     "/users/{user_id}/teams/{team_id}/threads/{thread_id}": {
       "get": {
-        "summary": "7. Get a thread followed by the user (본인)",
+        "summary": "07. Get a thread followed by the user",
+        "description": "팔로우 중인 스레드 하나를 조회한다. 01번의 단건 버전이다.\n\n**⚠️ 원문에 200 응답의 본문 스키마가 없다.** `UserThread` 객체가 반환되는 것이 자연스러우나 실호출 확인이 필요하다.\n\n최소 서버 버전 5.29",
+        "operationId": "getUserThread",
+        "tags": ["Threads"],
+        "x-priority": "medium",
+        "x-permissions": "본인이거나 `edit_other_users` 권한 필요. 연동 계정은 본인(`me`)만 가능.",
         "parameters": [
-          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
-          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "thread_id", "in": "path", "required": true, "schema": { "type": "string" } }
+          { "$ref": "#/components/parameters/UserIdOrMe" },
+          { "$ref": "#/components/parameters/TeamId" },
+          { "$ref": "#/components/parameters/ThreadId" }
         ],
-        "responses": { "200": { "description": "Thread" } }
+        "responses": {
+          "200": {
+            "description": "스레드 조회 성공. **원문에 응답 본문 스키마가 없어 `UserThread` 반환을 가정한 것 — 실호출 확인 필요.**",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UserThread" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "`Authorization: Bearer <token>`. 세션 토큰 또는 개인 액세스 토큰을 사용한다."
+      }
+    },
+    "parameters": {
+      "UserIdOrMe": {
+        "name": "user_id",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string" },
+        "description": "사용자 ID. 문자열 `me` 를 넣으면 현재 로그인 사용자를 가리킨다.",
+        "example": "me"
+      },
+      "TeamId": {
+        "name": "team_id",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string" },
+        "description": "스레드가 속한 팀의 ID"
+      },
+      "ThreadId": {
+        "name": "thread_id",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string" },
+        "description": "스레드 ID(스레드 루트 게시물의 ID)"
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "잘못된 요청",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      },
+      "Unauthorized": {
+        "description": "인증 실패 또는 세션 만료",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      },
+      "NotFound": {
+        "description": "스레드 또는 팀을 찾을 수 없음",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      }
+    },
+    "schemas": {
+      "AppError": {
+        "type": "object",
+        "description": "Mattermost 공통 오류 응답",
+        "properties": {
+          "status_code": { "type": "integer", "description": "HTTP 상태 코드" },
+          "id": { "type": "string", "description": "오류 식별자" },
+          "message": { "type": "string", "description": "사람이 읽을 수 있는 오류 메시지" },
+          "request_id": { "type": "string", "description": "요청 추적용 ID" }
+        }
+      },
+      "UserThread": {
+        "type": "object",
+        "description": "⚠️ 원문 응답 스키마가 파싱 오류로 깨져 있어(중괄호 어긋남, 필드 누락) Mattermost 실제 동작 기준으로 재구성한 스키마다. **실호출로 검증할 것.**",
+        "properties": {
+          "id": { "type": "string", "description": "이 스레드의 루트 게시물 ID" },
+          "reply_count": { "type": "integer", "description": "이 스레드의 답글 수" },
+          "last_reply_at": { "type": "integer", "format": "int64", "description": "이 스레드의 마지막 게시물 시각(밀리초)" },
+          "last_viewed_at": { "type": "integer", "format": "int64", "description": "사용자가 이 스레드를 마지막으로 본 시각(밀리초)" },
+          "unread_replies": { "type": "integer", "description": "읽지 않은 답글 수. **원문 스키마에는 없으나 실제 응답에 포함되는 필드** — 실호출 확인 필요." },
+          "unread_mentions": { "type": "integer", "description": "읽지 않은 멘션 수. **원문 스키마에는 없는 필드** — 실호출 확인 필요." },
+          "participants": { "type": "array", "items": { "type": "object", "additionalProperties": true }, "description": "스레드 참여자 목록. `extended=true` 면 사용자 상세가, 아니면 ID만 담긴다." },
+          "post": { "type": "object", "additionalProperties": true, "description": "스레드 루트 게시물 객체. **원문 스키마에는 없는 필드** — 실호출 확인 필요." }
+        }
       }
     }
   }

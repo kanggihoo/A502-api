@@ -1,41 +1,171 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "Mattermost Terms of Service API (권한 필터됨)",
-    "description": "본인 대상 이용약관 동의/조회 + 인증만 필요한 최신 약관 조회. 약관 등록(#4)은 manage_system 필요해 제외.",
-    "version": "1.0.0"
+    "title": "Mattermost API - _35-terms-of-service",
+    "version": "1.0.0",
+    "description": "Mattermost Terms of Service API 중 SSAGY 연동 계정으로 호출 가능한 엔드포인트만 정리한 명세.\n\n**포함 기준**: 01, 02, 03 (총 3건).\n**제외 기준**: 커스텀 이용약관 생성은 `manage_system` 권한이 필요해 연동 계정 범위 밖이다.\n\n**⚠️ `_03-users` 와 중복되는 엔드포인트가 있다**\n01번과 02번은 `_03-users` 디렉토리의 64번·65번과 **완전히 동일한 엔드포인트**다(`POST` / `GET /users/{user_id}/terms_of_service`). 원본 문서가 두 카테고리에 같은 API를 넣은 결과이며, 이 문서에만 있는 것은 **03번(최신 약관 조회)** 뿐이다.\n\n**연동 관점의 의미**\n서버에 커스텀 이용약관이 설정돼 있으면, 동의하지 않은 계정은 일부 동작이 막힐 수 있다. SSAGY 연동 계정을 처음 세팅할 때 03번으로 최신 약관을 확인하고 01번으로 동의를 기록해 두면, 이후 자동화가 약관 미동의로 멈추는 상황을 예방할 수 있다.\n\n**02번은 v6.0에서 deprecated 예정**이다.\n\n**공통 규칙**\n- `user_id` 경로 파라미터에는 문자열 `me` 를 넣어 현재 로그인 사용자를 지칭할 수 있다.\n- 타임스탬프 계열 필드는 Unix epoch **밀리초** 정수다.\n- 오류 응답 본문은 모두 `AppError` 스키마를 따른다.\n\n**x-priority 의미**: SSAGY(통합 워크스페이스) 관점의 연동 우선순위."
   },
   "servers": [
-    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
-  ],
-  "components": {
-    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } },
-    "schemas": {
-      "StatusOk": { "type": "object", "properties": { "status": { "type": "string", "example": "ok" } } }
+    {
+      "url": "https://{host}/api/v4",
+      "variables": {
+        "host": {
+          "default": "meeting.ssafy.com",
+          "description": "self-hosted Mattermost 호스트"
+        }
+      }
     }
-  },
+  ],
   "security": [{ "bearerAuth": [] }],
+  "tags": [{ "name": "Terms of Service", "description": "커스텀 이용약관 조회 및 동의 기록" }],
   "paths": {
-    "/users/{user_id}/terms_of_service": {
-      "post": {
-        "summary": "1. Records user action when they accept or decline custom terms of service (본인)",
-        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
-        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "serviceTermsId": { "type": "string" }, "accepted": { "type": "string" } }, "required": ["serviceTermsId", "accepted"] } } } },
-        "responses": { "200": { "description": "ok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOk" } } } } }
-      },
+    "/terms_of_service": {
       "get": {
-        "summary": "2. Fetches user's latest terms of service acceptance action (본인, v6.0 deprecated 예정)",
-        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
+        "summary": "03. Get latest terms of service",
+        "description": "서버의 최신 커스텀 이용약관을 조회한다. **이 디렉토리에서 `_03-users` 와 중복되지 않는 유일한 엔드포인트**다.\n\n응답의 `id` 를 01번의 `serviceTermsId` 로 넘겨 동의를 기록한다. `text` 는 Markdown을 지원한다.\n\n최소 서버 버전 5.4",
+        "operationId": "getTermsOfService",
+        "tags": ["Terms of Service"],
+        "x-priority": "medium",
+        "x-permissions": "인증 필요",
         "responses": {
-          "200": { "description": "ToS acceptance record" },
-          "404": { "description": "행위 기록 없음 또는 최신 행위가 거부" }
+          "200": {
+            "description": "이용약관 조회 성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string", "description": "이용약관의 고유 식별자. 01번의 `serviceTermsId` 로 사용한다." },
+                    "create_at": { "type": "integer", "format": "int64", "description": "이용약관이 생성된 시각(밀리초)" },
+                    "user_id": { "type": "string", "description": "이 이용약관을 만든 사용자의 고유 식별자" },
+                    "text": { "type": "string", "description": "이용약관 본문. Markdown 지원." }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
         }
       }
     },
-    "/terms_of_service": {
+    "/users/{user_id}/terms_of_service": {
+      "post": {
+        "summary": "01. Records user action when they accept or decline custom terms of service",
+        "description": "커스텀 이용약관에 대한 동의/거부 행위를 기록한다. 감사 테이블에 기록되며, 동의한 경우 사용자의 최종 동의 약관 ID가 갱신된다.\n\n**중복 안내**: `_03-users` 의 64번과 동일한 엔드포인트다.\n\n`serviceTermsId` 는 03번 응답의 `id` 를 쓴다. `accepted` 는 boolean이 아니라 **문자열** `\"true\"` / `\"false\"` 임에 주의.\n\n최소 서버 버전 5.4",
+        "operationId": "registerTermsOfServiceAction",
+        "tags": ["Terms of Service"],
+        "x-priority": "medium",
+        "x-permissions": "대상 사용자 본인으로 로그인해야 함. 연동 계정은 본인(`me`)만 가능.",
+        "parameters": [{ "$ref": "#/components/parameters/UserIdOrMe" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["serviceTermsId", "accepted"],
+                "properties": {
+                  "serviceTermsId": { "type": "string", "description": "행위 대상이 되는 이용약관 ID. 03번 응답의 `id`." },
+                  "accepted": { "type": "string", "description": "`\"true\"` 또는 `\"false\"`. 사용자가 약관에 동의했는지 거부했는지를 나타낸다. **boolean이 아니라 문자열이다.**" }
+                }
+              },
+              "example": { "serviceTermsId": "4eb6axxw7fg3je5iyasnfudc5y", "accepted": "true" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "이용약관 행위 기록 성공",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOK" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      },
       "get": {
-        "summary": "3. Get latest terms of service (인증만 필요)",
-        "responses": { "200": { "description": "Latest terms of service", "content": { "application/json": { "schema": { "type": "object", "properties": { "id": { "type": "string" }, "create_at": { "type": "integer" }, "user_id": { "type": "string" }, "text": { "type": "string" } } } } } } }
+        "summary": "02. Fetches user's latest terms of service action if the latest action was for acceptance",
+        "description": "사용자의 최근 이용약관 행위가 '동의'였던 경우 그 기록을 반환한다. 최근 행위가 거부이거나 행위 이력이 없으면 **404**를 반환한다 — 이 404는 오류가 아니라 \"아직 동의하지 않음\"을 뜻하는 정상 응답으로 취급할 것.\n\n**중복 안내**: `_03-users` 의 65번과 동일한 엔드포인트다.\n\n**v6.0에서 deprecated 예정**\n\n최소 서버 버전 5.6",
+        "operationId": "getUserTermsOfService",
+        "tags": ["Terms of Service"],
+        "x-priority": "medium",
+        "x-permissions": "대상 사용자 본인으로 로그인해야 함. 연동 계정은 본인(`me`)만 가능.",
+        "parameters": [{ "$ref": "#/components/parameters/UserIdOrMe" }],
+        "responses": {
+          "200": {
+            "description": "사용자가 동의한 이용약관 기록",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user_id": { "type": "string", "description": "이 이용약관 행위를 수행한 사용자의 고유 식별자" },
+                    "terms_of_service_id": { "type": "string", "description": "행위 대상이 된 이용약관의 고유 식별자" },
+                    "create_at": { "type": "integer", "format": "int64", "description": "이 행위가 수행된 시각(밀리초)" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": {
+            "description": "사용자가 아무 행위도 하지 않았거나, 최근 행위가 거부인 경우. **오류가 아니라 '미동의' 상태를 뜻한다.**",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "`Authorization: Bearer <token>`. 세션 토큰 또는 개인 액세스 토큰을 사용한다."
+      }
+    },
+    "parameters": {
+      "UserIdOrMe": {
+        "name": "user_id",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string" },
+        "description": "사용자 GUID. 문자열 `me` 를 넣으면 현재 로그인 사용자를 가리킨다.",
+        "example": "me"
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "잘못된 요청",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      },
+      "Unauthorized": {
+        "description": "인증 실패 또는 세션 만료",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      },
+      "Forbidden": {
+        "description": "권한 부족",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      }
+    },
+    "schemas": {
+      "AppError": {
+        "type": "object",
+        "description": "Mattermost 공통 오류 응답",
+        "properties": {
+          "status_code": { "type": "integer", "description": "HTTP 상태 코드" },
+          "id": { "type": "string", "description": "오류 식별자" },
+          "message": { "type": "string", "description": "사람이 읽을 수 있는 오류 메시지" },
+          "request_id": { "type": "string", "description": "요청 추적용 ID" }
+        }
+      },
+      "StatusOK": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string", "example": "ok", "description": "요청이 성공했고 반환할 다른 내용이 없으면 `\"ok\"` 가 담긴다." }
+        }
       }
     }
   }

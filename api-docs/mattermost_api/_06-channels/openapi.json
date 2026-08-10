@@ -1,367 +1,1011 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "Mattermost Channels API (권한 필터됨)",
-    "description": "AGENTS.md 실효 권한 지도 기준 포함: create_public_channel/create_private_channel(채널 생성), read_channel/list_team_channels(조회), manage_public_channel_members/manage_private_channel_members(멤버 추가·제거), manage_public_channel_properties/manage_private_channel_properties(속성 수정), create_direct_channel, create_group_channel. 삭제/이동/모더레이션/스킴 등 manage_system·manage_channel_roles 필요 항목은 제외.",
-    "version": "1.0.0"
+    "title": "Mattermost API - _06-channels",
+    "version": "1.0.0",
+    "description": "Mattermost Channels API 중 SSAGY 연동 계정(`system_user` + `team_user` + `channel_user`)으로 실제 호출 가능한 엔드포인트만 정리한 명세.\n\n**포함 기준**: 03, 04, 05, 10, 13, 17, 18, 19, 23, 26, 27, 28, 29, 30, 34, 37, 38, 39, 41, 42, 43, 44, 46, 52, 53, 57, 58, 59 (총 28건).\n**제외 기준**: `manage_system` 이 필요한 전체 채널 조회(02), 채널 삭제·복원·이동(12, 15, 16), 공개/비공개 전환(14), 채널 모더레이션(50, 51), 스킴 설정(47), 그룹 동기화(48, 49) 등.\n\n**연동 설계상 핵심 포인트**\n- **채널 생성(03)이 가능하다**. `team_user` 의 `create_public_channel` / `create_private_channel` 로 알림 전용 채널을 자동 생성할 수 있다 — SSAGY 팀 세팅 자동화의 핵심.\n- **채널 멤버 추가(30)도 가능하다**. `channel_user` 의 `manage_public_channel_members` / `manage_private_channel_members` 로 같은 팀 소속 팀원을 채널에 넣을 수 있다.\n- DM(04)·GM(05) 채널 생성도 가능해 개인 알림 경로로 쓸 수 있다.\n- 채널 속성 수정(13)은 `manage_*_channel_properties` 로 이름·헤더·목적까지 가능하다.\n\n**공통 규칙**\n- `user_id` 경로 파라미터에는 문자열 `me` 를 넣어 현재 로그인 사용자를 지칭할 수 있다.\n- 타임스탬프 계열 필드는 모두 Unix epoch **밀리초** 정수다.\n- 채널 `type`: `O`=공개, `P`=비공개, `D`=DM, `G`=그룹 메시지.\n- 오류 응답 본문은 모두 `AppError` 스키마를 따른다.\n\n**x-priority 의미**: SSAGY(통합 워크스페이스) 관점의 연동 우선순위."
   },
   "servers": [
-    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
-  ],
-  "components": {
-    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } },
-    "schemas": {
-      "Channel": {
-        "type": "object",
-        "properties": {
-          "id": { "type": "string" },
-          "create_at": { "type": "integer" },
-          "update_at": { "type": "integer" },
-          "delete_at": { "type": "integer" },
-          "team_id": { "type": "string" },
-          "type": { "type": "string", "description": "'O' public, 'P' private, 'D' direct, 'G' group" },
-          "display_name": { "type": "string" },
-          "name": { "type": "string" },
-          "header": { "type": "string" },
-          "purpose": { "type": "string" },
-          "last_post_at": { "type": "integer" },
-          "total_msg_count": { "type": "integer" },
-          "creator_id": { "type": "string" }
+    {
+      "url": "https://{host}/api/v4",
+      "variables": {
+        "host": {
+          "default": "meeting.ssafy.com",
+          "description": "self-hosted Mattermost 호스트"
         }
-      },
-      "ChannelMember": {
-        "type": "object",
-        "properties": {
-          "channel_id": { "type": "string" },
-          "user_id": { "type": "string" },
-          "roles": { "type": "string" },
-          "last_viewed_at": { "type": "integer" },
-          "msg_count": { "type": "integer" },
-          "mention_count": { "type": "integer" },
-          "notify_props": { "type": "object" },
-          "last_update_at": { "type": "integer" }
-        }
-      },
-      "StatusOk": { "type": "object", "properties": { "status": { "type": "string", "example": "ok" } } }
+      }
     }
-  },
+  ],
   "security": [{ "bearerAuth": [] }],
+  "tags": [
+    { "name": "Channels", "description": "채널 생성·조회·검색·수정" },
+    { "name": "Channel Members", "description": "채널 멤버 조회·추가·제거 및 개인 알림 설정" },
+    { "name": "Channel Read State", "description": "읽음 처리 및 미확인 수 조회" },
+    { "name": "Sidebar Categories", "description": "사이드바 카테고리 관리" }
+  ],
   "paths": {
     "/channels": {
       "post": {
-        "summary": "3. Create a channel (create_public_channel / create_private_channel)",
+        "summary": "03. Create a channel",
+        "description": "새 채널을 만든다. **SSAGY 팀 세팅 자동화의 핵심 엔드포인트**로, 팀 확정 시 알림 전용 채널을 생성하는 데 쓴다.\n\n`name` 은 URL에 노출되는 고유 handle(소문자·숫자·하이픈)이고, `display_name` 은 UI에 보이는 이름이라 중복이 허용된다. `type` 은 `O`(공개) 또는 `P`(비공개)만 지정할 수 있다 — DM/GM은 각각 04/05번을 쓴다.",
+        "operationId": "createChannel",
+        "tags": ["Channels"],
+        "x-priority": "high",
+        "x-permissions": "공개 채널은 `create_public_channel`, 비공개 채널은 `create_private_channel` 권한 필요. 둘 다 `team_user` 역할에 포함돼 있어 연동 계정으로 호출 가능.",
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
+                "required": ["team_id", "name", "display_name", "type"],
                 "properties": {
-                  "team_id": { "type": "string" },
-                  "name": { "type": "string" },
-                  "display_name": { "type": "string" },
-                  "purpose": { "type": "string" },
-                  "header": { "type": "string" },
-                  "type": { "type": "string", "enum": ["O", "P"], "description": "'O' 공개, 'P' 비공개" }
-                },
-                "required": ["team_id", "name", "display_name", "type"]
+                  "team_id": { "type": "string", "description": "채널을 생성할 팀의 ID" },
+                  "name": { "type": "string", "description": "채널의 고유 handle. 채널 URL에 그대로 노출된다." },
+                  "display_name": { "type": "string", "description": "UI에 표시되는 이름. 고유하지 않아도 된다." },
+                  "purpose": { "type": "string", "description": "채널 목적에 대한 짧은 설명" },
+                  "header": { "type": "string", "description": "채널 헤더에 표시할 Markdown 텍스트" },
+                  "type": { "type": "string", "enum": ["O", "P"], "description": "`O`=공개 채널, `P`=비공개 채널" },
+                  "managed_category_name": { "type": "string", "description": "이 채널을 배정할 관리형 카테고리 이름. Enterprise 라이선스와 `ManagedChannelCategories` 기능 플래그가 필요하다." },
+                  "default_category_name": { "type": "string", "description": "이 채널에 참여하는 멤버의 기본 사이드바 카테고리 이름. 서버에서 `EnableChannelCategorySorting` 이 켜져 있어야 한다." }
+                }
               },
-              "example": { "team_id": "{{team_id}}", "name": "a502-notice", "display_name": "A502 공지", "type": "O" }
+              "example": { "team_id": "4eb6axxw7fg3je5iyasnfudc5y", "name": "a502-alerts", "display_name": "A502 알림", "type": "O", "purpose": "SSAGY 통합 알림 채널" }
             }
           }
         },
-        "responses": { "201": { "description": "Channel created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Channel" } } } } }
+        "responses": {
+          "201": {
+            "description": "채널 생성 성공",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Channel" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
       }
     },
     "/channels/direct": {
       "post": {
-        "summary": "4. Create a direct message channel (create_direct_channel)",
-        "requestBody": { "content": { "application/json": { "schema": { "type": "array", "items": { "type": "string" } }, "example": ["user_id_1", "user_id_2"] } } },
-        "responses": { "201": { "description": "DM channel", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Channel" } } } } }
+        "summary": "04. Create a direct message channel",
+        "description": "두 사용자 사이의 DM 채널을 생성한다. 본문은 **두 사용자 ID로 이루어진 배열**이다. 이미 존재하면 기존 채널이 반환되므로 사실상 get-or-create 로 동작한다.\n\nSSAGY에서 개인 대상 알림(내 Jira 이슈 배정 등)을 보낼 채널을 확보하는 경로다.",
+        "operationId": "createDirectChannel",
+        "tags": ["Channels"],
+        "x-priority": "high",
+        "x-permissions": "두 사용자 중 하나여야 하고 `create_direct_channel` 권한 필요(`system_user` 에 포함). `manage_system` 권한이 있으면 위 조건은 무시된다.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": { "type": "string" },
+                "minItems": 2,
+                "maxItems": 2,
+                "description": "DM을 맺을 두 사용자의 ID 배열"
+              },
+              "example": ["4eb6axxw7fg3je5iyasnfudc5y", "8xk2mnqp3bfytc9wjhr4vd6z1e"]
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "DM 채널 생성 성공",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Channel" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
       }
     },
     "/channels/group": {
       "post": {
-        "summary": "5. Create a group message channel (create_group_channel)",
-        "requestBody": { "content": { "application/json": { "schema": { "type": "array", "items": { "type": "string" } }, "example": ["user_id_1", "user_id_2", "user_id_3"] } } },
-        "responses": { "201": { "description": "GM channel", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Channel" } } } } }
+        "summary": "05. Create a group message channel",
+        "description": "여러 사용자를 묶은 그룹 메시지(GM) 채널을 생성한다. 본문 배열에 로그인 사용자의 ID가 없으면 자동으로 뒤에 추가된다.\n\n팀 전체가 아닌 소수 인원에게만 알림을 보낼 때 사용한다.",
+        "operationId": "createGroupChannel",
+        "tags": ["Channels"],
+        "x-priority": "medium",
+        "x-permissions": "`create_group_channel` 권한 필요(`system_user` 에 포함)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "GM에 포함할 사용자 ID 목록. 호출자 ID가 빠져 있으면 자동 추가된다."
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "GM 채널 생성 성공",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Channel" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
       }
     },
     "/channels/{channel_id}": {
       "get": {
-        "summary": "10. Get a channel (read_channel)",
-        "parameters": [{ "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } }],
-        "responses": { "200": { "description": "Channel", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Channel" } } } } }
+        "summary": "10. Get a channel",
+        "description": "채널 ID로 채널 객체를 조회한다.",
+        "operationId": "getChannel",
+        "tags": ["Channels"],
+        "x-priority": "high",
+        "x-permissions": "해당 채널에 대한 `read_channel` 권한 필요(`channel_user` 에 포함)",
+        "parameters": [{ "$ref": "#/components/parameters/ChannelId" }],
+        "responses": {
+          "200": {
+            "description": "채널 조회 성공",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Channel" } } }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
       }
     },
     "/channels/{channel_id}/patch": {
       "put": {
-        "summary": "13. Patch a channel (manage_public_channel_properties / manage_private_channel_properties)",
-        "parameters": [{ "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "summary": "13. Patch a channel",
+        "description": "보낸 필드만 부분 갱신한다. 생략한 필드는 유지되며, 허용 필드 중 최소 하나는 있어야 한다.\n\n**채널 타입별 수정 가능 범위**\n- 공개/비공개 채널: `name`, `display_name`, `purpose`, `header`, `group_constrained`, `autotranslation`, `banner_info`\n- DM/GM 채널: `header` 와 (설정상 허용될 때) `autotranslation` 만 가능하고, 호출자가 채널 멤버여야 한다. `name`, `display_name`, `purpose` 수정은 불가.\n- 기본 채널(Town Square 등)은 `name` 을 바꿀 수 없다.",
+        "operationId": "patchChannel",
+        "tags": ["Channels"],
+        "x-priority": "medium",
+        "x-permissions": "공개 채널 속성 수정은 `manage_public_channel_properties`, 비공개는 `manage_private_channel_properties`(둘 다 `channel_user` 에 포함). `autotranslation` 은 `manage_*_channel_auto_translation`, `banner_info` 는 `manage_*_channel_banner` + Enterprise 라이선스 필요.",
+        "parameters": [{ "$ref": "#/components/parameters/ChannelId" }],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
                 "properties": {
-                  "display_name": { "type": "string" },
-                  "purpose": { "type": "string" },
-                  "header": { "type": "string" }
+                  "name": { "type": "string", "description": "채널 URL에 노출되는 고유 handle. DM/GM 채널에서는 수정 불가. 기본 채널(Town Square 등)에서도 변경 불가." },
+                  "display_name": { "type": "string", "description": "UI 표시 이름. DM/GM 채널에서는 수정 불가." },
+                  "purpose": { "type": "string", "description": "채널 목적 설명. DM/GM 채널에서는 수정 불가." },
+                  "header": { "type": "string", "description": "채널 헤더에 표시할 Markdown 텍스트" },
+                  "group_constrained": { "type": "boolean", "description": "true면 연결된 LDAP 그룹의 멤버만 채널에 참여할 수 있다. 공개/비공개 채널에만 적용." },
+                  "autotranslation": { "type": "boolean", "description": "채널 내 메시지 자동 번역 활성화 여부. 자동 번역 기능과 해당 채널 권한이 필요하며, DM/GM 채널에서는 서버 설정에 의해 제한될 수 있다." },
+                  "banner_info": {
+                    "type": "object",
+                    "description": "채널 배너 설정. Channel Banner 기능과 Enterprise 라이선스 필요.",
+                    "properties": {
+                      "enabled": { "type": "boolean", "description": "채널 배너 활성화 여부" },
+                      "text": { "type": "string", "description": "배너에 실제로 렌더링되는 텍스트. Markdown 지원." },
+                      "background_color": { "type": "string", "description": "배너 배경색의 HEX 컬러 코드" }
+                    }
+                  },
+                  "managed_category_name": { "type": "string", "description": "이 채널을 배정할 관리형 카테고리 이름. 빈 문자열로 지정하면 해제된다. Enterprise 라이선스와 `ManagedChannelCategories` 기능 플래그 필요." },
+                  "default_category_name": { "type": "string", "description": "채널 참여 시 적용될 기본 사이드바 카테고리 이름. 빈 문자열로 지정하면 해제된다. `EnableChannelCategorySorting` 필요." }
                 }
-              }
+              },
+              "example": { "header": "SSAGY 자동 알림 채널 | 문의: @ssagy-bot" }
             }
           }
         },
-        "responses": { "200": { "description": "Patched channel", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Channel" } } } } }
+        "responses": {
+          "200": {
+            "description": "채널 부분 갱신 성공",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Channel" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
       }
     },
     "/channels/{channel_id}/stats": {
       "get": {
-        "summary": "17. Get channel statistics (read_channel)",
-        "parameters": [{ "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } }],
-        "responses": { "200": { "description": "Channel stats", "content": { "application/json": { "schema": { "type": "object", "properties": { "channel_id": { "type": "string" }, "member_count": { "type": "integer" } } } } } } }
+        "summary": "17. Get channel statistics",
+        "description": "채널의 통계(멤버 수)를 조회한다.",
+        "operationId": "getChannelStats",
+        "tags": ["Channels"],
+        "x-priority": "low",
+        "x-permissions": "`read_channel` 권한 필요",
+        "parameters": [{ "$ref": "#/components/parameters/ChannelId" }],
+        "responses": {
+          "200": {
+            "description": "채널 통계 조회 성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "channel_id": { "type": "string", "description": "채널 ID" },
+                    "member_count": { "type": "integer", "description": "채널 멤버 수" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
       }
     },
     "/channels/{channel_id}/pinned": {
       "get": {
         "summary": "18. Get a channel's pinned posts",
-        "parameters": [{ "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } }],
-        "responses": { "200": { "description": "Pinned posts" } }
+        "description": "채널의 고정(pinned) 게시물 목록을 조회한다. 응답은 `order` 배열이 표시 순서를, `posts` 객체가 post_id → Post 매핑을 담는 Mattermost 표준 PostList 형태다.\n\n대시보드에서 팀 공지(고정 게시물)를 노출할 때 사용한다.",
+        "operationId": "getPinnedPosts",
+        "tags": ["Channels"],
+        "x-priority": "medium",
+        "x-permissions": "원문에 권한 명시 없음. 실질적으로 해당 채널에 대한 `read_channel` 권한이 필요하다.",
+        "parameters": [{ "$ref": "#/components/parameters/ChannelId" }],
+        "responses": {
+          "200": {
+            "description": "고정 게시물 목록",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PostList" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
       }
     },
     "/teams/{team_id}/channels": {
       "get": {
-        "summary": "19. Get public channels (list_team_channels)",
+        "summary": "19. Get public channels",
+        "description": "팀의 공개 채널 목록을 페이지 단위로 조회한다. 참여하지 않은 공개 채널까지 포함되므로, 이미 만들어진 알림 채널을 찾을 때 쓴다.",
+        "operationId": "getPublicChannelsForTeam",
+        "tags": ["Channels"],
+        "x-priority": "high",
+        "x-permissions": "인증 + `list_team_channels` 권한 필요(`team_user` 에 포함)",
         "parameters": [
-          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "page", "in": "query", "schema": { "type": "integer" } },
-          { "name": "per_page", "in": "query", "schema": { "type": "integer" } }
+          { "$ref": "#/components/parameters/TeamId" },
+          { "name": "page", "in": "query", "required": false, "schema": { "type": "integer", "default": 0 }, "description": "조회할 페이지 번호(0부터)" },
+          { "name": "per_page", "in": "query", "required": false, "schema": { "type": "integer", "default": 60 }, "description": "페이지당 공개 채널 수" }
         ],
-        "responses": { "200": { "description": "Channel list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Channel" } } } } } }
+        "responses": {
+          "200": {
+            "description": "채널 목록 조회 성공",
+            "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Channel" } } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
       }
     },
     "/teams/{team_id}/channels/autocomplete": {
       "get": {
-        "summary": "23. Autocomplete channels (list_team_channels)",
+        "summary": "23. Autocomplete channels",
+        "description": "검색어로 팀의 공개 채널을 자동완성한다.\n\n최소 서버 버전 4.7",
+        "operationId": "autocompleteChannelsForTeam",
+        "tags": ["Channels"],
+        "x-priority": "medium",
+        "x-permissions": "`list_team_channels` 권한 필요",
         "parameters": [
-          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "name", "in": "query", "required": true, "schema": { "type": "string" } }
+          { "$ref": "#/components/parameters/TeamId" },
+          { "name": "name", "in": "query", "required": true, "schema": { "type": "string" }, "description": "채널의 name 또는 display_name 에 매칭할 문자열" }
         ],
-        "responses": { "200": { "description": "Channel list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Channel" } } } } } }
+        "responses": {
+          "200": {
+            "description": "채널 자동완성 성공",
+            "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Channel" } } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
       }
     },
     "/teams/{team_id}/channels/search": {
       "post": {
-        "summary": "26. Search channels (멤버인 채널로 제한될 수 있음, 서버 5.16+)",
-        "parameters": [{ "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } }],
-        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "term": { "type": "string" } }, "required": ["term"] } } } },
-        "responses": { "201": { "description": "Channel list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Channel" } } } } } }
+        "summary": "26. Search channels",
+        "description": "검색어로 팀의 공개 채널을 검색한다.\n\n**서버 5.16 이상에서는 `list_team_channels` 권한이 없는 사용자도 호출할 수 있으며, 이 경우 결과가 본인이 멤버인 채널로 제한된다.**\n\n**주의**: 성공 응답 코드가 200이 아니라 **201**이다.",
+        "operationId": "searchChannels",
+        "tags": ["Channels"],
+        "x-priority": "high",
+        "x-permissions": "`list_team_channels` 권한 필요. 서버 5.16+ 에서는 권한이 없어도 본인이 속한 채널로 범위가 좁혀져 동작한다.",
+        "parameters": [{ "$ref": "#/components/parameters/TeamId" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["term"],
+                "properties": { "term": { "type": "string", "description": "채널의 name 또는 display_name 에 매칭할 검색어" } }
+              },
+              "example": { "term": "alerts" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "채널 검색 성공",
+            "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Channel" } } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
       }
     },
     "/teams/{team_id}/channels/name/{channel_name}": {
       "get": {
-        "summary": "27. Get a channel by name (read_channel)",
+        "summary": "27. Get a channel by name",
+        "description": "팀 ID와 채널 이름으로 채널을 조회한다. 채널 생성 시 정한 `name` 으로 channel_id 를 역추적할 때 쓴다.",
+        "operationId": "getChannelByName",
+        "tags": ["Channels"],
+        "x-priority": "high",
+        "x-permissions": "해당 채널에 대한 `read_channel` 권한 필요",
         "parameters": [
-          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "channel_name", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "include_deleted", "in": "query", "schema": { "type": "boolean" } }
+          { "$ref": "#/components/parameters/TeamId" },
+          { "name": "channel_name", "in": "path", "required": true, "schema": { "type": "string" }, "description": "채널 이름(URL slug)" },
+          { "name": "include_deleted", "in": "query", "required": false, "schema": { "type": "boolean" }, "description": "삭제된 채널도 반환할지 여부 (Mattermost 5.26.0+)" }
         ],
-        "responses": { "200": { "description": "Channel", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Channel" } } } } }
+        "responses": {
+          "200": {
+            "description": "채널 조회 성공",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Channel" } } }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
       }
     },
     "/teams/name/{team_name}/channels/name/{channel_name}": {
       "get": {
-        "summary": "28. Get a channel by name and team name (read_channel)",
+        "summary": "28. Get a channel by name and team name",
+        "description": "팀 이름과 채널 이름으로 채널을 조회한다. team_id 를 모른 채 사람이 읽는 이름만으로 접근할 수 있어, 설정 파일에 slug만 저장해 두는 구성에 편리하다.",
+        "operationId": "getChannelByNameForTeamName",
+        "tags": ["Channels"],
+        "x-priority": "medium",
+        "x-permissions": "해당 채널에 대한 `read_channel` 권한 필요",
         "parameters": [
-          { "name": "team_name", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "channel_name", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "include_deleted", "in": "query", "schema": { "type": "boolean" } }
+          { "name": "team_name", "in": "path", "required": true, "schema": { "type": "string" }, "description": "팀 이름(URL slug)" },
+          { "name": "channel_name", "in": "path", "required": true, "schema": { "type": "string" }, "description": "채널 이름(URL slug)" },
+          { "name": "include_deleted", "in": "query", "required": false, "schema": { "type": "boolean" }, "description": "삭제된 채널도 반환할지 여부 (Mattermost 5.26.0+)" }
         ],
-        "responses": { "200": { "description": "Channel", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Channel" } } } } }
+        "responses": {
+          "200": {
+            "description": "채널 조회 성공",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Channel" } } }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
       }
     },
     "/channels/{channel_id}/members": {
       "get": {
-        "summary": "29. Get channel members (read_channel)",
+        "summary": "29. Get channel members",
+        "description": "채널 멤버 목록을 페이지 단위로 조회한다. 반환값은 사용자 객체가 아니라 **멤버십 객체**이므로, 이름 표시가 필요하면 users API의 12번(Get users by ids)으로 보강한다.",
+        "operationId": "getChannelMembers",
+        "tags": ["Channel Members"],
+        "x-priority": "high",
+        "x-permissions": "`read_channel` 권한 필요",
         "parameters": [
-          { "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "page", "in": "query", "schema": { "type": "integer" } },
-          { "name": "per_page", "in": "query", "schema": { "type": "integer" } }
+          { "$ref": "#/components/parameters/ChannelId" },
+          { "name": "page", "in": "query", "required": false, "schema": { "type": "integer", "default": 0 }, "description": "조회할 페이지 번호(0부터)" },
+          { "name": "per_page", "in": "query", "required": false, "schema": { "type": "integer", "default": 60 }, "description": "페이지당 멤버 수" }
         ],
-        "responses": { "200": { "description": "Member list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/ChannelMember" } } } } } }
+        "responses": {
+          "200": {
+            "description": "채널 멤버 목록 조회 성공",
+            "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/ChannelMember" } } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
       },
       "post": {
-        "summary": "30. Add user(s) to channel (manage_public_channel_members / manage_private_channel_members)",
-        "parameters": [{ "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "summary": "30. Add user(s) to channel",
+        "description": "채널 멤버 객체를 만들어 사용자를 채널에 추가한다. **SSAGY 팀 세팅에서 팀원을 알림 채널에 일괄 투입하는 경로**다.\n\n단건은 `user_id`(하위 호환용), 다건은 `user_ids` 를 쓴다. 둘 중 하나는 반드시 있어야 한다.\n\n**제약**: 추가 대상은 해당 팀에 이미 소속돼 있어야 한다. 팀 소속이 아니면 먼저 팀에 가입시켜야 하는데, 타인의 팀 추가는 연동 계정 권한 밖이다.",
+        "operationId": "addChannelMember",
+        "tags": ["Channel Members"],
+        "x-priority": "high",
+        "x-permissions": "공개 채널은 `manage_public_channel_members`, 비공개 채널은 `manage_private_channel_members` 권한 필요(둘 다 `channel_user` 에 포함).",
+        "parameters": [{ "$ref": "#/components/parameters/ChannelId" }],
         "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": { "type": "object", "properties": { "user_id": { "type": "string" }, "user_ids": { "type": "array", "items": { "type": "string" } } } },
-              "example": { "user_id": "{{teammate_user_id}}" }
-            }
-          }
-        },
-        "responses": { "201": { "description": "Member added", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ChannelMember" } } } } }
-      }
-    },
-    "/channels/{channel_id}/members/{user_id}": {
-      "delete": {
-        "summary": "34. Remove user from channel (manage_public_channel_members / manage_private_channel_members)",
-        "parameters": [
-          { "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string" } }
-        ],
-        "responses": { "200": { "description": "ok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOk" } } } } }
-      }
-    },
-    "/channels/{channel_id}/members/{user_id}/notify_props": {
-      "put": {
-        "summary": "37. Update channel notifications (본인)",
-        "parameters": [
-          { "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }
-        ],
-        "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
                 "properties": {
-                  "email": { "type": "string", "enum": ["true", "false", "default"] },
-                  "push": { "type": "string", "enum": ["all", "mention", "none", "default"] },
-                  "desktop": { "type": "string", "enum": ["all", "mention", "none", "default"] },
-                  "mark_unread": { "type": "string", "enum": ["all", "mention"] }
+                  "user_id": { "type": "string", "description": "채널에 추가할 사용자 ID. 하위 호환용 단건 필드." },
+                  "user_ids": { "type": "array", "items": { "type": "string" }, "description": "채널에 추가할 사용자 ID 목록. `user_id` 가 없으면 필수." },
+                  "post_root_id": { "type": "string", "description": "채널 멤버 추가 링크가 시작된 루트 게시물의 ID" }
+                }
+              },
+              "example": { "user_ids": ["4eb6axxw7fg3je5iyasnfudc5y", "8xk2mnqp3bfytc9wjhr4vd6z1e"] }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "채널 멤버 생성 성공",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ChannelMember" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/channels/{channel_id}/members/{user_id}": {
+      "delete": {
+        "summary": "34. Remove user from channel",
+        "description": "채널 멤버를 삭제해 사용자를 채널에서 제외한다.\n\n**서버 5.3 이상에서는 공개/비공개 채널에서만 멤버를 제거할 수 있다** — DM/GM 채널에서는 불가하다.",
+        "operationId": "removeChannelMember",
+        "tags": ["Channel Members"],
+        "x-priority": "medium",
+        "x-permissions": "공개 채널은 `manage_public_channel_members`, 비공개 채널은 `manage_private_channel_members` 권한 필요.",
+        "parameters": [
+          { "$ref": "#/components/parameters/ChannelId" },
+          { "$ref": "#/components/parameters/UserIdOrMe" }
+        ],
+        "responses": {
+          "200": {
+            "description": "채널 멤버 삭제 성공",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOK" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/channels/{channel_id}/members/{user_id}/notify_props": {
+      "put": {
+        "summary": "37. Update channel notifications",
+        "description": "특정 채널에 대한 사용자의 알림 설정을 갱신한다. 보낸 필드만 반영된다.\n\n연동 계정이 스스로 알림 소음을 줄이거나(`mark_unread: \"mention\"`), 사용자 대신 채널별 알림을 설정해 줄 때 사용한다.",
+        "operationId": "updateChannelNotifyProps",
+        "tags": ["Channel Members"],
+        "x-priority": "medium",
+        "x-permissions": "본인이거나 `edit_other_users` 권한 필요. 연동 계정은 본인(`me`)만 가능.",
+        "parameters": [
+          { "$ref": "#/components/parameters/ChannelId" },
+          { "$ref": "#/components/parameters/UserIdOrMe" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/ChannelNotifyProps" } }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "채널 알림 설정 갱신 성공",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOK" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/channels/{channel_id}/members/{user_id}/autotranslation": {
+      "put": {
+        "summary": "38. Update channel member autotranslation setting",
+        "description": "특정 채널에서 해당 사용자의 메시지 자동 번역 여부를 설정한다. 채널 자체에 자동 번역이 켜져 있으면 기본적으로 모든 사용자에게 활성화되며, 이 API로 사용자 단위 해제가 가능하다.",
+        "operationId": "updateChannelMemberAutotranslation",
+        "tags": ["Channel Members"],
+        "x-priority": "low",
+        "x-permissions": "본인이거나 `edit_other_users` 권한 필요. 연동 계정은 본인(`me`)만 가능.",
+        "parameters": [
+          { "$ref": "#/components/parameters/ChannelId" },
+          { "$ref": "#/components/parameters/UserIdOrMe" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["autotranslation_disabled"],
+                "properties": { "autotranslation_disabled": { "type": "boolean", "description": "이 채널에서 해당 사용자의 자동 번역을 비활성화할지 여부" } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "자동 번역 설정 갱신 성공",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOK" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/channels/members/{user_id}/mark_read": {
+      "post": {
+        "summary": "39. Mark multiple channels as read",
+        "description": "여러 채널을 한 번에 읽음 처리한다. 본문은 채널 ID 배열이다. 41번(View channel)과 달리 활성 채널 갱신 없이 읽음 상태만 정리한다.",
+        "operationId": "markChannelsAsRead",
+        "tags": ["Channel Read State"],
+        "x-priority": "medium",
+        "x-permissions": "본인이거나 `edit_other_users` 권한 필요. 연동 계정은 본인(`me`)만 가능.",
+        "parameters": [
+          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "읽음 처리 대상 사용자 ID. `me` 사용 가능.", "example": "me" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "array", "items": { "type": "string" }, "description": "읽음 처리할 채널 ID 목록" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "채널 읽음 처리 성공",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ChannelViewResponse" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/channels/members/{user_id}/view": {
+      "post": {
+        "summary": "41. View channel",
+        "description": "채널을 '본' 것으로 처리하는 모든 동작을 수행한다 — 읽음 표시, 푸시 알림 정리, 활성 채널 갱신.\n\n`channel_id` 에 빈 문자열을 넣으면 모든 채널이 포커스를 잃었음을 의미한다.\n\n`last_viewed_at_times` 는 Mattermost 4.3 이상에서만 응답에 포함된다.",
+        "operationId": "viewChannel",
+        "tags": ["Channel Read State"],
+        "x-priority": "medium",
+        "x-permissions": "본인이거나 `edit_other_users` 권한 필요. 연동 계정은 본인(`me`)만 가능.",
+        "parameters": [
+          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "view 동작을 수행할 사용자 ID. `me` 사용 가능.", "example": "me" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["channel_id"],
+                "properties": {
+                  "channel_id": { "type": "string", "description": "보고 있는 채널 ID. 빈 문자열이면 모든 채널이 포커스를 잃었음을 뜻한다." },
+                  "prev_channel_id": { "type": "string", "description": "채널 전환 시 직전 채널 ID. 지정하면 전환 대상 채널의 푸시 알림이 정리된다." }
                 }
               }
             }
           }
         },
-        "responses": { "200": { "description": "ok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOk" } } } } }
-      }
-    },
-    "/channels/{channel_id}/members/{user_id}/autotranslation": {
-      "put": {
-        "summary": "38. Update channel member autotranslation setting (본인)",
-        "parameters": [
-          { "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }
-        ],
-        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "autotranslation_disabled": { "type": "boolean" } }, "required": ["autotranslation_disabled"] } } } },
-        "responses": { "200": { "description": "ok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOk" } } } } }
-      }
-    },
-    "/channels/members/{user_id}/mark_read": {
-      "post": {
-        "summary": "39. Mark multiple channels as read (본인)",
-        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
-        "requestBody": { "content": { "application/json": { "schema": { "type": "array", "items": { "type": "string" } } } } },
-        "responses": { "200": { "description": "status + last_viewed_at_times" } }
-      }
-    },
-    "/users/{user_id}/channels/{channel_id}/unread": {
-      "get": {
-        "summary": "46. Get unread messages (본인 + read_channel)",
-        "parameters": [
-          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
-          { "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } }
-        ],
-        "responses": { "200": { "description": "unread counts", "content": { "application/json": { "schema": { "type": "object", "properties": { "team_id": { "type": "string" }, "channel_id": { "type": "string" }, "msg_count": { "type": "integer" }, "mention_count": { "type": "integer" } } } } } } }
-      }
-    },
-    "/users/{user_id}/teams/{team_id}/channels/members": {
-      "get": {
-        "summary": "43. Get channel memberships and roles for a user (본인 + view_team)",
-        "parameters": [
-          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
-          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } }
-        ],
-        "responses": { "200": { "description": "Member list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/ChannelMember" } } } } } }
-      }
-    },
-    "/users/{user_id}/teams/{team_id}/channels": {
-      "get": {
-        "summary": "44. Get channels for user (본인 + view_team)",
-        "parameters": [
-          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
-          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "include_deleted", "in": "query", "schema": { "type": "boolean" } }
-        ],
-        "responses": { "200": { "description": "Channel list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Channel" } } } } } }
-      }
-    },
-    "/channels/members/{user_id}/view": {
-      "post": {
-        "summary": "41. View channel (본인)",
-        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
-        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "channel_id": { "type": "string" }, "prev_channel_id": { "type": "string" } }, "required": ["channel_id"] } } } },
-        "responses": { "200": { "description": "status + last_viewed_at_times" } }
+        "responses": {
+          "200": {
+            "description": "채널 view 처리 성공",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ChannelViewResponse" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
       }
     },
     "/channels/members/{user_id}/direct/read": {
       "put": {
-        "summary": "42. Mark all direct and group messages as read (본인, 서버 11.3+)",
-        "parameters": [{ "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } }],
-        "responses": { "200": { "description": "status + last_viewed_at_times" } }
+        "summary": "42. Mark all direct and group messages as read",
+        "description": "사용자의 모든 DM·GM을 읽음 처리한다.\n\n최소 서버 버전 11.3 — 구버전 서버에서는 501이 반환된다.",
+        "operationId": "markDirectMessagesAsRead",
+        "tags": ["Channel Read State"],
+        "x-priority": "low",
+        "x-permissions": "본인이거나 `edit_other_users` 권한 필요. 연동 계정은 본인(`me`)만 가능.",
+        "parameters": [
+          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "읽음 처리 대상 사용자 ID. `me` 사용 가능.", "example": "me" }
+        ],
+        "responses": {
+          "200": {
+            "description": "DM/GM 읽음 처리 성공",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ChannelViewResponse" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "501": { "$ref": "#/components/responses/NotImplemented" }
+        }
+      }
+    },
+    "/users/{user_id}/teams/{team_id}/channels/members": {
+      "get": {
+        "summary": "43. Get channel memberships and roles for a user",
+        "description": "특정 팀에서 사용자의 모든 채널 멤버십과 그 역할(`channel_user`, `channel_admin`)을 조회한다. 44번이 채널 객체를 준다면 이쪽은 **역할 정보가 포함된 멤버십**을 준다.",
+        "operationId": "getChannelMembersForTeamForUser",
+        "tags": ["Channel Members"],
+        "x-priority": "medium",
+        "x-permissions": "본인 + 해당 팀에 대한 `view_team` 권한 필요. `manage_system` 권한이 있으면 위 조건은 무시된다.",
+        "parameters": [
+          { "$ref": "#/components/parameters/UserIdOrMe" },
+          { "$ref": "#/components/parameters/TeamId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "채널 멤버십 목록 조회 성공",
+            "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/ChannelMember" } } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/users/{user_id}/teams/{team_id}/channels": {
+      "get": {
+        "summary": "44. Get channels for user",
+        "description": "사용자가 특정 팀에서 속한 모든 채널을 조회한다. 대시보드의 채널 목록을 만드는 기본 호출.",
+        "operationId": "getChannelsForTeamForUser",
+        "tags": ["Channels"],
+        "x-priority": "high",
+        "x-permissions": "본인이거나 `edit_other_users` 권한 + 해당 팀에 대한 `view_team` 권한 필요.",
+        "parameters": [
+          { "$ref": "#/components/parameters/UserIdOrMe" },
+          { "$ref": "#/components/parameters/TeamId" },
+          { "name": "include_deleted", "in": "query", "required": false, "schema": { "type": "boolean" }, "description": "삭제된 채널도 반환할지 여부" },
+          { "name": "last_delete_at", "in": "query", "required": false, "schema": { "type": "integer", "format": "int64" }, "description": "삭제된 채널을 이 시각(epoch 밀리초) 기준으로 필터링한다. `include_deleted` 가 false면 효과가 없다." }
+        ],
+        "responses": {
+          "200": {
+            "description": "채널 목록 조회 성공",
+            "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Channel" } } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/users/{user_id}/channels/{channel_id}/unread": {
+      "get": {
+        "summary": "46. Get unread messages",
+        "description": "특정 채널의 읽지 않은 메시지·멘션 수를 조회한다. teams API 29번이 팀 단위 집계라면 이쪽은 채널 단위 상세다.",
+        "operationId": "getChannelUnread",
+        "tags": ["Channel Read State"],
+        "x-priority": "high",
+        "x-permissions": "본인 + `read_channel` 권한, 또는 `edit_other_users` 권한 필요.",
+        "parameters": [
+          { "$ref": "#/components/parameters/UserIdOrMe" },
+          { "$ref": "#/components/parameters/ChannelId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "채널 미확인 수 조회 성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "team_id": { "type": "string", "description": "팀 ID" },
+                    "channel_id": { "type": "string", "description": "채널 ID" },
+                    "msg_count": { "type": "integer", "description": "읽지 않은 메시지 수" },
+                    "mention_count": { "type": "integer", "description": "읽지 않은 멘션 수" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
       }
     },
     "/users/{user_id}/teams/{team_id}/channels/categories": {
       "get": {
-        "summary": "52. Get user's sidebar categories (본인, list_team_channels)",
+        "summary": "52. Get user's sidebar categories",
+        "description": "해당 팀에서 사용자의 사이드바에 표시될 카테고리 목록과, 각 카테고리에 속한 채널 ID 목록을 조회한다.\n\n**주의**: 원문 스키마상 최상위가 `{ order, categories }` 객체의 **배열**로 정의돼 있다.\n\n최소 서버 버전 5.26",
+        "operationId": "getSidebarCategoriesForTeamForUser",
+        "tags": ["Sidebar Categories"],
+        "x-priority": "low",
+        "x-permissions": "인증 + `list_team_channels` 권한 필요",
         "parameters": [
-          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
-          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } }
+          { "$ref": "#/components/parameters/UserIdOrMe" },
+          { "$ref": "#/components/parameters/TeamId" }
         ],
-        "responses": { "200": { "description": "Sidebar categories" } }
+        "responses": {
+          "200": {
+            "description": "카테고리 조회 성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "order": { "type": "array", "items": { "type": "string" }, "description": "카테고리 ID의 표시 순서" },
+                      "categories": { "type": "array", "items": { "$ref": "#/components/schemas/SidebarCategoryWithChannels" }, "description": "카테고리 목록" }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
       },
       "post": {
-        "summary": "53. Create user's sidebar category (본인)",
+        "summary": "53. Create user's sidebar category",
+        "description": "해당 팀에서 사용자의 커스텀 사이드바 카테고리를 생성한다. SSAGY가 만든 알림 채널들을 별도 카테고리로 묶어 정리할 때 쓸 수 있다.\n\n**주의**: 생성 API지만 성공 응답 코드가 201이 아니라 **200**이다.\n\n최소 서버 버전 5.26",
+        "operationId": "createSidebarCategoryForTeamForUser",
+        "tags": ["Sidebar Categories"],
+        "x-priority": "low",
+        "x-permissions": "인증 + `list_team_channels` 권한 필요",
         "parameters": [
-          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
-          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } }
+          { "$ref": "#/components/parameters/UserIdOrMe" },
+          { "$ref": "#/components/parameters/TeamId" }
         ],
         "requestBody": {
+          "required": true,
           "content": {
-            "application/json": {
-              "schema": { "type": "object", "properties": { "display_name": { "type": "string" }, "type": { "type": "string", "enum": ["channels", "custom", "direct_messages", "favorites"] } }, "required": ["display_name", "type"] }
-            }
+            "application/json": { "schema": { "$ref": "#/components/schemas/SidebarCategory" } }
           }
         },
-        "responses": { "200": { "description": "Category created" } }
+        "responses": {
+          "200": {
+            "description": "카테고리 생성 성공",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SidebarCategory" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
       }
     },
     "/users/{user_id}/teams/{team_id}/channels/categories/{category_id}": {
       "get": {
-        "summary": "57. Get sidebar category (본인)",
+        "summary": "57. Get sidebar category",
+        "description": "해당 팀에서 사용자의 사이드바 카테고리 하나를 조회한다.\n\n최소 서버 버전 5.26",
+        "operationId": "getSidebarCategoryForTeamForUser",
+        "tags": ["Sidebar Categories"],
+        "x-priority": "low",
+        "x-permissions": "인증 + `list_team_channels` 권한 필요",
         "parameters": [
-          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
-          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "category_id", "in": "path", "required": true, "schema": { "type": "string" } }
+          { "$ref": "#/components/parameters/UserIdOrMe" },
+          { "$ref": "#/components/parameters/TeamId" },
+          { "$ref": "#/components/parameters/CategoryId" }
         ],
-        "responses": { "200": { "description": "Category" } }
+        "responses": {
+          "200": {
+            "description": "카테고리 조회 성공",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SidebarCategory" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
       },
       "put": {
-        "summary": "58. Update sidebar category (본인)",
+        "summary": "58. Update sidebar category",
+        "description": "해당 팀에서 사용자의 사이드바 카테고리 하나를 갱신한다.\n\n최소 서버 버전 5.26",
+        "operationId": "updateSidebarCategoryForTeamForUser",
+        "tags": ["Sidebar Categories"],
+        "x-priority": "low",
+        "x-permissions": "인증 + `list_team_channels` 권한 필요",
         "parameters": [
-          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
-          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "category_id", "in": "path", "required": true, "schema": { "type": "string" } }
+          { "$ref": "#/components/parameters/UserIdOrMe" },
+          { "$ref": "#/components/parameters/TeamId" },
+          { "$ref": "#/components/parameters/CategoryId" }
         ],
         "requestBody": {
+          "required": true,
           "content": {
-            "application/json": {
-              "schema": { "type": "object", "properties": { "display_name": { "type": "string" }, "type": { "type": "string" } } }
-            }
+            "application/json": { "schema": { "$ref": "#/components/schemas/SidebarCategory" } }
           }
         },
-        "responses": { "200": { "description": "Category updated" } }
+        "responses": {
+          "200": {
+            "description": "카테고리 갱신 성공",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SidebarCategory" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
       },
       "delete": {
-        "summary": "59. Delete sidebar category (본인, custom 카테고리만)",
+        "summary": "59. Delete sidebar category",
+        "description": "해당 팀에서 사용자의 사이드바 카테고리 하나를 삭제한다. **커스텀 카테고리만 삭제할 수 있다** — `channels`, `direct_messages`, `favorites` 같은 기본 카테고리는 불가.\n\n삭제 성공 시에도 삭제된 카테고리 객체가 반환된다.\n\n최소 서버 버전 5.26",
+        "operationId": "removeSidebarCategoryForTeamForUser",
+        "tags": ["Sidebar Categories"],
+        "x-priority": "low",
+        "x-permissions": "인증 + `list_team_channels` 권한 필요",
         "parameters": [
-          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
-          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "category_id", "in": "path", "required": true, "schema": { "type": "string" } }
+          { "$ref": "#/components/parameters/UserIdOrMe" },
+          { "$ref": "#/components/parameters/TeamId" },
+          { "$ref": "#/components/parameters/CategoryId" }
         ],
-        "responses": { "200": { "description": "Category deleted" } }
+        "responses": {
+          "200": {
+            "description": "카테고리 삭제 성공",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SidebarCategory" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "`Authorization: Bearer <token>`. 세션 토큰 또는 개인 액세스 토큰을 사용한다."
+      }
+    },
+    "parameters": {
+      "UserIdOrMe": {
+        "name": "user_id",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string" },
+        "description": "사용자 GUID. 문자열 `me` 를 넣으면 현재 로그인 사용자를 가리킨다.",
+        "example": "me"
+      },
+      "TeamId": {
+        "name": "team_id",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string" },
+        "description": "팀 GUID"
+      },
+      "ChannelId": {
+        "name": "channel_id",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string" },
+        "description": "채널 GUID"
+      },
+      "CategoryId": {
+        "name": "category_id",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string" },
+        "description": "사이드바 카테고리 GUID"
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "잘못된 요청",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      },
+      "Unauthorized": {
+        "description": "인증 실패 또는 세션 만료",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      },
+      "Forbidden": {
+        "description": "권한 부족",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      },
+      "NotFound": {
+        "description": "리소스를 찾을 수 없음",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      },
+      "NotImplemented": {
+        "description": "서버 버전 또는 설정상 해당 기능이 지원되지 않음",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      }
+    },
+    "schemas": {
+      "AppError": {
+        "type": "object",
+        "description": "Mattermost 공통 오류 응답",
+        "properties": {
+          "status_code": { "type": "integer", "description": "HTTP 상태 코드" },
+          "id": { "type": "string", "description": "오류 식별자" },
+          "message": { "type": "string", "description": "사람이 읽을 수 있는 오류 메시지" },
+          "request_id": { "type": "string", "description": "요청 추적용 ID" }
+        }
+      },
+      "StatusOK": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string", "example": "ok", "description": "요청이 성공했고 반환할 다른 내용이 없으면 `\"ok\"` 가 담긴다." }
+        }
+      },
+      "Channel": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "채널 GUID" },
+          "create_at": { "type": "integer", "format": "int64", "description": "채널이 생성된 시각(밀리초)" },
+          "update_at": { "type": "integer", "format": "int64", "description": "채널이 마지막으로 갱신된 시각(밀리초)" },
+          "delete_at": { "type": "integer", "format": "int64", "description": "채널이 삭제된 시각(밀리초). 활성 채널은 0." },
+          "team_id": { "type": "string", "description": "채널이 속한 팀 ID. DM/GM 채널은 빈 문자열." },
+          "type": { "type": "string", "description": "채널 타입. `O`=공개, `P`=비공개, `D`=DM, `G`=그룹 메시지." },
+          "display_name": { "type": "string", "description": "UI에 표시되는 채널 이름" },
+          "name": { "type": "string", "description": "채널 URL에 노출되는 고유 handle" },
+          "header": { "type": "string", "description": "채널 헤더 텍스트(Markdown)" },
+          "purpose": { "type": "string", "description": "채널 목적 설명" },
+          "last_post_at": { "type": "integer", "format": "int64", "description": "채널의 마지막 게시물 시각(밀리초)" },
+          "total_msg_count": { "type": "integer", "description": "채널 전체 메시지 수" },
+          "extra_update_at": { "type": "integer", "format": "int64", "description": "Deprecated (Mattermost 5.0에서 폐기)" },
+          "creator_id": { "type": "string", "description": "채널을 만든 사용자 ID" }
+        }
+      },
+      "ChannelNotifyProps": {
+        "type": "object",
+        "description": "채널별 알림 설정. 값이 모두 문자열임에 주의. `\"default\"` 를 넣으면 사용자 전역 설정을 따른다.",
+        "properties": {
+          "email": { "type": "string", "description": "이메일 알림. `\"true\"`/`\"false\"`/`\"default\"`(전역 설정 사용)." },
+          "push": { "type": "string", "description": "푸시 알림. `\"all\"`(모든 활동), `\"mention\"`(멘션·DM만), `\"none\"`(끔), `\"default\"`(전역 설정 사용)." },
+          "desktop": { "type": "string", "description": "데스크톱 알림. `\"all\"`, `\"mention\"`, `\"none\"`, `\"default\"`." },
+          "mark_unread": { "type": "string", "description": "미확인 표시 기준. `\"all\"`(새 메시지마다), `\"mention\"`(새 멘션만). 기본값 `\"all\"`." }
+        }
+      },
+      "ChannelMember": {
+        "type": "object",
+        "properties": {
+          "channel_id": { "type": "string", "description": "채널 ID" },
+          "user_id": { "type": "string", "description": "사용자 ID" },
+          "roles": { "type": "string", "description": "이 채널 멤버에게 부여된 역할 목록(공백 구분). 예: `channel_user`, `channel_admin`." },
+          "last_viewed_at": { "type": "integer", "format": "int64", "description": "사용자가 채널을 마지막으로 본 시각(밀리초)" },
+          "msg_count": { "type": "integer", "description": "마지막으로 본 시점까지의 메시지 수" },
+          "mention_count": { "type": "integer", "description": "읽지 않은 멘션 수" },
+          "notify_props": { "$ref": "#/components/schemas/ChannelNotifyProps" },
+          "last_update_at": { "type": "integer", "format": "int64", "description": "채널 멤버가 마지막으로 갱신된 시각(밀리초)" }
+        }
+      },
+      "ChannelViewResponse": {
+        "type": "object",
+        "description": "읽음 처리 계열 API(39, 41, 42)의 공통 응답",
+        "properties": {
+          "status": { "type": "string", "description": "성공 시 `\"OK\"`" },
+          "last_viewed_at_times": { "type": "object", "description": "채널 ID를 키로, 해당 채널을 본 시각(밀리초)을 값으로 갖는 객체. Mattermost 4.3 이상에서만 포함된다.", "additionalProperties": { "type": "integer", "format": "int64" } }
+        }
+      },
+      "PostList": {
+        "type": "object",
+        "description": "Mattermost 표준 게시물 목록 응답. 순서는 `order` 가, 내용은 `posts` 맵이 담는다.",
+        "properties": {
+          "order": { "type": "array", "items": { "type": "string" }, "description": "게시물 ID의 표시 순서" },
+          "posts": { "type": "object", "description": "게시물 ID를 키로, Post 객체를 값으로 갖는 맵" },
+          "next_post_id": { "type": "string", "description": "다음 게시물의 ID. 비어 있거나 해당 없어도 생략되지 않는다." },
+          "prev_post_id": { "type": "string", "description": "이전 게시물의 ID. 비어 있거나 해당 없어도 생략되지 않는다." },
+          "has_next": { "type": "boolean", "description": "이 페이지 다음에 더 많은 항목이 있는지 여부" }
+        }
+      },
+      "SidebarCategory": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "카테고리 GUID" },
+          "user_id": { "type": "string", "description": "카테고리 소유 사용자 ID" },
+          "team_id": { "type": "string", "description": "카테고리가 속한 팀 ID" },
+          "display_name": { "type": "string", "description": "카테고리 표시 이름" },
+          "type": { "type": "string", "enum": ["channels", "custom", "direct_messages", "favorites"], "description": "카테고리 타입. 삭제(59번)는 `custom` 만 가능." }
+        }
+      },
+      "SidebarCategoryWithChannels": {
+        "allOf": [
+          { "$ref": "#/components/schemas/SidebarCategory" },
+          {
+            "type": "object",
+            "properties": {
+              "channel_ids": { "type": "array", "items": { "type": "string" }, "description": "이 카테고리에 속한 채널 ID 목록" }
+            }
+          }
+        ]
       }
     }
   }

@@ -1,50 +1,138 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "Mattermost Roles API (권한 필터됨)",
-    "description": "조회 전용, 활성 세션만 필요. 전체 role 목록(#1)과 role patch(#4)는 manage_system 계열 필요해 제외.",
-    "version": "1.0.0"
+    "title": "Mattermost API - _31-roles",
+    "version": "1.0.0",
+    "description": "Mattermost Roles API 중 SSAGY 연동 계정으로 호출 가능한 조회 엔드포인트만 정리한 명세.\n\n**포함 기준**: 02, 03, 05 (총 3건 — 활성 세션만으로 가능한 조회 3건).\n**제외 기준**: 역할 수정(patch)은 `manage_system` 권한이 필요해 연동 계정 범위 밖이다.\n\n**⚠️ 이 API가 AGENTS.md 권한 지도의 근거다**\nAGENTS.md의 \"Mattermost 계정 실효 권한 지도(실측: 2026-07-25)\"는 **`GET /api/v4/roles/name/{role}` (03번) 실측 결과**로 작성됐다. 즉 이 디렉토리는 문서화 대상인 동시에, 다른 모든 문서의 권한 판정 근거를 재확인하는 도구다.\n\n**권한 판정 시 반드시 기억할 것**\nMattermost 권한은 시스템/팀/채널 **3계층 역할의 합집합**이다. 특정 API의 사용 가능 여부는 한 계층 목록이 아니라 `system_user`, `team_user`, `channel_user` **세 계층 전체와 대조해 판정**해야 한다. 과거 `system_user` 12개만 보고 웹훅·발송을 \"불가\"로 오판한 사례가 있다.\n\n**연동 활용 — 권한 지도 재검증 절차**\n서버 설정이나 권한 스킴이 바뀌면 AGENTS.md의 실측값이 낡을 수 있다. 05번(`POST /roles/names`)에 `[\"system_user\", \"team_user\", \"channel_user\"]` 를 한 번에 보내면 세 역할의 `permissions` 배열을 한 호출로 받아 권한 지도를 갱신할 수 있다.\n\n최소 서버 버전 4.9\n\n**x-priority 의미**: SSAGY(통합 워크스페이스) 관점의 연동 우선순위."
   },
   "servers": [
-    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
-  ],
-  "components": {
-    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } },
-    "schemas": {
-      "Role": {
-        "type": "object",
-        "properties": {
-          "id": { "type": "string" },
-          "name": { "type": "string" },
-          "display_name": { "type": "string" },
-          "description": { "type": "string" },
-          "permissions": { "type": "array", "items": { "type": "string" } },
-          "scheme_managed": { "type": "boolean" }
+    {
+      "url": "https://{host}/api/v4",
+      "variables": {
+        "host": {
+          "default": "meeting.ssafy.com",
+          "description": "self-hosted Mattermost 호스트"
         }
       }
     }
-  },
+  ],
   "security": [{ "bearerAuth": [] }],
+  "tags": [{ "name": "Roles", "description": "역할과 권한 목록 조회" }],
   "paths": {
     "/roles/{role_id}": {
       "get": {
-        "summary": "2. Get a role (by ID) (활성 세션만 필요)",
-        "parameters": [{ "name": "role_id", "in": "path", "required": true, "schema": { "type": "string" } }],
-        "responses": { "200": { "description": "Role", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Role" } } } } }
+        "summary": "02. Get a role (by ID)",
+        "description": "역할 ID로 역할 정보를 조회한다. 역할 이름을 알고 있다면 03번이 더 편하다.\n\n최소 서버 버전 4.9",
+        "operationId": "getRole",
+        "tags": ["Roles"],
+        "x-priority": "low",
+        "x-permissions": "활성 세션만 필요 (추가 권한 없음)",
+        "parameters": [
+          { "name": "role_id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "역할 GUID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "역할 조회 성공",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Role" } } }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
       }
     },
     "/roles/name/{role_name}": {
       "get": {
-        "summary": "3. Get a role (by name) (활성 세션만 필요, 예: system_user/team_user/channel_user)",
-        "parameters": [{ "name": "role_name", "in": "path", "required": true, "schema": { "type": "string" } }],
-        "responses": { "200": { "description": "Role", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Role" } } } } }
+        "summary": "03. Get a role (by name)",
+        "description": "역할 이름으로 역할 정보를 조회한다. **AGENTS.md의 권한 지도가 이 엔드포인트 실측으로 작성됐다.**\n\n응답의 `permissions` 배열이 해당 역할이 부여하는 권한의 전체 목록이다. `system_user`, `team_user`, `channel_user` 세 개를 각각 조회해 **합집합**을 취해야 실효 권한이 나온다.\n\n세 개를 한 번에 받으려면 05번을 쓴다.\n\n최소 서버 버전 4.9",
+        "operationId": "getRoleByName",
+        "tags": ["Roles"],
+        "x-priority": "high",
+        "x-permissions": "활성 세션만 필요 (추가 권한 없음)",
+        "parameters": [
+          { "name": "role_name", "in": "path", "required": true, "schema": { "type": "string" }, "description": "역할 이름", "example": "system_user" }
+        ],
+        "responses": {
+          "200": {
+            "description": "역할 조회 성공",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Role" } } }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
       }
     },
     "/roles/names": {
       "post": {
-        "summary": "5. Get a list of roles by name (활성 세션만 필요)",
-        "requestBody": { "content": { "application/json": { "schema": { "type": "array", "items": { "type": "string" } }, "example": ["system_user", "team_user"] } } },
-        "responses": { "200": { "description": "Role list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Role" } } } } } }
+        "summary": "05. Get a list of roles by name",
+        "description": "역할 이름 배열로 여러 역할을 한 번에 조회한다.\n\n**권한 지도 재검증에 쓰는 엔드포인트**다. `[\"system_user\", \"team_user\", \"channel_user\"]` 를 보내면 세 계층의 권한 목록을 한 호출로 받아, AGENTS.md 실측값이 여전히 유효한지 확인할 수 있다.\n\n최소 서버 버전 4.9",
+        "operationId": "getRolesByNames",
+        "tags": ["Roles"],
+        "x-priority": "high",
+        "x-permissions": "활성 세션만 필요 (추가 권한 없음)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "array", "items": { "type": "string" }, "description": "조회할 역할 이름 목록" },
+              "example": ["system_user", "team_user", "channel_user"]
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "역할 목록 조회 성공",
+            "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Role" } } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "`Authorization: Bearer <token>`. 세션 토큰 또는 개인 액세스 토큰을 사용한다."
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "잘못된 요청",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      },
+      "Unauthorized": {
+        "description": "인증 실패 또는 세션 만료",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      },
+      "NotFound": {
+        "description": "역할을 찾을 수 없음",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      }
+    },
+    "schemas": {
+      "AppError": {
+        "type": "object",
+        "description": "Mattermost 공통 오류 응답",
+        "properties": {
+          "status_code": { "type": "integer", "description": "HTTP 상태 코드" },
+          "id": { "type": "string", "description": "오류 식별자" },
+          "message": { "type": "string", "description": "사람이 읽을 수 있는 오류 메시지" },
+          "request_id": { "type": "string", "description": "요청 추적용 ID" }
+        }
+      },
+      "Role": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "역할의 고유 식별자" },
+          "name": { "type": "string", "description": "역할의 고유 이름. 사용자·그룹에 역할을 부여할 때 쓰인다. 예: `system_user`, `team_user`, `channel_user`." },
+          "display_name": { "type": "string", "description": "사람이 읽을 수 있는 역할 이름" },
+          "description": { "type": "string", "description": "역할에 대한 사람이 읽을 수 있는 설명" },
+          "permissions": { "type": "array", "items": { "type": "string" }, "description": "이 역할이 부여하는 권한의 고유 이름 목록. **실효 권한은 세 계층 역할의 합집합이다.**" },
+          "scheme_managed": { "type": "boolean", "description": "이 역할이 권한 스킴에 의해 관리되는지(true) 또는 독립 커스텀 역할인지(false)" }
+        }
       }
     }
   }

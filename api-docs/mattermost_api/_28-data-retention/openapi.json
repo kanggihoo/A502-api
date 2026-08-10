@@ -1,44 +1,193 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "Mattermost Data Retention API (권한 필터됨)",
-    "description": "본인 조회 기준 조회 전용 API. E20 라이선스 필요 (라이선스 없는 서버에서는 501 예상).",
-    "version": "1.0.0"
+    "title": "Mattermost API - _28-data-retention",
+    "version": "1.0.0",
+    "description": "Mattermost Data Retention API 중 SSAGY 연동 계정으로 호출 가능한 조회 엔드포인트만 정리한 명세.\n\n**포함 기준**: 01, 02, 03 (총 3건).\n**제외 기준**: 보존 정책 생성·수정·삭제 및 정책별 팀/채널 관리는 `manage_system` 권한이 필요해 연동 계정 범위 밖이다.\n\n**⚠️ 세 엔드포인트 모두 E20 라이선스가 필요하다.**\nSSAFY의 self-hosted Mattermost가 무료 Team Edition이거나 E20 미만 라이선스라면 **501**이 반환된다. GitLab이 CE라 Enterprise 기능을 못 쓰는 것과 같은 상황이므로, 연동 설계 시 이 API에 의존하지 말 것 — 501을 정상 경로로 취급하고 우아하게 건너뛰는 처리가 필요하다.\n\n**연동 관점의 의미**\n보존 정책이 걸린 채널은 오래된 메시지가 자동 삭제된다. SSAGY가 알림 원문 링크를 저장해 두었다가 나중에 열었을 때 **링크가 깨질 수 있다**는 뜻이다. 03번으로 전역 정책의 cutoff 시각을 확인하면, 원문이 사라질 가능성이 있는 링크에 미리 표시하거나 요약을 함께 보관하는 판단을 할 수 있다.\n\n**공통 규칙**\n- `user_id` 경로 파라미터에는 문자열 `me` 를 넣어 현재 로그인 사용자를 지칭할 수 있다.\n- 타임스탬프 계열 필드는 Unix epoch **밀리초** 정수다.\n- 오류 응답 본문은 모두 `AppError` 스키마를 따른다.\n\n**x-priority 의미**: SSAGY(통합 워크스페이스) 관점의 연동 우선순위."
   },
   "servers": [
-    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+    {
+      "url": "https://{host}/api/v4",
+      "variables": {
+        "host": {
+          "default": "meeting.ssafy.com",
+          "description": "self-hosted Mattermost 호스트"
+        }
+      }
+    }
   ],
-  "components": {
-    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } }
-  },
   "security": [{ "bearerAuth": [] }],
+  "tags": [{ "name": "Data Retention", "description": "데이터 보존 정책 조회 (E20 라이선스 필요)" }],
   "paths": {
     "/users/{user_id}/data_retention/team_policies": {
       "get": {
-        "summary": "1. Get the policies which are applied to a user's teams (본인, E20 라이선스 필요)",
+        "summary": "01. Get the policies which are applied to a user's teams",
+        "description": "사용자가 속한 모든 팀에 적용된 데이터 보존 정책을 조회한다.\n\n**E20 라이선스 필요** — 라이선스가 없으면 501.\n\n최소 서버 버전 5.35",
+        "operationId": "getTeamPoliciesForUser",
+        "tags": ["Data Retention"],
+        "x-priority": "low",
+        "x-permissions": "본인이거나 `manage_system` 권한 필요. 연동 계정은 본인(`me`)만 가능. **E20 라이선스 필요.**",
         "parameters": [
-          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
-          { "name": "page", "in": "query", "schema": { "type": "integer" } },
-          { "name": "per_page", "in": "query", "schema": { "type": "integer" } }
+          { "$ref": "#/components/parameters/UserIdOrMe" },
+          { "name": "page", "in": "query", "required": false, "schema": { "type": "integer", "default": 0 }, "description": "조회할 페이지 번호(0부터)" },
+          { "name": "per_page", "in": "query", "required": false, "schema": { "type": "integer", "default": 60 }, "description": "페이지당 정책 수" }
         ],
-        "responses": { "200": { "description": "Team retention policies" } }
+        "responses": {
+          "200": {
+            "description": "팀 보존 정책 조회 성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "policies": {
+                      "type": "array",
+                      "description": "팀 정책 목록",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "team_id": { "type": "string", "description": "팀 ID" },
+                          "post_duration": { "type": "integer", "description": "이 정책에 의해 메시지가 삭제되기까지 보존되는 일수" }
+                        }
+                      }
+                    },
+                    "total_count": { "type": "integer", "description": "팀 정책의 전체 개수" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "501": { "$ref": "#/components/responses/NotImplemented" }
+        }
       }
     },
     "/users/{user_id}/data_retention/channel_policies": {
       "get": {
-        "summary": "2. Get the policies which are applied to a user's channels (본인, E20 라이선스 필요)",
+        "summary": "02. Get the policies which are applied to a user's channels",
+        "description": "사용자가 속한 모든 채널에 적용된 데이터 보존 정책을 조회한다. 01번의 채널 단위 버전이다.\n\n**E20 라이선스 필요** — 라이선스가 없으면 501.\n\n최소 서버 버전 5.35",
+        "operationId": "getChannelPoliciesForUser",
+        "tags": ["Data Retention"],
+        "x-priority": "low",
+        "x-permissions": "본인이거나 `manage_system` 권한 필요. 연동 계정은 본인(`me`)만 가능. **E20 라이선스 필요.**",
         "parameters": [
-          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
-          { "name": "page", "in": "query", "schema": { "type": "integer" } },
-          { "name": "per_page", "in": "query", "schema": { "type": "integer" } }
+          { "$ref": "#/components/parameters/UserIdOrMe" },
+          { "name": "page", "in": "query", "required": false, "schema": { "type": "integer", "default": 0 }, "description": "조회할 페이지 번호(0부터)" },
+          { "name": "per_page", "in": "query", "required": false, "schema": { "type": "integer", "default": 60 }, "description": "페이지당 정책 수" }
         ],
-        "responses": { "200": { "description": "Channel retention policies" } }
+        "responses": {
+          "200": {
+            "description": "채널 보존 정책 조회 성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "policies": {
+                      "type": "array",
+                      "description": "채널 정책 목록",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "channel_id": { "type": "string", "description": "채널 ID" },
+                          "post_duration": { "type": "integer", "description": "이 정책에 의해 메시지가 삭제되기까지 보존되는 일수" }
+                        }
+                      }
+                    },
+                    "total_count": { "type": "integer", "description": "채널 정책의 전체 개수" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "501": { "$ref": "#/components/responses/NotImplemented" }
+        }
       }
     },
     "/data_retention/policy": {
       "get": {
-        "summary": "3. Get the global data retention policy (활성 세션만 필요, E20 라이선스 필요)",
-        "responses": { "200": { "description": "Global retention policy", "content": { "application/json": { "schema": { "type": "object", "properties": { "message_deletion_enabled": { "type": "boolean" }, "file_deletion_enabled": { "type": "boolean" }, "message_retention_cutoff": { "type": "integer" }, "file_retention_cutoff": { "type": "integer" } } } } } } }
+        "summary": "03. Get the global data retention policy",
+        "description": "서버의 현재 전역 데이터 보존 정책을 조회한다. 어떤 데이터를 삭제할지, 데이터 유형별 cutoff 시각이 언제인지를 담는다.\n\n**연동 활용**: `message_retention_cutoff` 이전 게시물은 삭제 대상이므로, SSAGY가 저장한 원문 링크가 깨질 수 있다. 이 값을 확인해 오래된 링크에 경고를 붙이거나 요약을 함께 보관하는 판단에 쓴다.\n\n**추가 권한 없이 활성 세션만 있으면 되는** 유일한 항목이다. 단 **E20 라이선스는 필요**하다.\n\n최소 서버 버전 4.3",
+        "operationId": "getDataRetentionPolicy",
+        "tags": ["Data Retention"],
+        "x-priority": "medium",
+        "x-permissions": "활성 세션만 필요 (추가 권한 없음). **E20 라이선스 필요.**",
+        "responses": {
+          "200": {
+            "description": "전역 보존 정책 조회 성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message_deletion_enabled": { "type": "boolean", "description": "메시지에 대한 보존 정책 삭제가 전역적으로 활성화돼 있는지 여부" },
+                    "file_deletion_enabled": { "type": "boolean", "description": "첨부 파일에 대한 보존 정책 삭제가 전역적으로 활성화돼 있는지 여부" },
+                    "message_retention_cutoff": { "type": "integer", "format": "int64", "description": "이 시각(서버 타임스탬프) 이전 메시지는 삭제 대상이다." },
+                    "file_retention_cutoff": { "type": "integer", "format": "int64", "description": "이 시각(서버 타임스탬프) 이전 파일은 삭제 대상이다." }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "501": { "$ref": "#/components/responses/NotImplemented" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "`Authorization: Bearer <token>`. 세션 토큰 또는 개인 액세스 토큰을 사용한다."
+      }
+    },
+    "parameters": {
+      "UserIdOrMe": {
+        "name": "user_id",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string" },
+        "description": "사용자 ID. 문자열 `me` 를 넣으면 현재 로그인 사용자를 가리킨다.",
+        "example": "me"
+      }
+    },
+    "responses": {
+      "Unauthorized": {
+        "description": "인증 실패 또는 세션 만료",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      },
+      "Forbidden": {
+        "description": "권한 부족",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      },
+      "InternalServerError": {
+        "description": "서버 내부 오류",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      },
+      "NotImplemented": {
+        "description": "**E20 라이선스가 없거나 데이터 보존 기능이 비활성화됨.** 무료/저사양 라이선스 서버에서는 이 응답이 정상 경로다.",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      }
+    },
+    "schemas": {
+      "AppError": {
+        "type": "object",
+        "description": "Mattermost 공통 오류 응답",
+        "properties": {
+          "status_code": { "type": "integer", "description": "HTTP 상태 코드" },
+          "id": { "type": "string", "description": "오류 식별자" },
+          "message": { "type": "string", "description": "사람이 읽을 수 있는 오류 메시지" },
+          "request_id": { "type": "string", "description": "요청 추적용 ID" }
+        }
       }
     }
   }

@@ -1,54 +1,188 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "Mattermost Shared Channels API (권한 필터됨)",
-    "description": "AGENTS.md 실효 권한 지도 기준 포함: view_team, read_channel 기반 조회. 원격 클러스터 초대/제거 등 manage_shared_channels/manage_secure_connections 필요 항목(#2, #4, #5)은 제외.",
-    "version": "1.0.0"
+    "title": "Mattermost API - _34-shared-channels",
+    "version": "1.0.0",
+    "description": "Mattermost Shared Channels API 중 SSAGY 연동 계정으로 호출 가능한 조회 엔드포인트만 정리한 명세.\n\n**포함 기준**: 01, 03, 06, 07 (총 4건).\n**제외 기준**: 원격 클러스터 초대·수락 등 공유 채널 설정 변경은 `manage_shared_channels` 또는 `manage_system` 권한이 필요해 연동 계정 범위 밖이다.\n\n**공유 채널이란**\n서로 다른 Mattermost 서버(원격 클러스터) 사이에서 채널을 공유하는 기능이다. SSAFY 단일 인스턴스 환경에서는 쓰이지 않을 가능성이 높으므로, 이 API들은 **결과가 빈 배열로 오는 것이 정상**일 수 있다.\n\n**연동 관점에서 유일하게 실용적인 항목: 07번**\n`can_dm` 확인은 공유 채널 맥락뿐 아니라 **DM 발송 전 사전 점검**으로 쓸 수 있다. `_06-channels` 04번으로 DM 채널을 만들기 전에 이걸로 확인하면, 원격 사용자 제약이나 사용자 가시성 문제로 실패할 발송을 미리 걸러낸다.\n\n**공통 규칙**\n- 타임스탬프 계열 필드는 Unix epoch **밀리초** 정수다.\n- 오류 응답 본문은 모두 `AppError` 스키마를 따른다.\n\n**x-priority 의미**: SSAGY(통합 워크스페이스) 관점의 연동 우선순위."
   },
   "servers": [
-    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+    {
+      "url": "https://{host}/api/v4",
+      "variables": {
+        "host": {
+          "default": "meeting.ssafy.com",
+          "description": "self-hosted Mattermost 호스트"
+        }
+      }
+    }
   ],
-  "components": {
-    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } }
-  },
   "security": [{ "bearerAuth": [] }],
+  "tags": [{ "name": "Shared Channels", "description": "원격 클러스터 공유 채널 조회" }],
   "paths": {
     "/sharedchannels/{team_id}": {
       "get": {
-        "summary": "1. Get all shared channels for team (view_team, 본인 멤버 채널로 제한, 서버 5.50+)",
+        "summary": "01. Get all shared channels for team",
+        "description": "팀의 공유 채널 목록을 조회한다.\n\n**결과 범위**: `manage_shared_channels` 권한이 없으면 **사용자가 멤버인 채널로 제한**된다. 연동 계정은 이 제한을 받는다.\n\n단일 인스턴스 환경에서는 빈 배열이 정상이다.\n\n최소 서버 버전 5.50",
+        "operationId": "getAllSharedChannels",
+        "tags": ["Shared Channels"],
+        "x-priority": "low",
+        "x-permissions": "인증 + 해당 팀의 `view_team` 권한 필요. `manage_shared_channels` 가 없으면 본인이 멤버인 채널로 결과가 제한된다.",
         "parameters": [
-          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "page", "in": "query", "schema": { "type": "integer" } },
-          { "name": "per_page", "in": "query", "schema": { "type": "integer" } }
+          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "팀 ID" },
+          { "name": "page", "in": "query", "required": false, "schema": { "type": "integer", "default": 0 }, "description": "조회할 페이지 번호(0부터)" },
+          { "name": "per_page", "in": "query", "required": false, "schema": { "type": "integer", "default": 60 }, "description": "페이지당 공유 채널 수" }
         ],
-        "responses": { "200": { "description": "Shared channel list" } }
+        "responses": {
+          "200": {
+            "description": "공유 채널 조회 성공. 결과가 비어 있을 수 있다.",
+            "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/SharedChannel" } } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
       }
     },
     "/sharedchannels/remote_info/{remote_id}": {
       "get": {
-        "summary": "3. Get remote cluster info by ID for user (공유 채널 멤버여야 함, 서버 5.50+)",
+        "summary": "03. Get remote cluster info by ID for user",
+        "description": "remoteId로 원격 클러스터 정보를 조회한다. 01번 응답의 `remote_id` 를 넣어 사용한다.\n\n**요청자가 해당 원격 클러스터와 공유된 채널에 하나 이상 속해 있어야** 조회된다.\n\n최소 서버 버전 5.50",
+        "operationId": "getRemoteClusterInfo",
+        "tags": ["Shared Channels"],
+        "x-priority": "low",
+        "x-permissions": "인증 필요 + 해당 원격 클러스터와 공유된 채널에 최소 하나 속해 있어야 함.",
         "parameters": [
-          { "name": "remote_id", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "include_deleted", "in": "query", "schema": { "type": "boolean" } }
+          { "name": "remote_id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "원격 클러스터 GUID" },
+          { "name": "include_deleted", "in": "query", "required": false, "schema": { "type": "boolean" }, "description": "삭제된 원격 클러스터도 포함할지 여부" }
         ],
-        "responses": { "200": { "description": "Remote cluster info" } }
+        "responses": {
+          "200": {
+            "description": "원격 클러스터 정보 조회 성공",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RemoteClusterInfo" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
       }
     },
     "/sharedchannels/{channel_id}/remotes": {
       "get": {
-        "summary": "6. Get remote clusters for a shared channel (read_channel, 서버 10.11+)",
-        "parameters": [{ "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } }],
-        "responses": { "200": { "description": "Remote cluster list" } }
+        "summary": "06. Get remote clusters for a shared channel",
+        "description": "공유 채널에 연결된 원격 클러스터 정보를 조회한다. 03번이 remoteId 단건 조회라면, 이쪽은 **채널 기준으로 연결된 클러스터 전체**를 준다.\n\n**경로 주의**: `/sharedchannels/{...}` 이지만 경로 변수는 `team_id`(01번)가 아니라 **`channel_id`** 다.\n\n최소 서버 버전 10.11",
+        "operationId": "getSharedChannelRemotes",
+        "tags": ["Shared Channels"],
+        "x-priority": "low",
+        "x-permissions": "인증 + 해당 채널에 대한 `read_channel` 권한 필요.",
+        "parameters": [
+          { "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "채널 GUID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "원격 클러스터 조회 성공",
+            "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/RemoteClusterInfo" } } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
       }
     },
     "/sharedchannels/users/{user_id}/can_dm/{other_user_id}": {
       "get": {
-        "summary": "7. Check if user can DM another user in shared channels context (서버 10.11+)",
+        "summary": "07. Check if user can DM another user in shared channels context",
+        "description": "한 사용자가 다른 사용자에게 DM을 보낼 수 있는지 확인한다. 사용자 가시성뿐 아니라 **원격 클러스터의 direct-connect 제약**까지 평가한다.\n\n**이 디렉토리에서 연동 활용도가 가장 높은 항목이다.** `_06-channels` 04번으로 DM 채널을 만들기 전에 호출하면, 실패할 발송을 미리 거를 수 있다.\n\n최소 서버 버전 10.11",
+        "operationId": "canUserDirectMessage",
+        "tags": ["Shared Channels"],
+        "x-priority": "medium",
+        "x-permissions": "인증 필요 + 대상 사용자를 볼 수 있어야 함.",
         "parameters": [
-          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
-          { "name": "other_user_id", "in": "path", "required": true, "schema": { "type": "string" } }
+          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "발신자 사용자 GUID. `me` 사용 가능.", "example": "me" },
+          { "name": "other_user_id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "수신자 사용자 GUID" }
         ],
-        "responses": { "200": { "description": "can_dm boolean", "content": { "application/json": { "schema": { "type": "object", "properties": { "can_dm": { "type": "boolean" } } } } } } }
+        "responses": {
+          "200": {
+            "description": "DM 가능 여부 확인 성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "can_dm": { "type": "boolean", "description": "해당 사용자에게 DM을 보낼 수 있는지 여부" } }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "`Authorization: Bearer <token>`. 세션 토큰 또는 개인 액세스 토큰을 사용한다."
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "잘못된 요청",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      },
+      "Unauthorized": {
+        "description": "인증 실패 또는 세션 만료",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      },
+      "Forbidden": {
+        "description": "권한 부족",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      },
+      "NotFound": {
+        "description": "리소스를 찾을 수 없음",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      }
+    },
+    "schemas": {
+      "AppError": {
+        "type": "object",
+        "description": "Mattermost 공통 오류 응답",
+        "properties": {
+          "status_code": { "type": "integer", "description": "HTTP 상태 코드" },
+          "id": { "type": "string", "description": "오류 식별자" },
+          "message": { "type": "string", "description": "사람이 읽을 수 있는 오류 메시지" },
+          "request_id": { "type": "string", "description": "요청 추적용 ID" }
+        }
+      },
+      "SharedChannel": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "공유 채널의 채널 ID" },
+          "team_id": { "type": "string", "description": "채널이 속한 팀 ID" },
+          "home": { "type": "boolean", "description": "이 클러스터가 해당 공유 채널의 홈 클러스터인지 여부" },
+          "readonly": { "type": "boolean", "description": "읽기 전용으로 공유됐는지 여부" },
+          "name": { "type": "string", "description": "공유된 형태의 채널 이름. 원래 채널 이름과 다를 수 있다." },
+          "display_name": { "type": "string", "description": "로컬에 표시되는 채널 이름" },
+          "purpose": { "type": "string", "description": "채널 목적 설명" },
+          "header": { "type": "string", "description": "채널 헤더 텍스트" },
+          "creator_id": { "type": "string", "description": "채널을 공유한 사용자 ID" },
+          "create_at": { "type": "integer", "format": "int64", "description": "채널이 공유된 시각(밀리초)" },
+          "update_at": { "type": "integer", "format": "int64", "description": "공유 채널 레코드가 마지막으로 갱신된 시각(밀리초)" },
+          "remote_id": { "type": "string", "description": "이 공유 채널이 홈으로 두는 원격 클러스터의 ID. 03번의 `remote_id` 로 사용한다." }
+        }
+      },
+      "RemoteClusterInfo": {
+        "type": "object",
+        "properties": {
+          "display_name": { "type": "string", "description": "원격 클러스터의 표시 이름" },
+          "create_at": { "type": "integer", "format": "int64", "description": "원격 클러스터가 생성된 시각(밀리초)" },
+          "last_ping_at": { "type": "integer", "format": "int64", "description": "원격 클러스터에 마지막으로 성공적으로 ping한 시각(밀리초). 연결 상태 판단에 쓴다." }
+        }
       }
     }
   }

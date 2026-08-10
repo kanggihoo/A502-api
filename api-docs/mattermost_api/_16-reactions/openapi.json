@@ -1,66 +1,197 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "Mattermost Reactions API (권한 필터됨)",
-    "description": "AGENTS.md 실효 권한 지도 기준 포함: add_reaction, remove_reaction(본인), read_channel.",
-    "version": "1.0.0"
+    "title": "Mattermost API - _16-reactions",
+    "version": "1.0.0",
+    "description": "Mattermost Reactions API. SSAGY 연동 계정(`system_user` + `team_user` + `channel_user`)으로 전 항목 호출 가능하다.\n\n**포함 기준**: 01~04 (총 4건 — 디렉토리 전체).\n\n**연동 활용**\nAGENTS.md 실효 권한 지도상 `channel_user` 에 `add_reaction` / `remove_reaction` 이 포함돼 있다. 리액션은 **알림에 대한 경량 상호작용 채널**로 쓸 수 있다 — 예: SSAGY가 보낸 배포 승인 요청에 팀원이 :+1: 을 달면, 02번으로 그것을 읽어 승인 처리로 해석하는 식.\n\n**⚠️ 01번 요청 본문의 required 표기 문제**\n원문에 네 필드 모두 optional 로 표기돼 있으나, 실제로는 `user_id`, `post_id`, `emoji_name` 없이는 리액션을 만들 수 없다. `create_at` 은 서버가 채우므로 보내지 않아도 된다. 원문 표기를 유지하되 각 필드 설명에 실제 필요 여부를 적어 뒀다.\n\n**⚠️ 04번 응답 스키마 부재**\n원문이 `{}` 로만 정의하고 있다. Mattermost 실제 동작은 post_id 를 키로, Reaction 배열을 값으로 갖는 맵이므로 그 기준으로 기술했다 — 실호출 검증이 필요하다.\n\n**공통 규칙**\n- `emoji_name` 은 콜론 없는 이름이다 — `:+1:` 이 아니라 `+1`.\n- 타임스탬프 계열 필드는 모두 Unix epoch **밀리초** 정수다.\n- 오류 응답 본문은 모두 `AppError` 스키마를 따른다.\n\n**x-priority 의미**: SSAGY(통합 워크스페이스) 관점의 연동 우선순위."
   },
   "servers": [
-    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
-  ],
-  "components": {
-    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } },
-    "schemas": {
-      "Reaction": {
-        "type": "object",
-        "properties": {
-          "user_id": { "type": "string" },
-          "post_id": { "type": "string" },
-          "emoji_name": { "type": "string" },
-          "create_at": { "type": "integer" }
+    {
+      "url": "https://{host}/api/v4",
+      "variables": {
+        "host": {
+          "default": "meeting.ssafy.com",
+          "description": "self-hosted Mattermost 호스트"
         }
       }
     }
-  },
+  ],
   "security": [{ "bearerAuth": [] }],
+  "tags": [{ "name": "Reactions", "description": "게시물 리액션 생성·조회·삭제" }],
   "paths": {
     "/reactions": {
       "post": {
-        "summary": "1. Create a reaction (add_reaction, read_channel)",
+        "summary": "01. Create a reaction",
+        "description": "게시물에 리액션을 추가한다.\n\n**required 표기 주의**: 원문에 모든 필드가 optional 로 표기돼 있으나, 실질적으로 `user_id`, `post_id`, `emoji_name` 이 필요하다. `create_at` 은 서버가 채운다.\n\n`emoji_name` 에는 콜론을 빼고 이름만 넣는다 — `+1`, `white_check_mark` 등.",
+        "operationId": "saveReaction",
+        "tags": ["Reactions"],
+        "x-priority": "medium",
+        "x-permissions": "게시물이 속한 채널에 대한 `read_channel` 권한 필요. 리액션 추가 자체는 `channel_user` 의 `add_reaction` 으로 가능.",
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/Reaction" },
-              "example": { "user_id": "{{my_user_id}}", "post_id": "{{post_id}}", "emoji_name": "+1" }
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "user_id": { "type": "string", "description": "이 리액션을 남기는 사용자 ID. 원문상 optional 이지만 실질적으로 필요하다." },
+                  "post_id": { "type": "string", "description": "리액션 대상 게시물 ID. 원문상 optional 이지만 실질적으로 필요하다." },
+                  "emoji_name": { "type": "string", "description": "리액션에 사용할 이모지 이름. **콜론 없이** 이름만 — `+1`, `white_check_mark` 등. 원문상 optional 이지만 실질적으로 필요하다." },
+                  "create_at": { "type": "integer", "format": "int64", "description": "리액션이 생성된 시각(밀리초). 서버가 채우므로 보내지 않아도 된다." }
+                }
+              },
+              "example": { "user_id": "4eb6axxw7fg3je5iyasnfudc5y", "post_id": "8xk2mnqp3bfytc9wjhr4vd6z1e", "emoji_name": "white_check_mark" }
             }
           }
         },
-        "responses": { "201": { "description": "Reaction created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Reaction" } } } } }
+        "responses": {
+          "201": {
+            "description": "리액션 생성 성공",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Reaction" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
       }
     },
     "/posts/{post_id}/reactions": {
       "get": {
-        "summary": "2. Get a list of reactions to a post (read_channel)",
-        "parameters": [{ "name": "post_id", "in": "path", "required": true, "schema": { "type": "string" } }],
-        "responses": { "200": { "description": "Reaction list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Reaction" } } } } } }
+        "summary": "02. Get a list of reactions to a post",
+        "description": "해당 게시물에 모든 사용자가 남긴 리액션 목록을 조회한다. 알림 메시지에 대한 팀원 반응을 읽어 승인·확인 처리로 해석할 때 쓴다.",
+        "operationId": "getReactions",
+        "tags": ["Reactions"],
+        "x-priority": "high",
+        "x-permissions": "게시물이 속한 채널에 대한 `read_channel` 권한 필요.",
+        "parameters": [
+          { "name": "post_id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "게시물 ID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "리액션 목록 조회 성공",
+            "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Reaction" } } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
       }
     },
     "/users/{user_id}/posts/{post_id}/reactions/{emoji_name}": {
       "delete": {
-        "summary": "3. Remove a reaction from a post (본인, remove_reaction)",
+        "summary": "03. Remove a reaction from a post",
+        "description": "특정 사용자가 게시물에 남긴 특정 이모지 리액션을 삭제한다. 삭제 키가 경로에 모두 들어가므로 요청 본문은 없다.\n\n연동 계정은 **자기가 남긴 리액션만** 삭제할 수 있다.",
+        "operationId": "deleteReaction",
+        "tags": ["Reactions"],
+        "x-priority": "medium",
+        "x-permissions": "본인이거나 `manage_system` 권한 필요. 연동 계정은 본인(`me`)이 남긴 리액션만 삭제 가능.",
         "parameters": [
-          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "default": "me" } },
-          { "name": "post_id", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "emoji_name", "in": "path", "required": true, "schema": { "type": "string" } }
+          { "$ref": "#/components/parameters/UserIdOrMe" },
+          { "name": "post_id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "게시물 ID" },
+          { "name": "emoji_name", "in": "path", "required": true, "schema": { "type": "string" }, "description": "이모지 이름. **콜론 없이** 이름만." }
         ],
-        "responses": { "200": { "description": "ok" } }
+        "responses": {
+          "200": {
+            "description": "리액션 삭제 성공",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatusOK" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
       }
     },
     "/posts/ids/reactions": {
       "post": {
-        "summary": "4. Bulk get the reaction for posts (read_channel, 서버 5.8+)",
-        "requestBody": { "content": { "application/json": { "schema": { "type": "array", "items": { "type": "string" } } } } },
-        "responses": { "200": { "description": "post_id -> Reaction[] map" } }
+        "summary": "04. Bulk get the reactions for posts",
+        "description": "게시물 ID 배열을 보내 여러 게시물의 리액션을 한 번에 조회한다. 02번을 N회 호출하는 대신 쓴다.\n\n**⚠️ 응답 스키마 주의**: 원문이 `{}` 로만 정의하고 있다. 아래 스키마는 post_id 를 키로, Reaction 배열을 값으로 갖는 Mattermost 실제 동작 기준이므로 실호출 검증이 필요하다.\n\n최소 서버 버전 5.8",
+        "operationId": "getBulkReactions",
+        "tags": ["Reactions"],
+        "x-priority": "high",
+        "x-permissions": "게시물이 속한 채널에 대한 `read_channel` 권한 필요.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "array", "items": { "type": "string" }, "description": "리액션을 조회할 게시물 ID 목록" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "리액션 조회 성공. 게시물 ID를 키로, 해당 게시물의 리액션 배열을 값으로 갖는 맵.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": { "type": "array", "items": { "$ref": "#/components/schemas/Reaction" } }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "`Authorization: Bearer <token>`. 세션 토큰 또는 개인 액세스 토큰을 사용한다."
+      }
+    },
+    "parameters": {
+      "UserIdOrMe": {
+        "name": "user_id",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string" },
+        "description": "사용자 ID. 문자열 `me` 를 넣으면 현재 로그인 사용자를 가리킨다.",
+        "example": "me"
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "잘못된 요청",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      },
+      "Unauthorized": {
+        "description": "인증 실패 또는 세션 만료",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      },
+      "Forbidden": {
+        "description": "권한 부족",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      }
+    },
+    "schemas": {
+      "AppError": {
+        "type": "object",
+        "description": "Mattermost 공통 오류 응답",
+        "properties": {
+          "status_code": { "type": "integer", "description": "HTTP 상태 코드" },
+          "id": { "type": "string", "description": "오류 식별자" },
+          "message": { "type": "string", "description": "사람이 읽을 수 있는 오류 메시지" },
+          "request_id": { "type": "string", "description": "요청 추적용 ID" }
+        }
+      },
+      "StatusOK": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string", "example": "ok", "description": "요청이 성공했고 반환할 다른 내용이 없으면 `\"ok\"` 가 담긴다." }
+        }
+      },
+      "Reaction": {
+        "type": "object",
+        "properties": {
+          "user_id": { "type": "string", "description": "이 리액션을 남긴 사용자 ID" },
+          "post_id": { "type": "string", "description": "리액션 대상 게시물 ID" },
+          "emoji_name": { "type": "string", "description": "리액션에 사용된 이모지 이름(콜론 없음)" },
+          "create_at": { "type": "integer", "format": "int64", "description": "리액션이 생성된 시각(밀리초)" }
+        }
       }
     }
   }

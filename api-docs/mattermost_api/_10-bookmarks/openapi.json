@@ -1,111 +1,264 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "Mattermost Channel Bookmarks API (권한 필터됨)",
-    "description": "AGENTS.md 실효 권한 지도 기준 포함: add/edit/delete/order_bookmark_public_channel, add/edit/delete/order_bookmark_private_channel. 채널 멤버로서 전부 사용 가능. 최소 서버 버전 9.5.",
-    "version": "1.0.0"
+    "title": "Mattermost API - _10-bookmarks",
+    "version": "1.0.0",
+    "description": "Mattermost Channel Bookmarks API. SSAGY 연동 계정(`system_user` + `team_user` + `channel_user`)으로 전 항목 호출 가능하다.\n\n**포함 기준**: 01~05 (총 5건 — 디렉토리 전체).\n\n**연동 활용**\nAGENTS.md 실효 권한 지도에 따르면 `channel_user` 역할에 `add/edit/delete/order_bookmark_public_channel` 과 private 대응 권한이 모두 포함돼 있다. 따라서 SSAGY가 팀 채널을 세팅할 때 **GitLab 저장소, Jira 보드, Jenkins 대시보드, Notion 문서 링크를 채널 북마크로 자동 등록**할 수 있다 — \"도구가 분산돼 반복 설정 비용이 든다\"는 문제에 직접 대응하는 경로다.\n\n**⚠️ 원문 문서의 알려진 문제**\n01/02/04/05번의 응답 스키마가 원문에 `any` 로만 정의돼 있다. 아래 `ChannelBookmark` 스키마는 02/03번의 **요청 본문 필드 + Mattermost 표준 리소스 필드**로 재구성한 것이므로, 실호출로 검증한 뒤 확정할 것.\n\n최소 서버 버전 9.5\n\n**공통 규칙**\n- 타임스탬프 계열 필드는 모두 Unix epoch **밀리초** 정수다.\n- 오류 응답 본문은 모두 `AppError` 스키마를 따른다.\n\n**x-priority 의미**: SSAGY(통합 워크스페이스) 관점의 연동 우선순위."
   },
   "servers": [
-    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
-  ],
-  "components": {
-    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } },
-    "schemas": {
-      "Bookmark": {
-        "type": "object",
-        "properties": {
-          "id": { "type": "string" },
-          "channel_id": { "type": "string" },
-          "display_name": { "type": "string" },
-          "sort_order": { "type": "integer" },
-          "type": { "type": "string", "enum": ["link", "file"] },
-          "file_id": { "type": "string" },
-          "link_url": { "type": "string" },
-          "image_url": { "type": "string" },
-          "emoji": { "type": "string" }
+    {
+      "url": "https://{host}/api/v4",
+      "variables": {
+        "host": {
+          "default": "meeting.ssafy.com",
+          "description": "self-hosted Mattermost 호스트"
         }
       }
     }
-  },
+  ],
   "security": [{ "bearerAuth": [] }],
+  "tags": [{ "name": "Channel Bookmarks", "description": "채널 북마크 조회·생성·수정·삭제·정렬" }],
   "paths": {
     "/channels/{channel_id}/bookmarks": {
       "get": {
-        "summary": "1. Get channel bookmarks for Channel",
+        "summary": "01. Get channel bookmarks for Channel",
+        "description": "채널의 북마크 목록을 조회한다.\n\n`bookmarks_since` 를 주면 그 시각 이후 **추가·수정·삭제된** 북마크만 반환된다 — 삭제분도 포함되므로 증분 동기화에 쓸 수 있다(삭제된 항목은 `delete_at` 이 0이 아니다).\n\n**⚠️ 원문 응답 스키마가 `[any]` 로만 정의돼 있다.** 아래 스키마는 재구성한 것이므로 실호출 검증이 필요하다.\n\n최소 서버 버전 9.5",
+        "operationId": "listChannelBookmarksForChannel",
+        "tags": ["Channel Bookmarks"],
+        "x-priority": "high",
+        "x-permissions": "원문에 권한 명시 없음. 실질적으로 해당 채널에 대한 `read_channel` 권한이 필요하다.",
         "parameters": [
-          { "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "bookmarks_since", "in": "query", "schema": { "type": "number" } }
+          { "$ref": "#/components/parameters/ChannelId" },
+          { "name": "bookmarks_since", "in": "query", "required": false, "schema": { "type": "number", "format": "int64" }, "description": "필터 기준 타임스탬프(밀리초). 지정하면 이 시각 이후 추가·수정·삭제된 북마크만 반환한다." }
         ],
-        "responses": { "200": { "description": "Bookmark list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Bookmark" } } } } } }
+        "responses": {
+          "200": {
+            "description": "채널 북마크 조회 성공",
+            "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/ChannelBookmark" } } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
       },
       "post": {
-        "summary": "2. Create channel bookmark (add_bookmark_public/private_channel)",
-        "parameters": [{ "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "summary": "02. Create channel bookmark",
+        "description": "채널에 새 북마크를 만든다. **SSAGY 팀 세팅에서 외부 도구 링크를 채널에 고정하는 경로**다.\n\n**타입별 필수 필드가 다르다.**\n- `type: \"link\"` → `link_url` 필수\n- `type: \"file\"` → `file_id` 필수 (파일은 `_08-files` 01번으로 먼저 업로드하고, 서버 9.4+ 에서는 업로드 시 `bookmark=true` 쿼리를 붙인다)\n\n최소 서버 버전 9.5",
+        "operationId": "createChannelBookmark",
+        "tags": ["Channel Bookmarks"],
+        "x-priority": "high",
+        "x-permissions": "채널 타입에 따라 `add_bookmark_public_channel` 또는 `add_bookmark_private_channel` 권한 필요(둘 다 `channel_user` 에 포함). DM/GM 채널이면 게스트가 아닌 멤버여야 한다.",
+        "parameters": [{ "$ref": "#/components/parameters/ChannelId" }],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
+                "required": ["display_name", "type"],
                 "properties": {
-                  "display_name": { "type": "string" },
-                  "type": { "type": "string", "enum": ["link", "file"] },
-                  "file_id": { "type": "string" },
-                  "link_url": { "type": "string" },
-                  "image_url": { "type": "string" },
-                  "emoji": { "type": "string" }
-                },
-                "required": ["display_name", "type"]
+                  "display_name": { "type": "string", "description": "채널 북마크의 이름" },
+                  "type": { "type": "string", "enum": ["link", "file"], "description": "`link`=링크를 참조하는 북마크(`link_url` 필수), `file`=파일을 참조하는 북마크(`file_id` 필수)" },
+                  "link_url": { "type": "string", "description": "북마크가 가리키는 URL. `type` 이 `link` 일 때 필수." },
+                  "file_id": { "type": "string", "description": "북마크에 연결된 파일 ID. `type` 이 `file` 일 때 필수." },
+                  "image_url": { "type": "string", "description": "북마크에 표시할 이미지 URL. 선택이며 `type` 이 `link` 일 때만 적용된다." },
+                  "emoji": { "type": "string", "description": "북마크에 표시할 이모지" }
+                }
               },
-              "example": { "display_name": "팀 노션", "type": "link", "link_url": "https://notion.so/team-a502" }
+              "example": { "display_name": "A502 GitLab", "type": "link", "link_url": "https://lab.ssafy.com/s12/A502", "emoji": "octopus" }
             }
           }
         },
-        "responses": { "201": { "description": "Bookmark created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Bookmark" } } } } }
+        "responses": {
+          "201": {
+            "description": "채널 북마크 생성 성공",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ChannelBookmark" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
       }
     },
     "/channels/{channel_id}/bookmarks/{bookmark_id}": {
       "patch": {
-        "summary": "3. Update channel bookmark (edit_bookmark_public/private_channel)",
+        "summary": "03. Update channel bookmark",
+        "description": "보낸 필드만 부분 갱신한다. 생략한 필드는 유지되고, 정의되지 않은 필드는 무시된다.\n\n**응답 형태 주의**: 갱신된 북마크 하나가 아니라 `{ updated, deleted }` 객체가 반환된다. `sort_order` 변경이나 타입 전환처럼 다른 북마크에 영향을 주는 갱신에서 `deleted` 가 채워질 수 있다.\n\n최소 서버 버전 9.5",
+        "operationId": "updateChannelBookmark",
+        "tags": ["Channel Bookmarks"],
+        "x-priority": "medium",
+        "x-permissions": "채널 타입에 따라 `edit_bookmark_public_channel` 또는 `edit_bookmark_private_channel` 권한 필요(둘 다 `channel_user` 에 포함). DM/GM 채널이면 게스트가 아닌 멤버여야 한다.",
         "parameters": [
-          { "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "bookmark_id", "in": "path", "required": true, "schema": { "type": "string" } }
+          { "$ref": "#/components/parameters/ChannelId" },
+          { "$ref": "#/components/parameters/BookmarkId" }
         ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
                 "properties": {
-                  "display_name": { "type": "string" },
-                  "sort_order": { "type": "integer" },
-                  "type": { "type": "string", "enum": ["link", "file"] },
-                  "file_id": { "type": "string" },
-                  "link_url": { "type": "string" }
+                  "display_name": { "type": "string", "description": "채널 북마크의 이름" },
+                  "sort_order": { "type": "integer", "description": "채널 북마크의 표시 순서" },
+                  "type": { "type": "string", "enum": ["link", "file"], "description": "`link`=링크 북마크(`link_url` 필수), `file`=파일 북마크(`file_id` 필수)" },
+                  "link_url": { "type": "string", "description": "북마크가 가리키는 URL. `type` 이 `link` 일 때 필수." },
+                  "file_id": { "type": "string", "description": "북마크에 연결된 파일 ID. `type` 이 `file` 일 때 필수." },
+                  "image_url": { "type": "string", "description": "북마크에 표시할 이미지 URL" },
+                  "emoji": { "type": "string", "description": "북마크에 표시할 이모지" }
                 }
               }
             }
           }
         },
-        "responses": { "200": { "description": "updated/deleted bookmark" } }
+        "responses": {
+          "200": {
+            "description": "채널 북마크 갱신 성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "updated": { "$ref": "#/components/schemas/ChannelBookmark" },
+                    "deleted": { "$ref": "#/components/schemas/ChannelBookmark" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
       },
       "delete": {
-        "summary": "4. Delete channel bookmark (delete_bookmark_public/private_channel)",
+        "summary": "04. Delete channel bookmark",
+        "description": "채널 북마크를 **아카이브**한다. 실제로 지우지 않고 DB의 `delete_at` 에 현재 시각을 기록한다. 따라서 01번을 `bookmarks_since` 와 함께 호출하면 삭제된 항목도 감지할 수 있다.\n\n최소 서버 버전 9.5",
+        "operationId": "deleteChannelBookmark",
+        "tags": ["Channel Bookmarks"],
+        "x-priority": "medium",
+        "x-permissions": "채널 타입에 따라 `delete_bookmark_public_channel` 또는 `delete_bookmark_private_channel` 권한 필요(둘 다 `channel_user` 에 포함). DM/GM 채널이면 게스트가 아닌 멤버여야 한다.",
         "parameters": [
-          { "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "bookmark_id", "in": "path", "required": true, "schema": { "type": "string" } }
+          { "$ref": "#/components/parameters/ChannelId" },
+          { "$ref": "#/components/parameters/BookmarkId" }
         ],
-        "responses": { "200": { "description": "Deleted bookmark", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Bookmark" } } } } }
+        "responses": {
+          "200": {
+            "description": "채널 북마크 삭제 성공. 삭제된 북마크 객체가 반환된다.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ChannelBookmark" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
       }
     },
     "/channels/{channel_id}/bookmarks/{bookmark_id}/sort_order": {
       "post": {
-        "summary": "5. Update channel bookmark's order (order_bookmark_public/private_channel)",
+        "summary": "05. Update channel bookmark's order",
+        "description": "북마크의 순서를 변경한다. 지정한 새 순서를 반영하고, 채널의 나머지 북마크 순서를 자동으로 재조정한다.\n\n**요청 본문이 JSON 객체가 아니라 숫자 하나**다 — 예: `3`.\n\n응답으로 재정렬된 채널 북마크 전체 목록이 반환된다.\n\n최소 서버 버전 9.5",
+        "operationId": "updateChannelBookmarkSortOrder",
+        "tags": ["Channel Bookmarks"],
+        "x-priority": "low",
+        "x-permissions": "채널 타입에 따라 `order_bookmark_public_channel` 또는 `order_bookmark_private_channel` 권한 필요(둘 다 `channel_user` 에 포함). DM/GM 채널이면 게스트가 아닌 멤버여야 한다.",
         "parameters": [
-          { "name": "channel_id", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "bookmark_id", "in": "path", "required": true, "schema": { "type": "string" } }
+          { "$ref": "#/components/parameters/ChannelId" },
+          { "$ref": "#/components/parameters/BookmarkId" }
         ],
-        "requestBody": { "content": { "application/json": { "schema": { "type": "integer" } } } },
-        "responses": { "200": { "description": "Reordered bookmark list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Bookmark" } } } } } }
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "number", "description": "이 북마크의 새 순서(0부터). JSON 객체가 아니라 숫자 값 자체를 본문으로 보낸다." },
+              "example": 0
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "북마크 순서 갱신 성공. 재정렬된 전체 목록이 반환된다.",
+            "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/ChannelBookmark" } } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "`Authorization: Bearer <token>`. 세션 토큰 또는 개인 액세스 토큰을 사용한다."
+      }
+    },
+    "parameters": {
+      "ChannelId": {
+        "name": "channel_id",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string" },
+        "description": "채널 GUID"
+      },
+      "BookmarkId": {
+        "name": "bookmark_id",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string" },
+        "description": "북마크 GUID"
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "잘못된 요청",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      },
+      "Unauthorized": {
+        "description": "인증 실패 또는 세션 만료",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      },
+      "Forbidden": {
+        "description": "권한 부족",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      },
+      "NotFound": {
+        "description": "리소스를 찾을 수 없음",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      }
+    },
+    "schemas": {
+      "AppError": {
+        "type": "object",
+        "description": "Mattermost 공통 오류 응답",
+        "properties": {
+          "status_code": { "type": "integer", "description": "HTTP 상태 코드" },
+          "id": { "type": "string", "description": "오류 식별자" },
+          "message": { "type": "string", "description": "사람이 읽을 수 있는 오류 메시지" },
+          "request_id": { "type": "string", "description": "요청 추적용 ID" }
+        }
+      },
+      "ChannelBookmark": {
+        "type": "object",
+        "description": "⚠️ 원문 문서가 이 응답을 `any` 로만 정의하고 있어, 02/03번 요청 본문 필드와 Mattermost 표준 리소스 필드로 재구성한 스키마다. 실호출로 검증할 것.",
+        "properties": {
+          "id": { "type": "string", "description": "북마크 GUID" },
+          "create_at": { "type": "integer", "format": "int64", "description": "북마크가 생성된 시각(밀리초)" },
+          "update_at": { "type": "integer", "format": "int64", "description": "북마크가 마지막으로 갱신된 시각(밀리초)" },
+          "delete_at": { "type": "integer", "format": "int64", "description": "북마크가 아카이브된 시각(밀리초). 활성 북마크는 0." },
+          "channel_id": { "type": "string", "description": "북마크가 속한 채널 ID" },
+          "owner_id": { "type": "string", "description": "북마크를 만든 사용자 ID" },
+          "file_id": { "type": "string", "description": "북마크에 연결된 파일 ID. `type` 이 `file` 일 때 채워진다." },
+          "display_name": { "type": "string", "description": "채널 북마크의 이름" },
+          "sort_order": { "type": "integer", "description": "채널 내 표시 순서" },
+          "link_url": { "type": "string", "description": "북마크가 가리키는 URL. `type` 이 `link` 일 때 채워진다." },
+          "image_url": { "type": "string", "description": "북마크에 표시할 이미지 URL" },
+          "emoji": { "type": "string", "description": "북마크에 표시할 이모지" },
+          "type": { "type": "string", "enum": ["link", "file"], "description": "북마크 종류" }
+        }
       }
     }
   }

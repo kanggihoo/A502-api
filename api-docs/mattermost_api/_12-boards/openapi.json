@@ -1,43 +1,123 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "Mattermost Boards API (권한 필터됨)",
-    "description": "AGENTS.md 실효 권한 지도 기준 포함: create_public_channel(BO)/create_private_channel(BP). 주의: IntegratedBoards feature flag가 꺼져 있으면 404.",
-    "version": "1.0.0"
+    "title": "Mattermost API - _12-boards",
+    "version": "1.0.0",
+    "description": "Mattermost Boards API. SSAGY 연동 계정(`system_user` + `team_user` + `channel_user`)으로 호출 가능한 항목만 포함.\n\n**포함 기준**: 01 (총 1건 — 디렉토리 전체).\n\n**보드란 무엇인가**\n보드는 연결된 속성(기본적으로 status와 assignee)을 기반으로 한 **칸반 뷰를 가진 채널**이다. 일반 채널과 나란히 존재하지만 `/api/v4/channels` 엔드포인트로는 생성·수정할 수 없고, 이 전용 엔드포인트를 써야 한다. 생성 후 칸반 뷰 조작은 `_11-views` 를, 속성 정의는 `_69-properties` 를 참고할 것.\n\n**⚠️ 호출 전 반드시 확인할 두 가지**\n1. **Experimental** — 향후 릴리스에서 변경·제거될 수 있다.\n2. **`IntegratedBoards` 기능 플래그로 게이트돼 있다.** 플래그가 꺼져 있으면 라우트 자체가 등록되지 않아 **404**가 반환된다. 즉 404는 \"보드를 못 찾음\"이 아니라 \"기능이 꺼져 있음\"일 수 있다.\n\n**권한**: 채널 생성과 동일한 권한을 쓴다 — `BO`(공개 보드)는 `create_public_channel`, `BP`(비공개 보드)는 `create_private_channel`. 둘 다 `team_user` 역할에 포함돼 있어 연동 계정으로 호출 가능하다.\n\n**공통 규칙**\n- 타임스탬프 계열 필드는 모두 Unix epoch **밀리초** 정수다.\n- 오류 응답 본문은 모두 `AppError` 스키마를 따른다.\n\n**x-priority 의미**: SSAGY(통합 워크스페이스) 관점의 연동 우선순위."
   },
   "servers": [
-    { "url": "https://{host}/api/v4", "variables": { "host": { "default": "lab.mattermost.example.com" } } }
+    {
+      "url": "https://{host}/api/v4",
+      "variables": {
+        "host": {
+          "default": "meeting.ssafy.com",
+          "description": "self-hosted Mattermost 호스트"
+        }
+      }
+    }
   ],
-  "components": {
-    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } }
-  },
   "security": [{ "bearerAuth": [] }],
+  "tags": [{ "name": "Boards", "description": "칸반 보드 채널" }],
   "paths": {
     "/boards": {
       "post": {
-        "summary": "1. Create a board channel (create_public_channel / create_private_channel, IntegratedBoards flag 필요)",
+        "summary": "01. Create a board channel",
+        "description": "*__Experimental__: 이 엔드포인트는 실험적이며 향후 릴리스에서 변경·제거될 수 있다.*\n\n새 보드 채널을 만든다. 요청 본문은 `type` 이 `BO`(공개 보드) 또는 `BP`(비공개 보드)인 `Channel` 객체이며, `team_id` 와 `display_name` 은 필수다. `name` 을 생략하면 서버가 URL-safe 이름을 자동 생성한다.\n\n**`IntegratedBoards` 기능 플래그가 꺼져 있으면 라우트가 등록되지 않아 404가 반환된다.**",
+        "operationId": "createBoardChannel",
+        "tags": ["Boards"],
+        "x-priority": "low",
+        "x-permissions": "대상 팀에서 `BO` 타입은 `create_public_channel`, `BP` 타입은 `create_private_channel` 권한 필요(둘 다 `team_user` 에 포함).",
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
+                "required": ["team_id", "type", "display_name"],
                 "properties": {
-                  "team_id": { "type": "string" },
-                  "type": { "type": "string", "enum": ["BO", "BP"] },
-                  "display_name": { "type": "string" },
-                  "name": { "type": "string" },
-                  "header": { "type": "string" },
-                  "purpose": { "type": "string" }
-                },
-                "required": ["team_id", "type", "display_name"]
+                  "team_id": { "type": "string", "description": "보드가 속할 팀 ID" },
+                  "type": { "type": "string", "enum": ["BO", "BP"], "description": "보드 채널 타입. `BO`=공개 보드(모든 팀 멤버에게 보임), `BP`=비공개 보드(초대된 멤버에게만 보임)." },
+                  "display_name": { "type": "string", "description": "UI에 표시되는 이름. 비어 있으면 안 된다." },
+                  "name": { "type": "string", "description": "URL-safe 채널 이름. 생략하면 자동 생성된다." },
+                  "header": { "type": "string", "description": "보드 헤더에 표시할 텍스트" },
+                  "purpose": { "type": "string", "description": "보드 목적 설명" }
+                }
               },
-              "example": { "team_id": "{{team_id}}", "type": "BO", "display_name": "A502 작업보드" }
+              "example": { "team_id": "4eb6axxw7fg3je5iyasnfudc5y", "type": "BO", "display_name": "A502 스프린트 보드" }
             }
           }
         },
         "responses": {
-          "201": { "description": "Board channel created" },
-          "404": { "description": "IntegratedBoards feature flag 비활성화" }
+          "201": {
+            "description": "보드 채널 생성 성공. 일반 Channel 객체 형태로 반환되며 `type` 이 `BO`/`BP` 다.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Channel" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": {
+            "description": "라우트를 찾을 수 없음. **`IntegratedBoards` 기능 플래그가 꺼져 있으면 이 응답이 반환된다.**",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+          },
+          "500": { "$ref": "#/components/responses/InternalServerError" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "`Authorization: Bearer <token>`. 세션 토큰 또는 개인 액세스 토큰을 사용한다."
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "잘못된 요청",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      },
+      "Unauthorized": {
+        "description": "인증 실패 또는 세션 만료",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      },
+      "Forbidden": {
+        "description": "권한 부족",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      },
+      "InternalServerError": {
+        "description": "서버 내부 오류",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AppError" } } }
+      }
+    },
+    "schemas": {
+      "AppError": {
+        "type": "object",
+        "description": "Mattermost 공통 오류 응답",
+        "properties": {
+          "status_code": { "type": "integer", "description": "HTTP 상태 코드" },
+          "id": { "type": "string", "description": "오류 식별자" },
+          "message": { "type": "string", "description": "사람이 읽을 수 있는 오류 메시지" },
+          "request_id": { "type": "string", "description": "요청 추적용 ID" }
+        }
+      },
+      "Channel": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "채널 GUID" },
+          "create_at": { "type": "integer", "format": "int64", "description": "채널이 생성된 시각(밀리초)" },
+          "update_at": { "type": "integer", "format": "int64", "description": "채널이 마지막으로 갱신된 시각(밀리초)" },
+          "delete_at": { "type": "integer", "format": "int64", "description": "채널이 삭제된 시각(밀리초). 활성 채널은 0." },
+          "team_id": { "type": "string", "description": "채널이 속한 팀 ID" },
+          "type": { "type": "string", "description": "채널 타입. 보드는 `BO`(공개) 또는 `BP`(비공개)." },
+          "display_name": { "type": "string", "description": "UI에 표시되는 채널 이름" },
+          "name": { "type": "string", "description": "채널 URL에 노출되는 고유 handle" },
+          "header": { "type": "string", "description": "채널 헤더 텍스트" },
+          "purpose": { "type": "string", "description": "채널 목적 설명" },
+          "last_post_at": { "type": "integer", "format": "int64", "description": "채널의 마지막 게시물 시각(밀리초)" },
+          "total_msg_count": { "type": "integer", "description": "채널 전체 메시지 수" },
+          "extra_update_at": { "type": "integer", "format": "int64", "description": "Deprecated (Mattermost 5.0에서 폐기)" },
+          "creator_id": { "type": "string", "description": "채널을 만든 사용자 ID" }
         }
       }
     }
